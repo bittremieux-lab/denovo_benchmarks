@@ -1,3 +1,11 @@
+# Data
+datasets/
+
+# Outputs
+*.csv
+metrics.txt
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
