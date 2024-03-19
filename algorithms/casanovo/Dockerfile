@@ -7,9 +7,6 @@ WORKDIR /app
 
 # Copy algorithm-related files
 COPY algorithms/casanovo /app/
-COPY ./*.py /app/
-COPY ./*.sh /app/
-
 # Copy dataset files
 COPY datasets /app/datasets/
 

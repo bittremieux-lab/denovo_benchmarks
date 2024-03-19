@@ -37,4 +37,4 @@ output_data = output_data.spectrum_match_table
 output_data["sequence"] = output_data["sequence"].apply(convert_to_output_format)
 
 # save processed predictions to the same file
-output_data.to_csv(args.output_path.replace(".mztab", ".csv"), index=False)
+output_data.to_csv("outputs.csv", index=False)

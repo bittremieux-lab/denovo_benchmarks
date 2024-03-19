@@ -1,15 +1,39 @@
 #!/bin/bash
-echo "Spectra data dir: $1"
-ls $1*.mgf
+spectra_dir="$1"
+output_dir="./outputs"
 
-echo "BUILD ALGORITHM DOCKER"
-docker build -f algorithms/casanovo/Dockerfile -t casanovo-docker .
+# List input files
+echo "Spectra data dir: $spectra_dir"
+ls "$spectra_dir"/*.mgf
 
-echo "RUN ALGORITHM DOCKER"
-docker run --name casanovo_container casanovo_docker $1*.mgf
+# Create the output directory if it doesn't exist
+mkdir -p "$output_dir"
 
-echo "EXPORT PREDICTIONS"
-docker cp casanovo_container:/app/outputs.csv ./
+# Loop through each algorithm in the algorithms directory
+for algorithm_dir in algorithms/*; do
+    if [ -d "$algorithm_dir" ]; then
+        algorithm_name=$(basename "$algorithm_dir")
+        
+        echo "$algorithm_dir"
+        echo "Running $algorithm_name"
+        
+        # Build the Docker image for the current algorithm
+        echo "BUILD ALGORITHM DOCKER"
+        docker buildx build --platform linux/amd64 -f "$algorithm_dir/Dockerfile" -t "${algorithm_name}-docker" .
+        
+        # Run the algorithm Docker container
+        echo "RUN ALGORITHM DOCKER"
+        docker run --name "${algorithm_name}-container" "${algorithm_name}-docker" "$spectra_dir"
+        
+        # Export predictions from the Docker container
+        echo "EXPORT PREDICTIONS"
+        docker cp "${algorithm_name}-container:/app/outputs.csv" "$output_dir/${algorithm_name}_outputs.csv"
 
+    fi
+done
+
+# Evaluate predictions
 echo "EVALUATE PREDICTIONS"
-python3 evaluate.py outputs.csv $1
+python3 evaluate.py "$output_dir/" "$spectra_dir"
+
+docker container prune -f
