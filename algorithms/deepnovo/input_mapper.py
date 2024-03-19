@@ -20,7 +20,7 @@ def transform_match(match):
 
 def convert_sequence_to_input_format(sequence):
     # remove cleavage sites
-    if re.match(r"[A-Z-].*.[A-Z-]", sequence) is not None:  # check not mandatory
+    if re.match(r"[A-Z-].*.[A-Z-]", sequence) is not None:  # check is not mandatory
         sequence = sequence[2:-2]
 
     # transformation of PTM notation
@@ -34,7 +34,7 @@ def convert_sequence_to_input_format(sequence):
     return sequence
 
 
-def convert_to_input_format(spectrum, file_i):  # TODO naming
+def convert_to_input_format(spectrum, file_i):
     spectrum["params"]["seq"] = convert_sequence_to_input_format(
         spectrum["params"]["seq"]
     )
@@ -45,9 +45,7 @@ def convert_to_input_format(spectrum, file_i):  # TODO naming
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "input_dir", help=""
-)  # change to input_path={input_path or input_dir}?
+parser.add_argument("input_dir", help="")
 parser.add_argument("output_path", help="")
 args = parser.parse_args()
 
