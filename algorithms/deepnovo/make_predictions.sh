@@ -1,6 +1,4 @@
 #!/bin/bash
-echo "Your container args are: $@"
-
 # Build DeepNovo from source
 cd DeepNovo/HighResolution/ && python setup.py build_ext --inplace && cd ../..
 # Replace data_utils.py with config file
