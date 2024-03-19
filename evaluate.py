@@ -15,10 +15,7 @@ args = parser.parse_args()
 
 
 input_paths = [
-    os.path.join(args.data_dir, x) 
-    for x 
-    in os.listdir(args.data_dir) 
-    if ".mgf" in x
+    os.path.join(args.data_dir, x) for x in os.listdir(args.data_dir) if ".mgf" in x
 ]
 input_paths = sorted(input_paths)
 
@@ -28,9 +25,7 @@ for file_i, mgf_path in enumerate(input_paths):
     spectra = mgf.read(mgf_path)
     for spectrum in spectra:
         sequences_true["seq"].append(spectrum["params"]["seq"])
-        sequences_true["scans"].append(
-            f'F{file_i}:{spectrum["params"]["scans"]}'
-        )
+        sequences_true["scans"].append(f'F{file_i}:{spectrum["params"]["scans"]}')
 sequences_true = pd.DataFrame(sequences_true)
 sequences_true["seq"] = sequences_true["seq"].apply(convert_GT_to_output_format)
 
@@ -40,29 +35,26 @@ output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
     output_path = os.path.join(args.output_dir, output_file)
-    
+
     output_data = pd.read_csv(output_path)
     if "scans" in output_data.columns:
         output_data = pd.merge(
-            sequences_true, 
-            output_data[["scans", "sequence"]], 
-            on="scans",
-            how="left"
+            sequences_true, output_data[["scans", "sequence"]], on="scans", how="left"
         )
         output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
-    else: 
+    else:
         output_data = output_data[["sequence"]]
         output_data["sequence_true"] = sequences_true["seq"].values
-    
+
     # calculate metrics
     sequenced_idx = output_data["sequence"].notnull()
-    
+
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence_true"][sequenced_idx],
         output_data["sequence"][sequenced_idx],
         depthcharge.masses.PeptideMass("massivekb").masses,
     )
-    
+
     aa_precision, aa_recall, pep_precision = aa_match_metrics(
         aa_matches_batch, n_aa1, n_aa2
     )
