@@ -14,6 +14,29 @@ REPLACEMENTS = [
 
 PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
 
+from collections import namedtuple
+
+PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_mass", "representation"])
+
+REPLACEMENTS = [
+    ("C", "C(+57.02)")
+]  # C always has fixed Carbamidomethyl modification
+
+PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
+SUPPORTED_PTMS = [
+    PTM("M", 15.99, "M(+15.99)"),
+    PTM("N", 0.98, "N(+.98)"),
+    PTM("Q", 0.98, "Q(+.98)"),
+]
+PTM_MASS_TOL = 0.01
+
+
+def equal_with_tolerance(a, b, tolerance=1e-9):
+    """
+    Check if two float numbers are equal within a specified tolerance.
+    """
+    return abs(a - b) <= tolerance
+
 
 def transform_match(match):
     """
@@ -31,6 +54,15 @@ def transform_match(match):
         Transformed PTM pattern representation.
     """
     aa, ptm = match.group(1), match.group(2)
+
+    # transform PTMs supported by DeepNovo to the model's expected representation
+    for supported_ptm in SUPPORTED_PTMS:
+        if aa == supported_ptm.amino_acid and equal_with_tolerance(
+            float(ptm), supported_ptm.ptm_mass, PTM_MASS_TOL
+        ):
+            return supported_ptm.representation
+
+    # transform other PTMs
     if not ptm.startswith("-"):
         ptm = "+" + ptm
     return "{}({})".format(aa, ptm)
