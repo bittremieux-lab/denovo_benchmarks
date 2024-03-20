@@ -1,3 +1,7 @@
+###
+# DeepNovo configuration (original format preserved).
+###
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -28,7 +32,9 @@ tf.app.flags.DEFINE_boolean(
     "use_intensity", True, "Set to True to use intensity-model."
 )
 
-tf.app.flags.DEFINE_boolean("shared", False, "Set to True to use shared weights.")
+tf.app.flags.DEFINE_boolean(
+    "shared", False, "Set to True to use shared weights."
+)
 
 tf.app.flags.DEFINE_boolean("use_lstm", True, "Set to True to use lstm-model.")
 
@@ -38,11 +44,15 @@ tf.app.flags.DEFINE_boolean(
 
 tf.app.flags.DEFINE_boolean("train", False, "Set to True for training.")
 
-tf.app.flags.DEFINE_boolean("test_true_feeding", False, "Set to True for testing.")
+tf.app.flags.DEFINE_boolean(
+    "test_true_feeding", False, "Set to True for testing."
+)
 
 tf.app.flags.DEFINE_boolean("decode", False, "Set to True for decoding.")
 
-tf.app.flags.DEFINE_boolean("beam_search", False, "Set to True for beam search.")
+tf.app.flags.DEFINE_boolean(
+    "beam_search", False, "Set to True for beam search."
+)
 
 tf.app.flags.DEFINE_integer(
     "beam_size", 1, "Number of optimal paths to search during decoding."

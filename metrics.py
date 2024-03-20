@@ -1,4 +1,5 @@
-"""Methods to evaluate peptide-spectrum predictions."""
+"""Methods to evaluate peptide-spectrum predictions. Borrowed from
+Casanovo https://github.com/Noble-Lab/casanovo"""
 
 import re
 from typing import Dict, Iterable, List, Tuple
@@ -269,7 +270,9 @@ def aa_match_metrics(
         The number of correct peptide predictions divided by the number of
         peptides.
     """
-    n_aa_correct = sum([aa_matches[0].sum() for aa_matches in aa_matches_batch])
+    n_aa_correct = sum(
+        [aa_matches[0].sum() for aa_matches in aa_matches_batch]
+    )
     aa_precision = n_aa_correct / (n_aa_pred + 1e-8)
     aa_recall = n_aa_correct / (n_aa_true + 1e-8)
     pep_precision = sum([aa_matches[1] for aa_matches in aa_matches_batch]) / (

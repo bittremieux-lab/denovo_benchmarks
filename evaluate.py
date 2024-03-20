@@ -1,3 +1,6 @@
+"""Evaluating collected algorithms predictions with respect to the 
+ground truth labels."""
+
 import argparse
 import os
 import depthcharge
@@ -9,13 +12,20 @@ from metrics import aa_match_metrics, aa_match_batch
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("output_dir", help="")
-parser.add_argument("data_dir", help="")
+parser.add_argument(
+    "output_dir",
+    help="The path to the directory containing algorithm predictions stored in `algorithm_outputs.csv` files.",
+)
+parser.add_argument(
+    "data_dir", help="The path to the input data with ground truth labels."
+)
 args = parser.parse_args()
 
 
 input_paths = [
-    os.path.join(args.data_dir, x) for x in os.listdir(args.data_dir) if ".mgf" in x
+    os.path.join(args.data_dir, x)
+    for x in os.listdir(args.data_dir)
+    if ".mgf" in x
 ]
 input_paths = sorted(input_paths)
 
@@ -25,9 +35,13 @@ for file_i, mgf_path in enumerate(input_paths):
     spectra = mgf.read(mgf_path)
     for spectrum in spectra:
         sequences_true["seq"].append(spectrum["params"]["seq"])
-        sequences_true["scans"].append(f'F{file_i}:{spectrum["params"]["scans"]}')
+        sequences_true["scans"].append(
+            f'F{file_i}:{spectrum["params"]["scans"]}'
+        )
 sequences_true = pd.DataFrame(sequences_true)
-sequences_true["seq"] = sequences_true["seq"].apply(convert_GT_to_output_format)
+sequences_true["seq"] = sequences_true["seq"].apply(
+    convert_GT_to_output_format
+)
 
 # load predictions data, match to GT by scan id if available
 output_metrics = {}
@@ -39,7 +53,10 @@ for output_file in os.listdir(args.output_dir):
     output_data = pd.read_csv(output_path)
     if "scans" in output_data.columns:
         output_data = pd.merge(
-            sequences_true, output_data[["scans", "sequence"]], on="scans", how="left"
+            sequences_true,
+            output_data[["scans", "sequence"]],
+            on="scans",
+            how="left",
         )
         output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
     else:
