@@ -2,6 +2,9 @@
 spectra_dir="$1"
 output_dir="./outputs"
 
+# Clean output dir 
+rm -rf "$output_dir"
+
 # List input files
 echo "Spectra data dir: $spectra_dir"
 ls "$spectra_dir"/*.mgf
@@ -19,7 +22,11 @@ for algorithm_dir in algorithms/*; do
         
         # Build the Docker image for the current algorithm
         echo "BUILD ALGORITHM DOCKER"
-        docker buildx build --platform linux/amd64 -f "$algorithm_dir/Dockerfile" -t "${algorithm_name}-docker" .
+        if [ "$algorithm_name" = "deepnovo" ]; then # temporary workaround for development on MacOS
+            docker buildx build --platform linux/amd64 -f "$algorithm_dir/Dockerfile" -t "${algorithm_name}-docker" .
+        else
+            docker build -f "$algorithm_dir/Dockerfile" -t "${algorithm_name}-docker" .
+        fi
         
         # Run the algorithm Docker container
         echo "RUN ALGORITHM DOCKER"
