@@ -1,5 +1,7 @@
 # Data
-datasets/
+datasets/*
+!datasets/sample_data/
+
 
 # Outputs
 *.csv
