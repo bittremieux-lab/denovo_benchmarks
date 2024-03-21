@@ -41,6 +41,6 @@ done
 
 # Evaluate predictions
 echo "EVALUATE PREDICTIONS"
-python3 evaluate.py "$output_dir/" "$spectra_dir"
+python evaluate.py "$output_dir/" "$spectra_dir"
 
 docker container prune -f
