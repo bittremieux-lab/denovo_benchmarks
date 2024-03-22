@@ -1,0 +1,4 @@
+depthcharge-ms==0.2.3
+numpy
+pandas
+pyteomics
