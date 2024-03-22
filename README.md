@@ -1,4 +1,4 @@
-# Benchmarking de novo* peptide sequencing algorithms
+# Benchmarking de novo peptide sequencing algorithms
 
 ## Requirements
 
