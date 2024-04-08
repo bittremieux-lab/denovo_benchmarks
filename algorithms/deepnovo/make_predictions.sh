@@ -1,6 +1,4 @@
 #!/bin/bash
-# Build DeepNovo from source
-cd DeepNovo/HighResolution/ && python setup.py build_ext --inplace && cd ../..
 # Replace data_utils.py with config file
 mv config.py DeepNovo/HighResolution/data_utils.py
 

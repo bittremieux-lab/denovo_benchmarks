@@ -1,0 +1,33 @@
+Bootstrap: docker
+From: python:2.7
+
+%files
+    # Copy algorithm-related files
+    algorithms/deepnovo /algo
+
+%post
+    # Install tensorflow
+    pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.10.0-cp27-none-linux_x86_64.whl
+
+    # Install Cython and pandas
+    pip install numpy==1.16.6 pandas==0.24.2 pyteomics==4.0
+    pip install Cython==3.0.9
+
+    cd /algo
+    # Download algorithm source code
+    git clone -b PNAS https://github.com/nh2tran/DeepNovo.git
+    # Build DeepNovo from source
+    cd DeepNovo/HighResolution/ && python setup.py build_ext --inplace && cd ../..
+    
+    # Download algorithm weights
+    curl -LRO ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy
+    # Download model checkpoint (change to use other model weights)
+    curl -LRO ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/train.deepnovo.high.cross.9high_80k.exclude_mouse/checkpoint
+    curl -LRO ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/train.deepnovo.high.cross.9high_80k.exclude_mouse/translate.ckpt-83700
+
+# Run algorithm and convert outputs
+%post
+    chmod +x /algo/make_predictions.sh
+    
+%runscript
+    cd /algo && ./make_predictions.sh data
