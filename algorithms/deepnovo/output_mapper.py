@@ -46,7 +46,12 @@ args = parser.parse_args()
 output_data = pd.read_csv(args.output_path, sep="\t")
 
 output_data = output_data.rename(
-    {"output_seq": "sequence", "scan": "scans"}, axis=1
+    {
+        "output_seq": "sequence",
+        "output_score": "score",
+        "scan": "scans",
+    },
+    axis=1,
 )
 output_data = output_data[output_data["sequence"].notnull()]
 output_data["sequence"] = output_data["sequence"].apply(

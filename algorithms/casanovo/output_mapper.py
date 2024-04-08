@@ -32,7 +32,7 @@ def transform_match(match: re.Match) -> str:
     return aa + ptm
 
 
-def convert_to_output_format(sequence: str) -> str:
+def convert_sequence_to_output_format(sequence: str) -> str:
     """
     Convert peptide sequence to the common output data format.
 
@@ -58,6 +58,22 @@ def convert_to_output_format(sequence: str) -> str:
     return sequence
 
 
+def convert_scan_index_to_output_format(scan_index: str) -> str:
+    """TODO."""
+
+    FILE_IDX_PATTERN = "\[(\d+)\]"
+
+    def transform_match_file_idx(match: re.Match) -> str:
+        """TODO."""
+
+        file_idx = int(match.group(0)[1:-1])
+        return f"F{file_idx - 1}"
+
+    scan_index = re.sub("[a-z=_]", "", scan_index)
+    scan_index = re.sub(FILE_IDX_PATTERN, transform_match_file_idx, scan_index)
+    return scan_index
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "output_path", help="The path to the algorithm predictions file."
@@ -68,8 +84,18 @@ args = parser.parse_args()
 output_data = MzTab(args.output_path)
 
 output_data = output_data.spectrum_match_table
+output_data = output_data.rename(
+    {
+        "search_engine_score[1]": "score",
+        "spectra_ref": "scan_indices",
+    },
+    axis=1,
+)
 output_data["sequence"] = output_data["sequence"].apply(
-    convert_to_output_format
+    convert_sequence_to_output_format
+)
+output_data["scan_indices"] = output_data["scan_indices"].apply(
+    convert_scan_index_to_output_format
 )
 
 # save processed predictions to the same file
