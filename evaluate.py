@@ -19,7 +19,7 @@ def parse_scores(aa_scores: str) -> list[float]:
     """
     TODO.
     * assumes that AA confidence scores always come
-    as a string of float numbers separated by a comma. 
+    as a string of float numbers separated by a comma.
     """
 
     aa_scores = aa_scores.split(",")
@@ -49,7 +49,9 @@ input_paths = [
     for x in os.listdir(args.data_dir)
     if ".mgf" in x
 ]
-input_paths = sorted(input_paths) # TODO remove? not needed if match by scan or scan_index
+input_paths = sorted(
+    input_paths
+)  # TODO remove? not needed if match by scan or scan_index
 
 sequences_true = {k: [] for k in ["seq", "scans", "scan_indices"]}
 for file_i, mgf_path in enumerate(input_paths):
@@ -75,36 +77,44 @@ output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
     output_path = os.path.join(args.output_dir, output_file)
-    
+
     output_data = pd.read_csv(output_path)
     use_cols = ["sequence", "score"]
     if "aa_scores" in output_data.columns:
         use_cols.append("aa_scores")
-    
+
     if "scans" in output_data.columns:
         use_cols.append("scans")
         output_data = pd.merge(
-            sequences_true, output_data[use_cols], on="scans", how="left",
+            sequences_true,
+            output_data[use_cols],
+            on="scans",
+            how="left",
         )
     elif "scan_indices" in output_data.columns:
         use_cols.append("scan_indices")
         output_data = pd.merge(
-            sequences_true, output_data[use_cols], on="scan_indices", how="left",
+            sequences_true,
+            output_data[use_cols],
+            on="scan_indices",
+            how="left",
         )
-    else: # TODO: keep or replace with exception+skip algorithm? 
+    else:  # TODO: keep or replace with exception+skip algorithm?
         output_data = output_data[use_cols]
         output_data["seq"] = sequences_true["seq"].values
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
-    sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
+    sequenced_idx = output_data[
+        "sequence"
+    ].notnull()  # TODO: indicate number of not sequenced peptides?
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][sequenced_idx],
         output_data["sequence_true"][sequenced_idx],
         aa_dict,
     )
-    
+
     # Collect metrics
     aa_precision, aa_recall, pep_precision = aa_match_metrics(
         aa_matches_batch, n_aa1, n_aa2
@@ -116,31 +126,43 @@ for output_file in os.listdir(args.output_dir):
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
     }
-        
+
     # Plot the peptide precision–coverage curve
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
-    coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches) 
+    coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
     pep_ax.plot(
-        coverage, precision, 
-        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
+        coverage,
+        precision,
+        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
     )
-    
+
     # Plot the amino acid precision–coverage curve (if aa_scores available)
     if "aa_scores" in output_data.columns:
-        aa_scores = np.concatenate(list(map(
-            parse_scores, 
-            output_data["aa_scores"][sequenced_idx].values.tolist()
-        )))
-        sort_idx = np.argsort(aa_scores)[::-1]
-        aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
-        precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
-        coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
-        aa_ax.plot(
-            coverage, precision, 
-            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
+        aa_scores = np.concatenate(
+            list(
+                map(
+                    parse_scores,
+                    output_data["aa_scores"][sequenced_idx].values.tolist(),
+                )
+            )
         )
-    
+        sort_idx = np.argsort(aa_scores)[::-1]
+        aa_matches_pred = np.concatenate(
+            [aa_match[2][0] for aa_match in aa_matches_batch]
+        )
+        precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(
+            1, len(aa_matches_pred) + 1
+        )
+        coverage = np.arange(1, len(aa_matches_pred) + 1) / len(
+            aa_matches_pred
+        )
+        aa_ax.plot(
+            coverage,
+            precision,
+            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+        )
+
 pep_ax.set_title("Peptide precision & coverage")
 pep_ax.set_xlim(0, 1), pep_ax.set_ylim(0, 1)
 pep_ax.set_xlabel("Coverage"), pep_ax.set_ylabel("Precision")
@@ -154,9 +176,9 @@ aa_ax.legend(loc="upper right")
 # Save results
 os.makedirs(args.results_dir, exist_ok=True)
 plt.savefig(
-    os.path.join(args.results_dir, "precision_coverage.png"), 
-    dpi=300, 
-    bbox_inches="tight"
+    os.path.join(args.results_dir, "precision_coverage.png"),
+    dpi=300,
+    bbox_inches="tight",
 )
 plt.close()
 output_metrics = pd.DataFrame(output_metrics).T

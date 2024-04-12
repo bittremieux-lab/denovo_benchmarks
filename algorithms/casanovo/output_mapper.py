@@ -10,7 +10,7 @@ REPLACEMENTS = [
     ("C+57.021", "C")  # C is written without Carbamidomethyl modification
 ]
 
-PTM_PATTERN = r"^([0-9.+-]+)([A-Z])" # TODO: move inside format_sequence_and_scores function? 
+PTM_PATTERN = r"^([0-9.+-]+)([A-Z])"  # TODO: move inside format_sequence_and_scores function?
 
 
 def transform_match(match: re.Match) -> str:
@@ -54,7 +54,7 @@ def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
         return scores
 
     def format_scores(scores: list[float]) -> str:
-        return ','.join(map(str, scores))
+        return ",".join(map(str, scores))
 
     # direct (token-to-token) replacements
     for repl_args in REPLACEMENTS:
@@ -65,7 +65,7 @@ def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
     # TODO: check & replacement can be not optimal!
     if re.search(PTM_PATTERN, sequence):
         sequence = re.sub(PTM_PATTERN, transform_match, sequence)
-        # the N-terminus modification and the next AA will be considered as a single AA+PTM token, 
+        # the N-terminus modification and the next AA will be considered as a single AA+PTM token,
         # so their scores should also be aggregated
         aa_scores = parse_scores(aa_scores)
         aa_scores[1] = (aa_scores[0] + aa_scores[1]) / 2
@@ -111,9 +111,9 @@ output_data = output_data.rename(
 )
 
 output_data[["sequence", "aa_scores"]] = output_data.apply(
-    lambda row: format_sequence_and_scores(row["sequence"], row["aa_scores"]), 
-    axis=1, 
-    result_type='expand'
+    lambda row: format_sequence_and_scores(row["sequence"], row["aa_scores"]),
+    axis=1,
+    result_type="expand",
 )
 
 output_data["scan_indices"] = output_data["scan_indices"].apply(

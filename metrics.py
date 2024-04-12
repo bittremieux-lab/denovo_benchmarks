@@ -8,15 +8,17 @@ import numpy as np
 from spectrum_utils.utils import mass_diff
 
 
-def get_token_mass(token: str, aa_dict: Dict[str, float], default: float = 0) -> float:
+def get_token_mass(
+    token: str, aa_dict: Dict[str, float], default: float = 0
+) -> float:
     """TODO."""
-    
+
     def safe_float(s):
         try:
             return float(s)
         except ValueError:
             return default
-    
+
     # check token.isalpha() or len(token) == 1 ?
     # it still has to be a letter, but it WILL be an UPPERCASE LETTER after splitting by this re pattern
     if len(token) == 1:
@@ -24,7 +26,7 @@ def get_token_mass(token: str, aa_dict: Dict[str, float], default: float = 0) ->
     else:
         aa, ptm = token[0], token[1:]
         aa_mass = aa_dict.get(aa, default)
-        ptm_mass = safe_float(ptm) # float(ptm)
+        ptm_mass = safe_float(ptm)  # float(ptm)
         mass = aa_mass + ptm_mass
     return mass
 
@@ -77,7 +79,9 @@ def aa_match_prefix(
             abs(mass_diff(cum_mass1 + aa_mass1, cum_mass2 + aa_mass2, True))
             < cum_mass_threshold
         ):
-            match = abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            match = (
+                abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            )
             aa_matches[max(i1, i2)] = match
             aa_matches_1[i1] = match
             aa_matches_2[i2] = match
@@ -134,7 +138,7 @@ def aa_match_prefix_suffix(
     # No need to evaluate the suffixes if the sequences already fully match.
     if pep_match:
         return aa_matches, pep_match, (aa_matches_1, aa_matches_2)
-    
+
     # Find longest mass-matching suffix.
     i1, i2 = len(peptide1) - 1, len(peptide2) - 1
     i_stop = np.argwhere(~aa_matches)[0]
@@ -142,12 +146,14 @@ def aa_match_prefix_suffix(
     while i1 >= i_stop and i2 >= i_stop:
         aa_mass1 = get_token_mass(peptide1[i1], aa_dict, 0)
         aa_mass2 = get_token_mass(peptide2[i2], aa_dict, 0)
-        
+
         if (
             abs(mass_diff(cum_mass1 + aa_mass1, cum_mass2 + aa_mass2, True))
             < cum_mass_threshold
         ):
-            match = abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            match = (
+                abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            )
             aa_matches[max(i1, i2)] = match
             aa_matches_1[i1] = match
             aa_matches_2[i2] = match
@@ -215,7 +221,11 @@ def aa_match(
             cum_mass_threshold,
             ind_mass_threshold,
         )
-        return aa_matches[::-1], pep_match, (aa_matches_1[::-1], aa_matches_2[::-1])
+        return (
+            aa_matches[::-1],
+            pep_match,
+            (aa_matches_1[::-1], aa_matches_2[::-1]),
+        )
     else:
         raise ValueError("Unknown evaluation mode")
 
