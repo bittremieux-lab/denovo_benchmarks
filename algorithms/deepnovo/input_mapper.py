@@ -6,6 +6,7 @@ import argparse
 import os
 import re
 from pyteomics import mgf
+from tqdm import tqdm
 
 
 REPLACEMENTS = [
@@ -152,7 +153,7 @@ for file_i, input_path in enumerate(input_paths):
     spectra = mgf.read(input_path)
     mapped_spectra += [
         convert_to_input_format(spectra[i], file_i)
-        for i in range(len(spectra))
+        for i in tqdm(range(len(spectra)))
     ]
 
 mgf.write(
