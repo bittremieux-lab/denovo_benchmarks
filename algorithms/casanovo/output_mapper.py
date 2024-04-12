@@ -10,7 +10,7 @@ REPLACEMENTS = [
     ("C+57.021", "C")  # C is written without Carbamidomethyl modification
 ]
 
-PTM_PATTERN = r"^([0-9.+-]+)([A-Z])"
+PTM_PATTERN = r"^([0-9.+-]+)([A-Z])" # TODO: move inside format_sequence_and_scores function? 
 
 
 def transform_match(match: re.Match) -> str:
@@ -32,8 +32,9 @@ def transform_match(match: re.Match) -> str:
     return aa + ptm
 
 
-def convert_sequence_to_output_format(sequence: str) -> str:
+def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
     """
+    TODO: fix docstring for scores
     Convert peptide sequence to the common output data format.
 
     Parameters
@@ -47,18 +48,34 @@ def convert_sequence_to_output_format(sequence: str) -> str:
         Peptide sequence in the common output data format.
     """
 
+    def parse_scores(scores: str) -> list[float]:
+        scores = scores.split(",")
+        scores = list(map(float, scores))
+        return scores
+
+    def format_scores(scores: list[float]) -> str:
+        return ','.join(map(str, scores))
+
     # direct (token-to-token) replacements
     for repl_args in REPLACEMENTS:
         sequence = sequence.replace(*repl_args)
 
     # transformation of PTM notation
-    # move N-terminus modifications BEYOND 1st AA
-    sequence = re.sub(PTM_PATTERN, transform_match, sequence)
+    # move N-terminus modifications BEYOND 1st AA (if any)
+    # TODO: check & replacement can be not optimal!
+    if re.search(PTM_PATTERN, sequence):
+        sequence = re.sub(PTM_PATTERN, transform_match, sequence)
+        # the N-terminus modification and the next AA will be considered as a single AA+PTM token, 
+        # so their scores should also be aggregated
+        aa_scores = parse_scores(aa_scores)
+        aa_scores[1] = (aa_scores[0] + aa_scores[1]) / 2
+        aa_scores = aa_scores[1:]
+        aa_scores = format_scores(aa_scores)
 
-    return sequence
+    return sequence, aa_scores
 
 
-def convert_scan_index_to_output_format(scan_index: str) -> str:
+def format_scan_index(scan_index: str) -> str:
     """TODO."""
 
     FILE_IDX_PATTERN = "\[(\d+)\]"
@@ -88,14 +105,19 @@ output_data = output_data.rename(
     {
         "search_engine_score[1]": "score",
         "spectra_ref": "scan_indices",
+        "opt_ms_run[1]_aa_scores": "aa_scores",
     },
     axis=1,
 )
-output_data["sequence"] = output_data["sequence"].apply(
-    convert_sequence_to_output_format
+
+output_data[["sequence", "aa_scores"]] = output_data.apply(
+    lambda row: format_sequence_and_scores(row["sequence"], row["aa_scores"]), 
+    axis=1, 
+    result_type='expand'
 )
+
 output_data["scan_indices"] = output_data["scan_indices"].apply(
-    convert_scan_index_to_output_format
+    format_scan_index
 )
 
 # save processed predictions to the same file

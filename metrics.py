@@ -8,13 +8,34 @@ import numpy as np
 from spectrum_utils.utils import mass_diff
 
 
+def get_token_mass(token: str, aa_dict: Dict[str, float], default: float = 0) -> float:
+    """TODO."""
+    
+    def safe_float(s):
+        try:
+            return float(s)
+        except ValueError:
+            return default
+    
+    # check token.isalpha() or len(token) == 1 ?
+    # it still has to be a letter, but it WILL be an UPPERCASE LETTER after splitting by this re pattern
+    if len(token) == 1:
+        mass = aa_dict.get(token, default)
+    else:
+        aa, ptm = token[0], token[1:]
+        aa_mass = aa_dict.get(aa, default)
+        ptm_mass = safe_float(ptm) # float(ptm)
+        mass = aa_mass + ptm_mass
+    return mass
+
+
 def aa_match_prefix(
     peptide1: List[str],
     peptide2: List[str],
     aa_dict: Dict[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
-) -> Tuple[np.ndarray, bool]:
+) -> Tuple[np.ndarray, bool, Tuple[np.ndarray]]:
     """
     Find the matching prefix amino acids between two peptide sequences.
 
@@ -39,27 +60,36 @@ def aa_match_prefix(
         both peptide sequences.
     pep_match : bool
         Boolean flag to indicate whether the two peptide sequences fully match.
+    per_seq_aa_matches : Tuple[np.ndarray]
+        TODO.
     """
     aa_matches = np.zeros(max(len(peptide1), len(peptide2)), np.bool_)
+    aa_matches_1 = np.zeros(len(peptide1), np.bool_)
+    aa_matches_2 = np.zeros(len(peptide2), np.bool_)
+
     # Find longest mass-matching prefix.
     i1, i2, cum_mass1, cum_mass2 = 0, 0, 0.0, 0.0
     while i1 < len(peptide1) and i2 < len(peptide2):
-        aa_mass1 = aa_dict.get(peptide1[i1], 0)
-        aa_mass2 = aa_dict.get(peptide2[i2], 0)
+        aa_mass1 = get_token_mass(peptide1[i1], aa_dict, 0)
+        aa_mass2 = get_token_mass(peptide2[i2], aa_dict, 0)
+
         if (
             abs(mass_diff(cum_mass1 + aa_mass1, cum_mass2 + aa_mass2, True))
             < cum_mass_threshold
         ):
-            aa_matches[max(i1, i2)] = (
-                abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
-            )
+            match = abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            aa_matches[max(i1, i2)] = match
+            aa_matches_1[i1] = match
+            aa_matches_2[i2] = match
+
             i1, i2 = i1 + 1, i2 + 1
             cum_mass1, cum_mass2 = cum_mass1 + aa_mass1, cum_mass2 + aa_mass2
+
         elif cum_mass2 + aa_mass2 > cum_mass1 + aa_mass1:
             i1, cum_mass1 = i1 + 1, cum_mass1 + aa_mass1
         else:
             i2, cum_mass2 = i2 + 1, cum_mass2 + aa_mass2
-    return aa_matches, aa_matches.all()
+    return aa_matches, aa_matches.all(), (aa_matches_1, aa_matches_2)
 
 
 def aa_match_prefix_suffix(
@@ -68,7 +98,7 @@ def aa_match_prefix_suffix(
     aa_dict: Dict[str, float],
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
-) -> Tuple[np.ndarray, bool]:
+) -> Tuple[np.ndarray, bool, Tuple[np.ndarray]]:
     """
     Find the matching prefix and suffix amino acids between two peptide
     sequences.
@@ -94,35 +124,42 @@ def aa_match_prefix_suffix(
         both peptide sequences.
     pep_match : bool
         Boolean flag to indicate whether the two peptide sequences fully match.
+    per_seq_aa_matches : Tuple[np.ndarray]
+        TODO.
     """
     # Find longest mass-matching prefix.
-    aa_matches, pep_match = aa_match_prefix(
+    aa_matches, pep_match, (aa_matches_1, aa_matches_2) = aa_match_prefix(
         peptide1, peptide2, aa_dict, cum_mass_threshold, ind_mass_threshold
     )
     # No need to evaluate the suffixes if the sequences already fully match.
     if pep_match:
-        return aa_matches, pep_match
+        return aa_matches, pep_match, (aa_matches_1, aa_matches_2)
+    
     # Find longest mass-matching suffix.
     i1, i2 = len(peptide1) - 1, len(peptide2) - 1
     i_stop = np.argwhere(~aa_matches)[0]
     cum_mass1, cum_mass2 = 0.0, 0.0
     while i1 >= i_stop and i2 >= i_stop:
-        aa_mass1 = aa_dict.get(peptide1[i1], 0)
-        aa_mass2 = aa_dict.get(peptide2[i2], 0)
+        aa_mass1 = get_token_mass(peptide1[i1], aa_dict, 0)
+        aa_mass2 = get_token_mass(peptide2[i2], aa_dict, 0)
+        
         if (
             abs(mass_diff(cum_mass1 + aa_mass1, cum_mass2 + aa_mass2, True))
             < cum_mass_threshold
         ):
-            aa_matches[max(i1, i2)] = (
-                abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
-            )
+            match = abs(mass_diff(aa_mass1, aa_mass2, True)) < ind_mass_threshold
+            aa_matches[max(i1, i2)] = match
+            aa_matches_1[i1] = match
+            aa_matches_2[i2] = match
+
             i1, i2 = i1 - 1, i2 - 1
             cum_mass1, cum_mass2 = cum_mass1 + aa_mass1, cum_mass2 + aa_mass2
+
         elif cum_mass2 + aa_mass2 > cum_mass1 + aa_mass1:
             i1, cum_mass1 = i1 - 1, cum_mass1 + aa_mass1
         else:
             i2, cum_mass2 = i2 - 1, cum_mass2 + aa_mass2
-    return aa_matches, aa_matches.all()
+    return aa_matches, aa_matches.all(), (aa_matches_1, aa_matches_2)
 
 
 def aa_match(
@@ -132,7 +169,7 @@ def aa_match(
     cum_mass_threshold: float = 0.5,
     ind_mass_threshold: float = 0.1,
     mode: str = "best",
-) -> Tuple[np.ndarray, bool]:
+) -> Tuple[np.ndarray, bool, Tuple[np.ndarray]]:
     """
     Find the matching amino acids between two peptide sequences.
 
@@ -159,6 +196,8 @@ def aa_match(
         both peptide sequences.
     pep_match : bool
         Boolean flag to indicate whether the two peptide sequences fully match.
+    per_seq_aa_matches : Tuple[np.ndarray]
+        TODO.
     """
     if mode == "best":
         return aa_match_prefix_suffix(
@@ -169,14 +208,14 @@ def aa_match(
             peptide1, peptide2, aa_dict, cum_mass_threshold, ind_mass_threshold
         )
     elif mode == "backward":
-        aa_matches, pep_match = aa_match_prefix(
+        aa_matches, pep_match, (aa_matches_1, aa_matches_2) = aa_match_prefix(
             list(reversed(peptide1)),
             list(reversed(peptide2)),
             aa_dict,
             cum_mass_threshold,
             ind_mass_threshold,
         )
-        return aa_matches[::-1], pep_match
+        return aa_matches[::-1], pep_match, (aa_matches_1[::-1], aa_matches_2[::-1])
     else:
         raise ValueError("Unknown evaluation mode")
 
@@ -210,10 +249,11 @@ def aa_match_batch(
 
     Returns
     -------
-    aa_matches_batch : List[Tuple[np.ndarray, bool]]
+    aa_matches_batch : List[Tuple[np.ndarray, bool, Tuple[np.ndarray]]]
         For each pair of peptide sequences: (i) boolean flags indicating whether
         each paired-up amino acid matches across both peptide sequences, (ii)
-        boolean flag to indicate whether the two peptide sequences fully match.
+        boolean flag to indicate whether the two peptide sequences fully match,
+        (iii) TODO.
     n_aa1: int
         Total number of amino acids in the first list of peptide sequences.
     n_aa2: int

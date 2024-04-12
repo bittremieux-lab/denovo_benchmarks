@@ -9,9 +9,22 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pyteomics import mgf
 from sklearn.metrics import auc
+from tqdm import tqdm
 
 from ground_truth_mapper import convert_GT_to_output_format
 from metrics import aa_match_metrics, aa_match_batch
+
+
+def parse_scores(aa_scores: str) -> list[float]:
+    """
+    TODO.
+    * assumes that AA confidence scores always come
+    as a string of float numbers separated by a comma. 
+    """
+
+    aa_scores = aa_scores.split(",")
+    aa_scores = list(map(float, aa_scores))
+    return aa_scores
 
 
 parser = argparse.ArgumentParser()
@@ -30,18 +43,18 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+# Load ground truth labels and convert to the common output format
 input_paths = [
     os.path.join(args.data_dir, x)
     for x in os.listdir(args.data_dir)
     if ".mgf" in x
 ]
-input_paths = sorted(input_paths)
+input_paths = sorted(input_paths) # TODO remove? not needed if match by scan or scan_index
 
-# convert ground truth labels to the common format
 sequences_true = {k: [] for k in ["seq", "scans", "scan_indices"]}
 for file_i, mgf_path in enumerate(input_paths):
     spectra = mgf.read(mgf_path)
-    for spectrum_i, spectrum in enumerate(spectra):
+    for spectrum_i, spectrum in tqdm(enumerate(spectra)):
         sequences_true["seq"].append(spectrum["params"]["seq"])
         sequences_true["scans"].append(
             f'F{file_i}:{spectrum["params"]["scans"]}'
@@ -52,46 +65,47 @@ sequences_true["seq"] = sequences_true["seq"].apply(
     convert_GT_to_output_format
 )
 
-# load predictions data, match to GT by scan id or scan index if available
-width = 8  # TODO rename and move to constants?
-plt.figure(figsize=(width, width))
-output_metrics = {}
+# Load predictions data, match to GT by scan id or scan index if available
+width = 8
+fig, (pep_ax, aa_ax) = plt.subplots(1, 2, figsize=(2 * width, width))
 
+# TODO: replace with fixed dictionary
+aa_dict = depthcharge.masses.PeptideMass("massivekb").masses
+output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
     output_path = os.path.join(args.output_dir, output_file)
-
+    
     output_data = pd.read_csv(output_path)
+    use_cols = ["sequence", "score"]
+    if "aa_scores" in output_data.columns:
+        use_cols.append("aa_scores")
+    
     if "scans" in output_data.columns:
+        use_cols.append("scans")
         output_data = pd.merge(
-            sequences_true,
-            output_data[["scans", "sequence"]],
-            on="scans",
-            how="left",
+            sequences_true, output_data[use_cols], on="scans", how="left",
         )
-        output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
     elif "scan_indices" in output_data.columns:
+        use_cols.append("scan_indices")
         output_data = pd.merge(
-            sequences_true,
-            output_data[["scan_indices", "sequence", "score"]],
-            on="scan_indices",
-            how="left",
+            sequences_true, output_data[use_cols], on="scan_indices", how="left",
         )
-        output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
-    else:
-        output_data = output_data[["sequence"]]
-        output_data["sequence_true"] = sequences_true["seq"].values
+    else: # TODO: keep or replace with exception+skip algorithm? 
+        output_data = output_data[use_cols]
+        output_data["seq"] = sequences_true["seq"].values
+    output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
 
-    # calculate metrics
+    # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
-    sequenced_idx = output_data["sequence"].notnull()
-
+    sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
-        output_data["sequence_true"][sequenced_idx],
         output_data["sequence"][sequenced_idx],
-        depthcharge.masses.PeptideMass("massivekb").masses,
+        output_data["sequence_true"][sequenced_idx],
+        aa_dict,
     )
-
+    
+    # Collect metrics
     aa_precision, aa_recall, pep_precision = aa_match_metrics(
         aa_matches_batch, n_aa1, n_aa2
     )
@@ -102,33 +116,48 @@ for output_file in os.listdir(args.output_dir):
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
     }
+        
+    # Plot the peptide precision–coverage curve
+    pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
+    precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
+    coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches) 
+    pep_ax.plot(
+        coverage, precision, 
+        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
+    )
+    
+    # Plot the amino acid precision–coverage curve (if aa_scores available)
+    if "aa_scores" in output_data.columns:
+        aa_scores = np.concatenate(list(map(
+            parse_scores, 
+            output_data["aa_scores"][sequenced_idx].values.tolist()
+        )))
+        sort_idx = np.argsort(aa_scores)[::-1]
+        aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
+        precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
+        coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
+        aa_ax.plot(
+            coverage, precision, 
+            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
+        )
+    
+pep_ax.set_title("Peptide precision & coverage")
+pep_ax.set_xlim(0, 1), pep_ax.set_ylim(0, 1)
+pep_ax.set_xlabel("Coverage"), pep_ax.set_ylabel("Precision")
+pep_ax.legend(loc="upper right")
 
-    # plot the precision–coverage curve.
-    peptide_matches = np.asarray(
-        [aa_match[1] for aa_match in aa_matches_batch]
-    )
-    precision = np.cumsum(peptide_matches) / np.arange(
-        1, len(peptide_matches) + 1
-    )
-    coverage = np.arange(1, len(peptide_matches) + 1) / len(peptide_matches)
-    threshold = np.argmax(output_data["score"] < 0)
-    plt.plot(
-        coverage,
-        precision,
-        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
-    )
+aa_ax.set_title("Amino acid precision & coverage")
+aa_ax.set_xlim(0, 1), aa_ax.set_ylim(0, 1)
+aa_ax.set_xlabel("Coverage"), aa_ax.set_ylabel("Precision")
+aa_ax.legend(loc="upper right")
 
+# Save results
 os.makedirs(args.results_dir, exist_ok=True)
-
-plt.xlim(0, 1), plt.ylim(0, 1)
-plt.xlabel("Coverage"), plt.ylabel("Precision")
-plt.legend(loc="upper right")
 plt.savefig(
-    os.path.join(args.results_dir, "precision_coverage.png"),
-    dpi=300,
-    bbox_inches="tight",
+    os.path.join(args.results_dir, "precision_coverage.png"), 
+    dpi=300, 
+    bbox_inches="tight"
 )
 plt.close()
-
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(args.results_dir, "metrics.csv"))
