@@ -1,3 +1,5 @@
+TODO: update for Apptainer (Singularity) containers.
+
 # Benchmarking de novo peptide sequencing algorithms
 
 ## Requirements
