@@ -69,7 +69,8 @@ sequences_true["seq"] = sequences_true["seq"].apply(
 
 # Load predictions data, match to GT by scan id or scan index if available
 width = 8
-fig, (pep_ax, aa_ax) = plt.subplots(1, 2, figsize=(2 * width, width))
+pep_plot = plt.figure(figsize=(width, width))
+aa_plot = plt.figure(figsize=(width, width))
 
 # TODO: replace with fixed dictionary
 aa_dict = depthcharge.masses.PeptideMass("massivekb").masses
@@ -131,10 +132,10 @@ for output_file in os.listdir(args.output_dir):
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
     coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
-    pep_ax.plot(
-        coverage,
-        precision,
-        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+    plt.figure(pep_plot.number)
+    plt.plot(
+        coverage, precision, 
+        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
     )
 
     # Plot the amino acid precision–coverage curve (if aa_scores available)
@@ -157,29 +158,38 @@ for output_file in os.listdir(args.output_dir):
         coverage = np.arange(1, len(aa_matches_pred) + 1) / len(
             aa_matches_pred
         )
-        aa_ax.plot(
-            coverage,
-            precision,
-            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+        plt.figure(aa_plot.number)
+        plt.plot(
+            coverage, precision, 
+            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}"
         )
-
-pep_ax.set_title("Peptide precision & coverage")
-pep_ax.set_xlim(0, 1), pep_ax.set_ylim(0, 1)
-pep_ax.set_xlabel("Coverage"), pep_ax.set_ylabel("Precision")
-pep_ax.legend(loc="upper right")
-
-aa_ax.set_title("Amino acid precision & coverage")
-aa_ax.set_xlim(0, 1), aa_ax.set_ylim(0, 1)
-aa_ax.set_xlabel("Coverage"), aa_ax.set_ylabel("Precision")
-aa_ax.legend(loc="upper right")
 
 # Save results
 os.makedirs(args.results_dir, exist_ok=True)
+
+plt.figure(pep_plot.number)
+plt.title("Peptide precision & coverage")
+plt.xlim(0, 1), plt.ylim(0, 1)
+plt.xlabel("Coverage"), plt.ylabel("Precision")
+plt.legend(loc="upper right")
 plt.savefig(
-    os.path.join(args.results_dir, "precision_coverage.png"),
+    os.path.join(args.results_dir, "peptide_precision_coverage.png"),
     dpi=300,
     bbox_inches="tight",
 )
 plt.close()
+
+plt.figure(aa_plot.number)
+plt.title("Amino acid precision & coverage")
+plt.xlim(0, 1), plt.ylim(0, 1)
+plt.xlabel("Coverage"), plt.ylabel("Precision")
+plt.legend(loc="upper right")
+plt.savefig(
+    os.path.join(args.results_dir, "AA_precision_coverage.png"),
+    dpi=300,
+    bbox_inches="tight",
+)
+plt.close()
+
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(args.results_dir, "metrics.csv"))

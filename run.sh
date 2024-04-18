@@ -55,8 +55,9 @@ module load PyTorch/1.13.1-foss-2022a-CUDA-11.7.0
 source $VSC_DATA/venvs/bm_test/bin/activate
 
 # Evaluate predictions
+# TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
-python evaluate.py "$output_dir/" "$spectra_dir"
+python evaluate.py "$output_dir/" "$spectra_dir" 
 
 cat metrics.csv # 1) remove 2) replace / add building plots
 
