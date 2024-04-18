@@ -7,14 +7,6 @@ import os
 import re
 from pyteomics import mgf
 from tqdm import tqdm
-
-
-REPLACEMENTS = [
-    ("C", "C(+57.02)")
-]  # C always has fixed Carbamidomethyl modification
-
-PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
-
 from collections import namedtuple
 
 PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_mass", "representation"])

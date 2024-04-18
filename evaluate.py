@@ -3,7 +3,6 @@ ground truth labels."""
 
 import argparse
 import os
-import depthcharge
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,6 +12,38 @@ from tqdm import tqdm
 
 from ground_truth_mapper import convert_GT_to_output_format
 from metrics import aa_match_metrics, aa_match_batch
+
+
+# TODO: move to a separate file? 
+AA_MASSES = {
+    'G': 57.021463735,
+    'A': 71.037113805,
+    'S': 87.032028435,
+    'P': 97.052763875,
+    'V': 99.068413945,
+    'T': 101.047678505,
+    'C+57.021': 160.030644505,
+    'L': 113.084064015,
+    'I': 113.084064015,
+    'N': 114.04292747,
+    'D': 115.026943065,
+    'Q': 128.05857754,
+    'K': 128.09496305,
+    'E': 129.042593135,
+    'M': 131.040484645,
+    'H': 137.058911875,
+    'F': 147.068413945,
+    'R': 156.10111105,
+    'Y': 163.063328575,
+    'W': 186.07931298,
+    '+42.011': 42.010565,
+    '+43.006': 43.005814,
+    '-17.027': -17.026549,
+    '+43.006-17.027': 25.980265,
+    'M+15.995': 147.03539964499998,
+    'N+0.984': 115.02694346999999,
+    'Q+0.984': 129.04259353999998
+ }
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -71,8 +102,6 @@ sequences_true["seq"] = sequences_true["seq"].apply(
 width = 8
 fig, (pep_ax, aa_ax) = plt.subplots(1, 2, figsize=(2 * width, width))
 
-# TODO: replace with fixed dictionary
-aa_dict = depthcharge.masses.PeptideMass("massivekb").masses
 output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
@@ -112,7 +141,7 @@ for output_file in os.listdir(args.output_dir):
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][sequenced_idx],
         output_data["sequence_true"][sequenced_idx],
-        aa_dict,
+        AA_MASSES,
     )
 
     # Collect metrics
