@@ -2,10 +2,12 @@
 datasets/*
 !datasets/sample_data/
 
-
 # Outputs
 *.csv
 metrics.txt
+
+# Containers
+*.sif
 
 
 # Byte-compiled / optimized / DLL files

@@ -6,14 +6,7 @@ import argparse
 import os
 import re
 from pyteomics import mgf
-
-
-REPLACEMENTS = [
-    ("C", "C(+57.02)")
-]  # C always has fixed Carbamidomethyl modification
-
-PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
-
+from tqdm import tqdm
 from collections import namedtuple
 
 PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_mass", "representation"])
@@ -152,7 +145,7 @@ for file_i, input_path in enumerate(input_paths):
     spectra = mgf.read(input_path)
     mapped_spectra += [
         convert_to_input_format(spectra[i], file_i)
-        for i in range(len(spectra))
+        for i in tqdm(range(len(spectra)))
     ]
 
 mgf.write(

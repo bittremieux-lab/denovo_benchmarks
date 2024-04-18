@@ -1,0 +1,46 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:1.2.0-gpu
+
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+%files
+    # Copy algorithm-related files
+    algorithms/deepnovo /algo
+
+%post
+    # Install system packages
+    apt-get update \
+    && apt-get install -y \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+    # Install Python packages
+    pip install numpy==1.16.6 pandas==0.24.2 pyteomics==4.0
+    pip install Cython==3.0.9
+    # last biopython version for py27
+    pip install biopython==1.68
+
+    cd /algo
+    # Download algorithm source code
+    git clone https://github.com/nh2tran/DeepNovo.git
+    # Fix batch size bug in deepnovo_main_modules.py
+    cp deepnovo_main_modules.py DeepNovo
+    # Build DeepNovo from source
+    cd DeepNovo && python deepnovo_cython_setup.py build_ext --inplace && cd ..
+    
+    # # Download algorithm weights
+    curl -LRO ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy
+    # # Download model checkpoint (change to use other model weights)
+    pip install gdown
+    gdown --folder -O train.example https://drive.google.com/drive/folders/1pAUISLTeh3HQY8aaqzmpRyBFERxUJ1Lt
+    cp train.example/checkpoint ./
+    cp train.example/translate.ckpt* ./
+    rm -r train.example
+
+# Run algorithm and convert outputs
+%post
+    chmod +x /algo/make_predictions.sh
+    
+%runscript
+    cd /algo && ./make_predictions.sh data

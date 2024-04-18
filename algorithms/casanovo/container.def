@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: python:3.10
+
+%files
+    # Copy algorithm-related files
+    algorithms/casanovo /algo
+
+%post
+    # Install algorithm
+    pip install --no-cache-dir casanovo
+
+# Run algorithm and convert outputs
+# Data is expected to be mounted into /algo/data dir
+%post
+    chmod +x /algo/make_predictions.sh
+    
+%runscript
+    cd /algo && ./make_predictions.sh data

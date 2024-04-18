@@ -23,7 +23,7 @@ n_beams: 1
 top_match: 1
 # The hardware accelerator to use. Must be one of:
 # "cpu", "gpu", "tpu", "ipu", "hpu", "mps", or "auto"
-accelerator: "cpu"
+accelerator: "auto"
 # The devices to use. Can be set to a positive number int,
 # or the value -1 to indicate all available devices should be used,
 # If left empty, the appropriate number will be automatically
@@ -134,3 +134,4 @@ residues:
   "+43.006": 43.005814      # Carbamylation
   "-17.027": -17.026549     # NH3 loss
   "+43.006-17.027": 25.980265      # Carbamylation and NH3 loss
+  
