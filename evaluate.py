@@ -103,9 +103,12 @@ sequences_true["seq"] = sequences_true["seq"].apply(
 )
 
 # Load predictions data, match to GT by scan id or scan index if available
-height = 600
+PLOT_N_POINTS = 10000
+PLOT_HEIGHT = 600
+PLOT_WIDTH = int(600 * 1.2)
+
 layout = go.Layout(
-    height=height, width=height * 1.2,
+    height=PLOT_HEIGHT, width=PLOT_WIDTH,
     title_x=0.5,
     margin_t=50,
     xaxis_title="Coverage",
@@ -172,9 +175,10 @@ for output_file in os.listdir(args.output_dir):
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
     coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
+    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
     pep_fig.add_trace(
         go.Scatter(
-            x=coverage, y=precision,
+            x=coverage[plot_idxs], y=precision[plot_idxs],
             mode="lines",
             name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
     )
@@ -197,9 +201,10 @@ for output_file in os.listdir(args.output_dir):
     aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
     precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
     coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
+    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
     aa_fig.add_trace(
         go.Scatter(
-            x=coverage, y=precision,
+            x=coverage[plot_idxs], y=precision[plot_idxs],
             mode="lines",
             name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
     )
