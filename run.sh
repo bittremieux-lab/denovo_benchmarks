@@ -52,6 +52,7 @@ for algorithm_dir in algorithms/*; do
 done
 
 # Evaluate predictions
+# TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot "evaluation.sif" \
     bash -c "python evaluate.py ${output_dir}/ ${spectra_dir}"

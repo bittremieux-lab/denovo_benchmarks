@@ -1,0 +1,14 @@
+Bootstrap: docker
+From: python:3.10
+
+%post
+    # Setup evaluation environment
+    pip install --no-cache-dir numpy==1.22.3
+    pip install --no-cache-dir pandas==1.4.2
+    pip install --no-cache-dir scikit-learn
+    pip install --no-cache-dir matplotlib
+    pip install --no-cache-dir plotly==5.20.0
+    pip install --no-cache-dir tqdm
+    pip install --no-cache-dir PyYAML
+    pip install --no-cache-dir pyteomics==4.7.1
+    pip install --no-cache-dir spectrum-utils==0.4.2

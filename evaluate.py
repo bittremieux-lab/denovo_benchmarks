@@ -3,9 +3,10 @@ ground truth labels."""
 
 import argparse
 import os
+import re
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from pyteomics import mgf
 from sklearn.metrics import auc
 from tqdm import tqdm
@@ -61,7 +62,10 @@ def parse_scores(aa_scores: str) -> list[float]:
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "output_dir",
-    help="The path to the directory containing algorithm predictions stored in `algorithm_outputs.csv` files.",
+    help="""
+    The path to the directory containing algorithm predictions 
+    stored in `algorithm_outputs.csv` files.
+    """,
 )
 parser.add_argument(
     "data_dir", help="The path to the input data with ground truth labels."
@@ -99,45 +103,53 @@ sequences_true["seq"] = sequences_true["seq"].apply(
 )
 
 # Load predictions data, match to GT by scan id or scan index if available
-width = 8
-fig, (pep_ax, aa_ax) = plt.subplots(1, 2, figsize=(2 * width, width))
-
+height = 600
+layout = go.Layout(
+    height=height, width=height * 1.2,
+    title_x=0.5,
+    margin_t=50,
+    xaxis_title="Coverage",
+    yaxis_title="Precision",
+    xaxis_range=[0, 1],
+    yaxis_range=[0, 1],
+    legend=dict(
+        y=0.01,
+        x=0.01,
+    )
+)
+pep_fig = go.Figure(layout=layout)
+pep_fig.update_layout(title_text="<b>Peptide precision & coverage</b>")
+aa_fig = go.Figure(layout=layout)
+aa_fig.update_layout(title_text="<b>AA precision & coverage</b>")
+    
 output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
     output_path = os.path.join(args.output_dir, output_file)
-
+    
     output_data = pd.read_csv(output_path)
     use_cols = ["sequence", "score"]
     if "aa_scores" in output_data.columns:
         use_cols.append("aa_scores")
-
+    
     if "scans" in output_data.columns:
         use_cols.append("scans")
         output_data = pd.merge(
-            sequences_true,
-            output_data[use_cols],
-            on="scans",
-            how="left",
+            sequences_true, output_data[use_cols], on="scans", how="left",
         )
     elif "scan_indices" in output_data.columns:
         use_cols.append("scan_indices")
         output_data = pd.merge(
-            sequences_true,
-            output_data[use_cols],
-            on="scan_indices",
-            how="left",
+            sequences_true, output_data[use_cols], on="scan_indices", how="left",
         )
-    else:  # TODO: keep or replace with exception+skip algorithm?
+    else: # TODO: keep or replace with exception+skip algorithm? 
         output_data = output_data[use_cols]
         output_data["seq"] = sequences_true["seq"].values
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
-    sequenced_idx = output_data[
-        "sequence"
-    ].notnull()  # TODO: indicate number of not sequenced peptides?
+    sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][sequenced_idx],
         output_data["sequence_true"][sequenced_idx],
@@ -155,60 +167,48 @@ for output_file in os.listdir(args.output_dir):
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
     }
-
+        
     # Plot the peptide precision–coverage curve
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
     coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
-    pep_ax.plot(
-        coverage,
-        precision,
-        label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+    pep_fig.add_trace(
+        go.Scatter(
+            x=coverage, y=precision,
+            mode="lines",
+            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
     )
-
+    
     # Plot the amino acid precision–coverage curve (if aa_scores available)
-    if "aa_scores" in output_data.columns:
-        aa_scores = np.concatenate(
-            list(
-                map(
-                    parse_scores,
-                    output_data["aa_scores"][sequenced_idx].values.tolist(),
-                )
-            )
+    if "aa_scores" not in output_data.columns:
+        # define proxy aa_scores from the peptide score
+        # TODO: move to algo_name/output_mapper
+        output_data.loc[sequenced_idx, "aa_scores"] = output_data[sequenced_idx].apply(
+            lambda row: ",".join([str(row["score"]),] * len(re.split(r"(?<=.)(?=[A-Z])", row["sequence"]))), 
+            axis=1,
         )
-        sort_idx = np.argsort(aa_scores)[::-1]
-        aa_matches_pred = np.concatenate(
-            [aa_match[2][0] for aa_match in aa_matches_batch]
-        )
-        precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(
-            1, len(aa_matches_pred) + 1
-        )
-        coverage = np.arange(1, len(aa_matches_pred) + 1) / len(
-            aa_matches_pred
-        )
-        aa_ax.plot(
-            coverage,
-            precision,
-            label=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
-        )
+        
+    aa_scores = np.concatenate(list(map(
+        parse_scores, 
+        output_data["aa_scores"][sequenced_idx].values.tolist()
+    )))
+    sort_idx = np.argsort(aa_scores)[::-1]
 
-pep_ax.set_title("Peptide precision & coverage")
-pep_ax.set_xlim(0, 1), pep_ax.set_ylim(0, 1)
-pep_ax.set_xlabel("Coverage"), pep_ax.set_ylabel("Precision")
-pep_ax.legend(loc="upper right")
-
-aa_ax.set_title("Amino acid precision & coverage")
-aa_ax.set_xlim(0, 1), aa_ax.set_ylim(0, 1)
-aa_ax.set_xlabel("Coverage"), aa_ax.set_ylabel("Precision")
-aa_ax.legend(loc="upper right")
+    aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
+    precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
+    coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
+    aa_fig.add_trace(
+        go.Scatter(
+            x=coverage, y=precision,
+            mode="lines",
+            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
+    )
 
 # Save results
 os.makedirs(args.results_dir, exist_ok=True)
-plt.savefig(
-    os.path.join(args.results_dir, "precision_coverage.png"),
-    dpi=300,
-    bbox_inches="tight",
-)
-plt.close()
+
+pep_fig.write_html(os.path.join(args.results_dir, "peptide_precision_coverage.html"))
+aa_fig.write_html(os.path.join(args.results_dir, "AA_precision_coverage.html"))
+
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(args.results_dir, "metrics.csv"))
