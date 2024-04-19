@@ -118,9 +118,9 @@ layout = go.Layout(
     )
 )
 pep_fig = go.Figure(layout=layout)
-pep_fig.update_layout(title="<b>Peptide precision & coverage</b>")
+pep_fig.update_layout(title_text="<b>Peptide precision & coverage</b>")
 aa_fig = go.Figure(layout=layout)
-aa_fig.update_layout(title="<b>AA precision & coverage</b>")
+aa_fig.update_layout(title_text="<b>AA precision & coverage</b>")
     
 output_metrics = {}
 for output_file in os.listdir(args.output_dir):
