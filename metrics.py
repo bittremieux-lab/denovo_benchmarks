@@ -2,10 +2,31 @@
 Casanovo https://github.com/Noble-Lab/casanovo"""
 
 import re
+import numpy as np
 from typing import Dict, Iterable, List, Tuple
 
-import numpy as np
-from spectrum_utils.utils import mass_diff
+
+# Method is borrowed from 'spectrum_utils' package 
+# (temporary removed 'spectrum_utils' dependence 
+# due to numba cache issues when running on HPC cluster).
+def mass_diff(mz1, mz2, mode_is_da):
+    """
+    Calculate the mass difference(s).
+
+    Parameters
+    ----------
+    mz1
+        First m/z value(s).
+    mz2
+        Second m/z value(s).
+    mode_is_da : bool
+        Mass difference in Dalton (True) or in ppm (False).
+
+    Returns
+    -------
+        The mass difference(s) between the given m/z values.
+    """
+    return mz1 - mz2 if mode_is_da else (mz1 - mz2) / mz2 * 10**6
 
 
 def get_token_mass(
