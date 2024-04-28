@@ -2,35 +2,8 @@
 
 import re
 
-REPLACEMENTS = [
-    # ("C", "C+57.021") # C always has fixed Carbamidomethyl modification
-]
 
-PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
-
-
-def transform_match(match: re.Match) -> str:
-    """
-    Transform representation of amino acids substring matching
-    the PTM pattern.
-
-    Parameters
-    ----------
-    match : re.Match
-        Substring matching the PTM pattern.
-
-    Returns
-    -------
-    transformed_match : str
-        Transformed PTM pattern representation.
-    """
-    aa, ptm = match.group(1), match.group(2)
-    if not ptm.startswith("-"):
-        ptm = "+" + ptm
-    return aa + ptm
-
-
-def convert_GT_to_output_format(sequence: str) -> str:
+def format_sequence(sequence: str) -> str:
     """
     Convert peptide sequence to the common output data format.
 
@@ -44,6 +17,35 @@ def convert_GT_to_output_format(sequence: str) -> str:
     transformed_sequence : str
         Peptide sequence in the common output data format.
     """
+
+    REPLACEMENTS = []
+
+    PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
+
+    def transform_match_ptm(match: re.Match) -> str:
+        """
+        Transform representation of amino acids substring matching
+        the PTM pattern.
+
+        Parameters
+        ----------
+        match : re.Match
+            Substring matching the PTM pattern.
+
+        Returns
+        -------
+        transformed_match : str
+            Transformed PTM pattern representation.
+        """
+        # TODO: transformation with adding "+" is no longer required
+        # since ptm masses are now compared as close enough FLOAT NUMBERS, 
+        # not exactly matching STRINGS 
+        aa, ptm = match.group(1), match.group(2)
+        if not ptm.startswith("-"):
+            ptm = "+" + ptm
+        return aa + ptm
+    
+
     # remove cleavage sites
     if re.match(r"[A-Z].*.[A-Z]", sequence) is not None:
         sequence = sequence[2:-2]
@@ -54,6 +56,6 @@ def convert_GT_to_output_format(sequence: str) -> str:
 
     # transformation of PTM notation
     # AA[ptm_mass] -> AA+ptm_mass
-    sequence = re.sub(PTM_PATTERN, transform_match, sequence)
+    sequence = re.sub(PTM_PATTERN, transform_match_ptm, sequence)
 
     return sequence

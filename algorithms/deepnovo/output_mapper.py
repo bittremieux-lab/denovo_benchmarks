@@ -5,12 +5,8 @@ output format to the common data format."""
 import argparse
 import pandas as pd
 
-REPLACEMENTS = [
-    ("Cmod", "C")  # C is written without Carbamidomethyl modification
-]
 
-
-def convert_to_output_format(sequence):
+def format_sequence(sequence):
     """
     Transform representation of amino acids substring matching
     the PTM pattern.
@@ -25,6 +21,11 @@ def convert_to_output_format(sequence):
     transformed_match : str
         Transformed PTM pattern representation.
     """
+
+    REPLACEMENTS = [
+        ("Cmod", "C")  # C is written without Carbamidomethyl modification
+    ]
+
 
     # remove separator
     sequence = sequence.replace(",", "")
@@ -55,7 +56,7 @@ output_data = output_data.rename(
 )
 output_data = output_data[output_data["sequence"].notnull()]
 output_data["sequence"] = output_data["sequence"].apply(
-    convert_to_output_format
+    format_sequence
 )
 
 # save processed predictions to the same file

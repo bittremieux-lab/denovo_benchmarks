@@ -6,41 +6,19 @@ import re
 from pyteomics.mztab import MzTab
 
 
-REPLACEMENTS = [
-    ("C+57.021", "C")  # C is written without Carbamidomethyl modification
-]
-
-PTM_PATTERN = r"^([0-9.+-]+)([A-Z])"  # TODO: move inside format_sequence_and_scores function?
-
-
-def transform_match(match: re.Match) -> str:
-    """
-    Transform representation of amino acids substring matching
-    the PTM pattern.
-
-    Parameters
-    ----------
-    match : re.Match
-        Substring matching the PTM pattern.
-
-    Returns
-    -------
-    transformed_match : str
-        Transformed PTM pattern representation.
-    """
-    ptm, aa = match.group(1), match.group(2)
-    return aa + ptm
-
-
 def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
     """
-    TODO: fix docstring for scores
     Convert peptide sequence to the common output data format.
+    If it changes the number of tokens in a sequence, 
+    adjust per-token algorithm scores accordingly.
 
     Parameters
     ----------
     sequence : str
         Peptide sequence in the original algorithm output format.
+    aa_scores: str
+        Algorithm confidence scores for each token in sequence.
+        Stored as a string of float scores separated by ','.
 
     Returns
     -------
@@ -48,13 +26,46 @@ def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
         Peptide sequence in the common output data format.
     """
 
+    REPLACEMENTS = [
+        ("C+57.021", "C")  # C is written without Carbamidomethyl modification
+    ]
+
+    PTM_PATTERN = r"^([0-9.+-]+)([A-Z])"  # TODO: move inside format_sequence_and_scores function?
+
+    def transform_match_ptm(match: re.Match) -> str:
+        """
+        Transform representation of amino acids substring matching
+        the PTM pattern.
+
+        Parameters
+        ----------
+        match : re.Match
+            Substring matching the PTM pattern.
+
+        Returns
+        -------
+        transformed_match : str
+            Transformed PTM pattern representation.
+        """
+        ptm, aa = match.group(1), match.group(2)
+        return aa + ptm
+
     def parse_scores(scores: str) -> list[float]:
+        """
+        Convert per-token scores from a string of float scores 
+        separated by ',' to a list of float numbers.
+        """
         scores = scores.split(",")
         scores = list(map(float, scores))
         return scores
 
     def format_scores(scores: list[float]) -> str:
+        """
+        Write a list of float per-token scores
+        into a string of float scores separated by ','.
+        """
         return ",".join(map(str, scores))
+    
 
     # direct (token-to-token) replacements
     for repl_args in REPLACEMENTS:
@@ -64,7 +75,7 @@ def format_sequence_and_scores(sequence: str, aa_scores: str) -> str:
     # move N-terminus modifications BEYOND 1st AA (if any)
     # TODO: check & replacement can be not optimal!
     if re.search(PTM_PATTERN, sequence):
-        sequence = re.sub(PTM_PATTERN, transform_match, sequence)
+        sequence = re.sub(PTM_PATTERN, transform_match_ptm, sequence)
         # the N-terminus modification and the next AA will be considered as a single AA+PTM token,
         # so their scores should also be aggregated
         aa_scores = parse_scores(aa_scores)

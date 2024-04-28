@@ -11,40 +11,9 @@ from pyteomics import mgf
 from sklearn.metrics import auc
 from tqdm import tqdm
 
-from ground_truth_mapper import convert_GT_to_output_format
+from ground_truth_mapper import format_sequence as format_sequence_GT
 from metrics import aa_match_metrics, aa_match_batch
-
-
-# TODO: move to a separate file? 
-AA_MASSES = {
-    'G': 57.021463735,
-    'A': 71.037113805,
-    'S': 87.032028435,
-    'P': 97.052763875,
-    'V': 99.068413945,
-    'T': 101.047678505,
-    'C+57.021': 160.030644505,
-    'L': 113.084064015,
-    'I': 113.084064015,
-    'N': 114.04292747,
-    'D': 115.026943065,
-    'Q': 128.05857754,
-    'K': 128.09496305,
-    'E': 129.042593135,
-    'M': 131.040484645,
-    'H': 137.058911875,
-    'F': 147.068413945,
-    'R': 156.10111105,
-    'Y': 163.063328575,
-    'W': 186.07931298,
-    '+42.011': 42.010565,
-    '+43.006': 43.005814,
-    '-17.027': -17.026549,
-    '+43.006-17.027': 25.980265,
-    'M+15.995': 147.03539964499998,
-    'N+0.984': 115.02694346999999,
-    'Q+0.984': 129.04259353999998
- }
+from token_masses import AA_MASSES
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -99,7 +68,7 @@ for file_i, mgf_path in enumerate(input_paths):
         sequences_true["scan_indices"].append(f"F{file_i}:{spectrum_i}")
 sequences_true = pd.DataFrame(sequences_true)
 sequences_true["seq"] = sequences_true["seq"].apply(
-    convert_GT_to_output_format
+    format_sequence_GT
 )
 
 # Load predictions data, match to GT by scan id or scan index if available
