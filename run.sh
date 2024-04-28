@@ -3,11 +3,29 @@ spectra_dir="$1"
 output_dir="./outputs"
 overlay_size=1024
 
-# TODO: make optional, only if recalculation is needed (flag)
-# # Clean output dir 
-# rm -rf "$output_dir"
-# # Create the output directory if it doesn't exist
-# mkdir "$output_dir"
+# # TODO maybe now we need separate output dir for each dataset
+# output_root_dir="./outputs"
+# output_dir="$output_dir/$dataset"
+
+recalculate=false
+
+while getopts ":r" opt; do
+  case $opt in
+    r) recalculate=true
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+echo "recalculate all algorithm outputs: $recalculate"
+
+if "$recalculate"; then
+    # Clean output dir 
+    rm -rf "$output_dir"
+    # Create the output directory if it doesn't exist
+    mkdir "$output_dir"
+fi
+
 
 # List input files
 echo "Spectra data dir: $spectra_dir"
@@ -41,7 +59,7 @@ for algorithm_dir in algorithms/*; do
             echo "EXPORT PREDICTIONS"
             apptainer exec --fakeroot \
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
-                -B "${output_dir}"/:/algo/outputs \
+                -B "${output_dir}":/algo/outputs \
                 "algorithms/${algorithm_name}/container.sif" \
                 bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
 
