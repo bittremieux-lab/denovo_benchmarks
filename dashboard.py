@@ -16,19 +16,19 @@ st.divider()
 
 st.header("Benchmarking results")
 
-dataset_name = "9 species dataset: Apis-mellifera"
-st.subheader(dataset_name)
+datasets = os.listdir(RESULTS_DIR)
+for dataset_name in datasets:
+    st.subheader(dataset_name)
+    col1, col2 = st.columns(2, gap="medium")
 
-col1, col2 = st.columns(2, gap="medium")
+    with col1:
+        path_to_html = os.path.join(RESULTS_DIR, dataset_name, "peptide_precision_coverage.html")
+        with open(path_to_html, 'r') as f: 
+            html_data = f.read()
+        components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)
 
-with col1:
-    path_to_html = os.path.join(RESULTS_DIR, "peptide_precision_coverage.html")
-    with open(path_to_html, 'r') as f: 
-        html_data = f.read()
-    components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)
-
-with col2:
-    path_to_html = os.path.join(RESULTS_DIR, "AA_precision_coverage.html")
-    with open(path_to_html, 'r') as f: 
-        html_data = f.read()
-    components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)
+    with col2:
+        path_to_html = os.path.join(RESULTS_DIR, dataset_name, "AA_precision_coverage.html")
+        with open(path_to_html, 'r') as f: 
+            html_data = f.read()
+        components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)

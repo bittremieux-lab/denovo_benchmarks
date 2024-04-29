@@ -1,11 +1,11 @@
 #!/bin/bash
 spectra_dir="$1"
-output_dir="./outputs"
+output_root_dir="./outputs"
 overlay_size=1024
 
-# # TODO maybe now we need separate output dir for each dataset
-# output_root_dir="./outputs"
-# output_dir="$output_dir/$dataset"
+# TODO maybe now we need separate output dir for each dataset
+dataset_name=$(basename "$spectra_dir")
+output_dir="$output_root_dir/$dataset_name"
 
 recalculate=false
 
@@ -17,18 +17,18 @@ while getopts ":r" opt; do
     ;;
   esac
 done
-echo "recalculate all algorithm outputs: $recalculate"
+echo "Recalculate all algorithm outputs: $recalculate"
 
 if "$recalculate"; then
     # Clean output dir 
     rm -rf "$output_dir"
-    # Create the output directory if it doesn't exist
-    mkdir "$output_dir"
 fi
 
+# Create the output directory if it doesn't exist
+mkdir -p "$output_dir"
 
 # List input files
-echo "Spectra data dir: $spectra_dir"
+echo "Processing dataset: $dataset_name ($spectra_dir)"
 ls "$spectra_dir"/*.mgf
 
 # Loop through each algorithm in the algorithms directory

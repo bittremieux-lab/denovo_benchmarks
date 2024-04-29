@@ -47,6 +47,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+# Define dataset name and path to store evaluation results
+dataset_name = os.path.basename(os.path.normpath(args.output_dir))
+print(f"Evaluating results for {dataset_name}.")
+
 # Load ground truth labels and convert to the common output format
 input_paths = [
     os.path.join(args.data_dir, x)
@@ -179,10 +183,11 @@ for output_file in os.listdir(args.output_dir):
     )
 
 # Save results
-os.makedirs(args.results_dir, exist_ok=True)
+dataset_results_dir = os.path.join(args.results_dir, dataset_name)
+os.makedirs(dataset_results_dir, exist_ok=True)
 
-pep_fig.write_html(os.path.join(args.results_dir, "peptide_precision_coverage.html"))
-aa_fig.write_html(os.path.join(args.results_dir, "AA_precision_coverage.html"))
+pep_fig.write_html(os.path.join(dataset_results_dir, "peptide_precision_coverage.html"))
+aa_fig.write_html(os.path.join(dataset_results_dir, "AA_precision_coverage.html"))
 
 output_metrics = pd.DataFrame(output_metrics).T
-output_metrics.to_csv(os.path.join(args.results_dir, "metrics.csv"))
+output_metrics.to_csv(os.path.join(dataset_results_dir, "metrics.csv"))
