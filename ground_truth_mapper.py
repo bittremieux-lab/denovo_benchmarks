@@ -38,13 +38,12 @@ def format_sequence(sequence: str) -> str:
             Transformed PTM pattern representation.
         """
         # TODO: transformation with adding "+" is no longer required
-        # since ptm masses are now compared as close enough FLOAT NUMBERS, 
-        # not exactly matching STRINGS 
+        # since ptm masses are now compared as close enough FLOAT NUMBERS,
+        # not exactly matching STRINGS
         aa, ptm = match.group(1), match.group(2)
         if not ptm.startswith("-"):
             ptm = "+" + ptm
         return aa + ptm
-    
 
     # remove cleavage sites
     if re.match(r"[A-Z].*.[A-Z]", sequence) is not None:

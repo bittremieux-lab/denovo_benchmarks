@@ -22,13 +22,21 @@ for dataset_name in datasets:
     col1, col2 = st.columns(2, gap="medium")
 
     with col1:
-        path_to_html = os.path.join(RESULTS_DIR, dataset_name, "peptide_precision_coverage.html")
-        with open(path_to_html, 'r') as f: 
+        path_to_html = os.path.join(
+            RESULTS_DIR, dataset_name, "peptide_precision_coverage.html"
+        )
+        with open(path_to_html, "r") as f:
             html_data = f.read()
-        components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)
+        components.html(
+            html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
+        )
 
     with col2:
-        path_to_html = os.path.join(RESULTS_DIR, dataset_name, "AA_precision_coverage.html")
-        with open(path_to_html, 'r') as f: 
+        path_to_html = os.path.join(
+            RESULTS_DIR, dataset_name, "AA_precision_coverage.html"
+        )
+        with open(path_to_html, "r") as f:
             html_data = f.read()
-        components.html(html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False)
+        components.html(
+            html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
+        )
