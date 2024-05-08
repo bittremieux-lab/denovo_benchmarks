@@ -6,8 +6,8 @@ import numpy as np
 from typing import Dict, Iterable, List, Tuple
 
 
-# Method is borrowed from 'spectrum_utils' package 
-# (temporary removed 'spectrum_utils' dependence 
+# Method is borrowed from 'spectrum_utils' package
+# (temporary removed 'spectrum_utils' dependence
 # due to numba cache issues when running on HPC cluster).
 def mass_diff(mz1, mz2, mode_is_da):
     """
@@ -40,8 +40,6 @@ def get_token_mass(
         except ValueError:
             return default
 
-    # check token.isalpha() or len(token) == 1 ?
-    # it still has to be a letter, but it WILL be an UPPERCASE LETTER after splitting by this re pattern
     if len(token) == 1:
         mass = aa_dict.get(token, default)
     else:

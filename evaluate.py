@@ -71,9 +71,7 @@ for file_i, mgf_path in enumerate(input_paths):
         )
         sequences_true["scan_indices"].append(f"F{file_i}:{spectrum_i}")
 sequences_true = pd.DataFrame(sequences_true)
-sequences_true["seq"] = sequences_true["seq"].apply(
-    format_sequence_GT
-)
+sequences_true["seq"] = sequences_true["seq"].apply(format_sequence_GT)
 
 # Load predictions data, match to GT by scan id or scan index if available
 PLOT_N_POINTS = 10000
@@ -81,7 +79,8 @@ PLOT_HEIGHT = 600
 PLOT_WIDTH = int(600 * 1.2)
 
 layout = go.Layout(
-    height=PLOT_HEIGHT, width=PLOT_WIDTH,
+    height=PLOT_HEIGHT,
+    width=PLOT_WIDTH,
     title_x=0.5,
     margin_t=50,
     xaxis_title="Coverage",
@@ -91,41 +90,47 @@ layout = go.Layout(
     legend=dict(
         y=0.01,
         x=0.01,
-    )
+    ),
 )
 pep_fig = go.Figure(layout=layout)
 pep_fig.update_layout(title_text="<b>Peptide precision & coverage</b>")
 aa_fig = go.Figure(layout=layout)
 aa_fig.update_layout(title_text="<b>AA precision & coverage</b>")
-    
+
 output_metrics = {}
 for output_file in os.listdir(args.output_dir):
     algo_name = output_file.split("_")[0]
     output_path = os.path.join(args.output_dir, output_file)
-    
+
     output_data = pd.read_csv(output_path)
-    use_cols = ["sequence", "score"]
-    if "aa_scores" in output_data.columns:
-        use_cols.append("aa_scores")
-    
+    use_cols = ["sequence", "score", "aa_scores"]
+
     if "scans" in output_data.columns:
         use_cols.append("scans")
         output_data = pd.merge(
-            sequences_true, output_data[use_cols], on="scans", how="left",
+            sequences_true,
+            output_data[use_cols],
+            on="scans",
+            how="left",
         )
     elif "scan_indices" in output_data.columns:
         use_cols.append("scan_indices")
         output_data = pd.merge(
-            sequences_true, output_data[use_cols], on="scan_indices", how="left",
+            sequences_true,
+            output_data[use_cols],
+            on="scan_indices",
+            how="left",
         )
-    else: # TODO: keep or replace with exception+skip algorithm? 
+    else:  # TODO: keep or replace with exception+skip algorithm?
         output_data = output_data[use_cols]
         output_data["seq"] = sequences_true["seq"].values
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
-    sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
+    sequenced_idx = output_data[
+        "sequence"
+    ].notnull()  # TODO: indicate number of not sequenced peptides?
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][sequenced_idx],
         output_data["sequence_true"][sequenced_idx],
@@ -143,51 +148,63 @@ for output_file in os.listdir(args.output_dir):
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
     }
-        
+
     # Plot the peptide precision–coverage curve
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
     coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
-    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
+    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(
+        np.int64
+    )
     pep_fig.add_trace(
         go.Scatter(
-            x=coverage[plot_idxs], y=precision[plot_idxs],
+            x=coverage[plot_idxs],
+            y=precision[plot_idxs],
             mode="lines",
-            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
-    )
-    
-    # Plot the amino acid precision–coverage curve (if aa_scores available)
-    if "aa_scores" not in output_data.columns:
-        # define proxy aa_scores from the peptide score
-        # TODO: move to algo_name/output_mapper
-        output_data.loc[sequenced_idx, "aa_scores"] = output_data[sequenced_idx].apply(
-            lambda row: ",".join([str(row["score"]),] * len(re.split(r"(?<=.)(?=[A-Z])", row["sequence"]))), 
-            axis=1,
+            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
         )
-        
-    aa_scores = np.concatenate(list(map(
-        parse_scores, 
-        output_data["aa_scores"][sequenced_idx].values.tolist()
-    )))
+    )
+
+    # Plot the amino acid precision–coverage curve
+    aa_scores = np.concatenate(
+        list(
+            map(
+                parse_scores,
+                output_data["aa_scores"][sequenced_idx].values.tolist(),
+            )
+        )
+    )
     sort_idx = np.argsort(aa_scores)[::-1]
 
-    aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
-    precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
+    aa_matches_pred = np.concatenate(
+        [aa_match[2][0] for aa_match in aa_matches_batch]
+    )
+    precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(
+        1, len(aa_matches_pred) + 1
+    )
     coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
-    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
+    plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(
+        np.int64
+    )
     aa_fig.add_trace(
         go.Scatter(
-            x=coverage[plot_idxs], y=precision[plot_idxs],
+            x=coverage[plot_idxs],
+            y=precision[plot_idxs],
             mode="lines",
-            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}")
+            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+        )
     )
 
 # Save results
 dataset_results_dir = os.path.join(args.results_dir, dataset_name)
 os.makedirs(dataset_results_dir, exist_ok=True)
 
-pep_fig.write_html(os.path.join(dataset_results_dir, "peptide_precision_coverage.html"))
-aa_fig.write_html(os.path.join(dataset_results_dir, "AA_precision_coverage.html"))
+pep_fig.write_html(
+    os.path.join(dataset_results_dir, "peptide_precision_coverage.html")
+)
+aa_fig.write_html(
+    os.path.join(dataset_results_dir, "AA_precision_coverage.html")
+)
 
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(dataset_results_dir, "metrics.csv"))
