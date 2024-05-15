@@ -7,13 +7,15 @@ From: tensorflow/tensorflow:1.2.0-gpu
 %files
     # Copy algorithm-related files
     algorithms/deepnovo /algo
+    algorithms/base /algo/base
 
 %post
     # Install system packages
     apt-get update \
     && apt-get install -y \
-        git \
+        git-core \
     && rm -rf /var/lib/apt/lists/*
+    git --version
 
     # Install Python packages
     pip install numpy==1.16.6 pandas==0.24.2 pyteomics==4.0
@@ -39,6 +41,7 @@ From: tensorflow/tensorflow:1.2.0-gpu
     rm -r train.example
 
 # Run algorithm and convert outputs
+# Data is expected to be mounted into /algo/data dir
 %post
     chmod +x /algo/make_predictions.sh
     

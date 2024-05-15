@@ -61,7 +61,7 @@ def transform_match(match):
     return "{}({})".format(aa, ptm)
 
 
-def convert_sequence_to_input_format(sequence):
+def format_sequence(sequence):
     """
     Convert peptide sequence to the algorithm input format.
 
@@ -93,7 +93,7 @@ def convert_sequence_to_input_format(sequence):
     return sequence
 
 
-def convert_to_input_format(spectrum, file_i=0):
+def format_input(spectrum, file_i=0):
     """
     Convert the spectrum (annotation sequence and params) to the
     input format expected by the algorithm.
@@ -111,7 +111,7 @@ def convert_to_input_format(spectrum, file_i=0):
     transformed_spectrum : dict
         Peptide sequence in the algorithm input format.
     """
-    spectrum["params"]["seq"] = convert_sequence_to_input_format(
+    spectrum["params"]["seq"] = format_sequence(
         spectrum["params"]["seq"]
     )
 
@@ -127,6 +127,10 @@ parser.add_argument(
     "input_dir",
     help="The directory containing the input .mgf files. All files will be used.",
 )
+# parser.add_argument(
+#     "input_path",
+#     help="The path to the input .mgf file.",
+# )
 parser.add_argument(
     "output_path",
     help="The path to write prepared input data in the format expected by the algorithm.",
@@ -144,7 +148,7 @@ mapped_spectra = []
 for file_i, input_path in enumerate(input_paths):
     spectra = mgf.read(input_path)
     mapped_spectra += [
-        convert_to_input_format(spectra[i], file_i)
+        format_input(spectra[i], file_i)
         for i in tqdm(range(len(spectra)))
     ]
 

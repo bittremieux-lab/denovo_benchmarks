@@ -4,9 +4,10 @@ output format to the common data format."""
 import argparse
 import re
 from pyteomics.mztab import MzTab
+from base import OutputMapperBase
 
 
-class OutputMapper:
+class OutputMapper(OutputMapperBase):
     REPLACEMENTS = [
         ("C+57.021", "C")  # C is written without Carbamidomethyl modification
     ]
@@ -49,13 +50,6 @@ class OutputMapper:
         scores = scores.split(",")
         scores = list(map(float, scores))
         return scores
-
-    def _format_scores(self, scores: list[float]) -> str:
-        """
-        Write a list of float per-token scores
-        into a string of float scores separated by ','.
-        """
-        return ",".join(map(str, scores))
     
     def format_scan_index(self, scan_index: str) -> str:
         """
@@ -107,29 +101,6 @@ class OutputMapper:
             aa_scores = self._format_scores(aa_scores)
 
         return sequence, aa_scores
-    
-    def format_output(self, output_data):
-        """TODO."""
-        
-        if "aa_scores" in output_data.columns:
-            output_data[["sequence", "aa_scores"]] = output_data.apply(
-                lambda row: self.format_sequence_and_scores(row["sequence"], row["aa_scores"]),
-                axis=1,
-                result_type="expand",
-            )
-        
-        else:
-            output_data["sequence"] = output_data.apply(
-                self.format_sequence,
-            )
-            # TODO: add logic for aa_scores, if they are not provided
-            # output_data["aa_scores"] = get_aa_scores(output_data)
-
-        output_data["scan_indices"] = output_data["scan_indices"].apply(
-            self.format_scan_index
-        )
-
-        return output_data
 
 
 parser = argparse.ArgumentParser()
