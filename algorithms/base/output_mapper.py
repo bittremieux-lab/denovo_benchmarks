@@ -1,4 +1,7 @@
+import re
+
 class OutputMapperBase:
+    SPLIT_SEQ_PATTERN = r"(?<=.)(?=[A-Z])"
 
     def _format_scores(self, scores):
         """
@@ -25,7 +28,11 @@ class OutputMapperBase:
         (if per-token scores are not provided by the model,
         define proxy per-token scores from the peptide score)
         """
-        scores = [str(pep_score),] * len(re.split(self.SPLIT_SEQ_PATTERN, sequence))
+        sep = "|"
+        scores = [str(pep_score),] * len(
+            re.sub(self.SPLIT_SEQ_PATTERN, sep, sequence).split(sep)
+        )
+        print(len(sequence), re.split(self.SPLIT_SEQ_PATTERN, sequence), len(scores))
         return self._format_scores(scores)
 
     def format_output(self, output_data):
