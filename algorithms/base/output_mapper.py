@@ -32,7 +32,6 @@ class OutputMapperBase:
         scores = [str(pep_score),] * len(
             re.sub(self.SPLIT_SEQ_PATTERN, sep, sequence).split(sep)
         )
-        print(len(sequence), re.split(self.SPLIT_SEQ_PATTERN, sequence), len(scores))
         return self._format_scores(scores)
 
     def format_output(self, output_data):
