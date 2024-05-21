@@ -18,8 +18,10 @@ From: tensorflow/tensorflow:1.2.0-gpu
     git --version
 
     # Install Python packages
-    pip install numpy==1.16.6 pandas==0.24.2 pyteomics==4.0
+    pip install numpy==1.16.6 pandas==0.24.2 
     pip install Cython==3.0.9
+    # last stable pyteomics version for py27
+    pip install pyteomics==4.7.0
     # last biopython version for py27
     pip install biopython==1.68
 
