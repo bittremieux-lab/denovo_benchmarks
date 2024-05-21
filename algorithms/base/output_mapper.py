@@ -1,8 +1,6 @@
-import re
+from pyteomics import proforma
 
 class OutputMapperBase:
-    SPLIT_SEQ_PATTERN = r"(?<=.)(?=[A-Z])"
-
     def _format_scores(self, scores):
         """
         Write a list of float per-token scores
@@ -16,10 +14,11 @@ class OutputMapperBase:
     def format_scan_index(self, scan_index):
         return scan_index
 
-    def format_sequence(sequence):
+    def format_sequence(self, sequence):
         return sequence
 
-    def format_sequence_and_scores(sequence, aa_scores):
+    def format_sequence_and_scores(self, sequence, aa_scores):
+        sequence = self.format_sequence(sequence)
         return sequence, aa_scores
 
     def simulate_token_scores(self, pep_score, sequence):
@@ -28,10 +27,14 @@ class OutputMapperBase:
         (if per-token scores are not provided by the model,
         define proxy per-token scores from the peptide score)
         """
-        sep = "|"
-        scores = [str(pep_score),] * len(
-            re.sub(self.SPLIT_SEQ_PATTERN, sep, sequence).split(sep)
-        )
+        seq = proforma.parse(sequence)
+        n_tokens = len(seq[0])
+        if seq[1]["n_term"]:
+            n_tokens += len(seq[1]["n_term"])
+        if seq[1]["c_term"]:
+            n_tokens += len(seq[1]["c_term"])
+            
+        scores = [str(pep_score),] * n_tokens
         return self._format_scores(scores)
 
     def format_output(self, output_data):

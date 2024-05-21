@@ -2,6 +2,31 @@
 
 import re
 
+REPLACEMENTS = []
+PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
+
+def transform_match_ptm(match: re.Match) -> str:
+    """
+    Transform representation of amino acids substring matching
+    the PTM pattern.
+
+    Parameters
+    ----------
+    match : re.Match
+        Substring matching the PTM pattern.
+
+    Returns
+    -------
+    transformed_match : str
+        Transformed PTM pattern representation.
+    """
+    # TODO: transformation with adding "+" is no longer required
+    # since ptm masses are now compared as close enough FLOAT NUMBERS,
+    # not exactly matching STRINGS
+    aa, ptm = match.group(1), match.group(2)
+    if not ptm.startswith("-"):
+        ptm = "+" + ptm
+    return f"{aa}[{ptm}]"
 
 def format_sequence(sequence: str) -> str:
     """
@@ -18,35 +43,8 @@ def format_sequence(sequence: str) -> str:
         Peptide sequence in the common output data format.
     """
 
-    REPLACEMENTS = []
-
-    PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
-
-    def transform_match_ptm(match: re.Match) -> str:
-        """
-        Transform representation of amino acids substring matching
-        the PTM pattern.
-
-        Parameters
-        ----------
-        match : re.Match
-            Substring matching the PTM pattern.
-
-        Returns
-        -------
-        transformed_match : str
-            Transformed PTM pattern representation.
-        """
-        # TODO: transformation with adding "+" is no longer required
-        # since ptm masses are now compared as close enough FLOAT NUMBERS,
-        # not exactly matching STRINGS
-        aa, ptm = match.group(1), match.group(2)
-        if not ptm.startswith("-"):
-            ptm = "+" + ptm
-        return aa + ptm
-
     # remove cleavage sites
-    if re.match(r"[A-Z].*.[A-Z]", sequence) is not None:
+    if re.match(r"[-A-Z].*.[-A-Z]", sequence) is not None:
         sequence = sequence[2:-2]
 
     # direct (token-to-token) replacements (if any)
