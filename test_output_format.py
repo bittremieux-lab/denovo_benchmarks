@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 from pyteomics import proforma
 
@@ -13,12 +14,10 @@ def get_n_tokens(sequence: str) -> int:
 
 def validate_scan_index(scan_index: str) -> bool:
     SCAN_IDX_PATTERN = r"F\d+:\d+"
-
     return bool(re.fullmatch(SCAN_IDX_PATTERN, scan_index))
 
 def validate_scan(scan: str) -> bool:
     SCAN_IDX_PATTERN = r"F\d+:\d+"
-
     return bool(re.fullmatch(SCAN_IDX_PATTERN, scan))
 
 def validate_sequence(sequence: str) -> bool:
@@ -33,7 +32,7 @@ def validate_token_scores(scores: str, sequence: str) -> bool:
     return len(scores.split(",")) == n_tokens
 
 
-output_data = pd.read_csv("test_output.csv")
+output_data = pd.read_csv("test_outputs/test_output.csv")
 
 for col in ["sequence", "score", "aa_scores"]:
     assert col in output_data, f"`{col}` must be presented."
