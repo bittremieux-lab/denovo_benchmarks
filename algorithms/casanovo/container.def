@@ -4,6 +4,7 @@ From: python:3.10
 %files
     # Copy algorithm-related files
     algorithms/casanovo /algo
+    algorithms/base /algo/base
 
 %post
     # Install algorithm

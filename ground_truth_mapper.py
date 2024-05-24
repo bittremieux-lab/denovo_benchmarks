@@ -1,7 +1,38 @@
 """Methods to convert ground truth labels to the common data format."""
 
 import re
+from pyteomics.mass.unimod import Unimod
 
+
+REPLACEMENTS = [
+    ("C[UNIMOD:4]", "C"), # C is written without Carbamidomethyl modification
+]
+PTM_PATTERN = r"([A-Z])\[UNIMOD:([0-9]+)\]"
+
+UNIMOD_DB = Unimod()
+
+def transform_match_ptm(match):
+    """
+    Transform representation of amino acids substring matching
+    the PTM pattern.
+    Expects PTMs in ProForma notation, e.g. 'M[UNIMOD:35]'.
+
+    Parameters
+    ----------
+    match : re.Match
+        Substring matching the PTM pattern.
+
+    Returns
+    -------
+    transformed_match : str
+        Transformed PTM pattern representation.
+    """
+    aa, ptm_id = match.group(1), int(match.group(2))
+
+    ptm = str(UNIMOD_DB.get(ptm_id).monoisotopic_mass)
+    if not ptm.startswith("-"):
+        ptm = "+" + ptm
+    return f"{aa}[{ptm}]"
 
 def format_sequence(sequence: str) -> str:
     """
@@ -18,36 +49,8 @@ def format_sequence(sequence: str) -> str:
         Peptide sequence in the common output data format.
     """
 
-    REPLACEMENTS = []
-
-    PTM_PATTERN = r"([A-Z])\[([0-9.-]+)\]"
-
-    def transform_match_ptm(match: re.Match) -> str:
-        """
-        Transform representation of amino acids substring matching
-        the PTM pattern.
-
-        Parameters
-        ----------
-        match : re.Match
-            Substring matching the PTM pattern.
-
-        Returns
-        -------
-        transformed_match : str
-            Transformed PTM pattern representation.
-        """
-        # TODO: transformation with adding "+" is no longer required
-        # since ptm masses are now compared as close enough FLOAT NUMBERS, 
-        # not exactly matching STRINGS 
-        aa, ptm = match.group(1), match.group(2)
-        if not ptm.startswith("-"):
-            ptm = "+" + ptm
-        return aa + ptm
-    
-
     # remove cleavage sites
-    if re.match(r"[A-Z].*.[A-Z]", sequence) is not None:
+    if re.match(r"[A-Z-_].*.[A-Z-_]", sequence) is not None:
         sequence = sequence[2:-2]
 
     # direct (token-to-token) replacements (if any)

@@ -33,7 +33,8 @@ ls "$spectra_dir"/*.mgf
 
 # Loop through each algorithm in the algorithms directory
 for algorithm_dir in algorithms/*; do
-    if [ -d "$algorithm_dir" ]; then
+    # if [ -d "$algorithm_dir" ]; then
+    if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
         algorithm_name=$(basename "$algorithm_dir")
         output_file="$output_dir/${algorithm_name}_output.csv"
         echo "$output_file"
@@ -53,7 +54,7 @@ for algorithm_dir in algorithms/*; do
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
                 -B "${spectra_dir}":/algo/data \
                 "algorithms/${algorithm_name}/container.sif" \
-                bash -c "cd /algo && ls && ./make_predictions.sh data" # TODO: remove ls (for debug only)
+                bash -c "cd /algo && ./make_predictions.sh data"
             
             # Collect predictions in output_dir
             echo "EXPORT PREDICTIONS"
