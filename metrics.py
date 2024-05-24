@@ -43,7 +43,7 @@ def get_token_mass(
     if len(token) == 1:
         mass = aa_dict.get(token, default)
     else:
-        aa, ptm = token[0], token[1:]
+        aa, ptm = token[0], token[2:-1] # not a transparent way
         aa_mass = aa_dict.get(aa, default)
         ptm_mass = safe_float(ptm)  # float(ptm)
         mass = aa_mass + ptm_mass
