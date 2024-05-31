@@ -10,10 +10,11 @@ From: python:3.10
     # Install algorithm
     pip install --no-cache-dir casanovo
 
-# Run algorithm and convert outputs
-# Data is expected to be mounted into /algo/data dir
 %post
+    # Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
-    
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
 %runscript
     cd /algo && ./make_predictions.sh data
