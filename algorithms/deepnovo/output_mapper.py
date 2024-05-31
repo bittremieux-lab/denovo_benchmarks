@@ -1,6 +1,8 @@
 # python 2.7
-"""Script to convert predicted labels from the original algorithm 
-output format to the common data format."""
+"""
+Script to convert predictions from the algorithm output format 
+to the common output format.
+"""
 
 import argparse
 import re
@@ -18,7 +20,9 @@ class OutputMapper(OutputMapperBase):
 
     def format_sequence(self, sequence):
         """
-        Convert peptide sequence to the common output data format.
+        Convert peptide sequence to the common output data format 
+        (ProForma with modifications represented 
+        in the delta mass notation).
 
         Parameters
         ----------
@@ -28,7 +32,7 @@ class OutputMapper(OutputMapperBase):
         Returns
         -------
         transformed_sequence : str
-            Peptide sequence in the common output data format.        
+            Peptide sequence in the common output data format.  
         """
 
         # remove separator
@@ -43,13 +47,15 @@ class OutputMapper(OutputMapperBase):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "output_path", help="The path to the algorithm predictions file."
+    "--output_path", help="The path to the algorithm predictions file."
 )
 args = parser.parse_args()
 
-# read predictions from output file
+# Read predictions from output file
 output_data = pd.read_csv(args.output_path, sep="\t")
+output_data = output_data[(output_data != output_data.columns).all(axis=1)]
 
+# Rename columns to the expected column names if needed
 output_data = output_data.rename(
     {
         "output_seq": "sequence",
@@ -60,8 +66,10 @@ output_data = output_data.rename(
 )
 output_data = output_data[output_data["sequence"].notnull()]
 
+# Transform data to the common output format
 output_mapper = OutputMapper()
 output_data = output_mapper.format_output(output_data)
 
-# save processed predictions to the same file
+# Save processed predictions to outputs.csv
+# (the expected name for the algorithm output file)
 output_data.to_csv("outputs.csv", index=False)

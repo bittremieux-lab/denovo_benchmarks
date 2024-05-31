@@ -1,11 +1,13 @@
 Bootstrap: docker
 From: tensorflow/tensorflow:1.2.0-gpu
 
+# Define system variables to provide GPU access within the container.
 %environment
     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 %files
-    # Copy algorithm-related files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
     algorithms/deepnovo /algo
     algorithms/base /algo/base
 
@@ -28,6 +30,8 @@ From: tensorflow/tensorflow:1.2.0-gpu
     # last biopython version for py27
     pip install biopython==1.68
 
+    # Download algorithm-related files
+    # (source codes, weights, etc.)
     cd /algo
     # Download algorithm source code
     git clone https://github.com/nh2tran/DeepNovo.git
@@ -45,10 +49,11 @@ From: tensorflow/tensorflow:1.2.0-gpu
     cp train.example/translate.ckpt* ./
     rm -r train.example
 
-# Run algorithm and convert outputs
-# Data is expected to be mounted into /algo/data dir
 %post
+    # Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
-    
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
 %runscript
     cd /algo && ./make_predictions.sh data
