@@ -1,3 +1,5 @@
+"""Base class with methods for InputMapper."""
+
 class InputMapperBase:
     def __init__(self,):
         pass

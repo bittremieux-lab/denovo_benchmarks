@@ -29,7 +29,7 @@ From: python:3.10
     pip install --no-cache-dir ...
     
 %post
-		# Make sure make_predictions.sh file is executable.
+	# Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
     
 # Run algorithm and convert outputs.

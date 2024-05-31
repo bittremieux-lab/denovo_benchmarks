@@ -1,4 +1,7 @@
-"""TODO"""
+"""
+Script to convert predictions from the algorithm output format 
+to the common output format.
+"""
 
 import argparse
 import re
@@ -14,19 +17,20 @@ class OutputMapper(OutputMapperBase):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "output_path", help="The path to the algorithm predictions file."
+    "--output_path", help="The path to the algorithm predictions file."
 )
 args = parser.parse_args()
 
 # Read predictions from output file
 output_data = pd.read_csv(args.output_path, sep="\t")
 
-# Rename columns to the expected names
+# Rename columns to the expected column names if needed
 output_data = output_data.rename(
     {
-        "output_seq": "sequence",
-        "output_score": "score",
-        "scan": "scans",
+        # "output_sequence": "sequence",
+        # "output_score": "score",
+        # "scan": "scans",
+        # ...
     },
     axis=1,
 )

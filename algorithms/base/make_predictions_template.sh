@@ -12,7 +12,7 @@ for file_idx in "${!sorted_files[@]}"; do
     # Convert input data to model format
     python input_mapper.py \
         --input_path "$input_file" \
-        --file_i "$file_idx" 
+        --file_i "$file_idx" \
         --output_path ./input_data.mgf
 
     # Run de novo algorithm on the input data
@@ -20,4 +20,4 @@ for file_idx in "${!sorted_files[@]}"; do
 done
 
 # Convert predictions to the general output format
-python output_mapper.py ...
+python output_mapper.py --output_path=...

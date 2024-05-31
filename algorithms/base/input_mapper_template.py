@@ -1,3 +1,8 @@
+"""
+Script to convert input .mgf files from the common input format 
+to the algorithm expected format.
+"""
+
 import argparse
 import os
 from pyteomics import mgf
@@ -12,15 +17,15 @@ class InputMapper(InputMapperBase):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "input_path",
+    "--input_path",
     help="The path to the input .mgf file.",
 )
 parser.add_argument(
-    "file_i",
+    "--file_i",
     help="Number the input .mgf file in a sorted list.",
 )
 parser.add_argument(
-    "output_path",
+    "--output_path",
     help="The path to write prepared input data in the format expected by the algorithm.",
 )
 args = parser.parse_args()
