@@ -49,10 +49,6 @@ def format_sequence(sequence: str) -> str:
         Peptide sequence in the common output data format.
     """
 
-    # remove cleavage sites
-    if re.match(r"[A-Z-_].*.[A-Z-_]", sequence) is not None:
-        sequence = sequence[2:-2]
-
     # direct (token-to-token) replacements (if any)
     for repl_args in REPLACEMENTS:
         sequence = sequence.replace(*repl_args)
