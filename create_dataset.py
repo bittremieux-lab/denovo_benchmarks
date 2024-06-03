@@ -12,17 +12,19 @@ VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
 ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
 
 # Dataset id in MS repository 
-DSET_ID = "MSV000086665" # "PXD004280"
+DSET_ID = "MSV000085941" # "PXD004280" # "MSV000086665"
 # Number of raw files to download
 N_FILES = 3
+# Skip files if corresponding labeled mgf files already exist 
+SKIP_EXISTING = True
 # Path to ThermoRawFileParser apptainer container
 RAW_FILE_PARSER_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "thermorawfileparser_latest.sif")
 # Path to target database (fasta) for DB search  
-DB_FILE = "uniprotkb_proteome_UP000005640_2024_05_16.fasta"
+DB_FILE = "yarrowia_lipolytica_uniprotkb_proteome_UP000182444_2024_06_03.fasta" # "uniprotkb_proteome_UP000005640_2024_05_16.fasta"
 # Path to MSFragger executable file (jar)
 MSFRAGGER_PATH = os.path.join(VSC_DATA, "easybuild", "build", "MSFragger-4.0", "MSFragger-4.0.jar")
 # DB search params file (in SEARCH_PARAMS_DIR)
-SEARCH_PARAMS_FILE = "human_closed_fragger.params"
+SEARCH_PARAMS_FILE = "yarrowia_lipolytica_closed_fragger.params" # "human_closed_fragger.params"
 # Max q-value threshold for rescored DB search results
 Q_VAL_THRESHOLD = 0.01
 # Spectrum params order for saving labeled mgf files
@@ -54,6 +56,14 @@ def get_psm_scan_id(psm_id):
     return psm_id.split("-")[1]
 
 
+# Create dir for labeled mgf files
+labeled_mgf_files_dir = os.path.join(DATASET_STORAGE_DIR, DSET_ID)
+os.makedirs(labeled_mgf_files_dir, exist_ok=True)
+print("Saving dataset to:", labeled_mgf_files_dir)
+labeled_fnames = [os.path.splitext(f)[0] for f in os.listdir(labeled_mgf_files_dir)]
+print("Existing labeled files:")
+print(labeled_fnames)
+
 # Download raw files from repository
 dset_dir = os.path.join(RAW_DATA_DIR, DSET_ID)
 proj = ppx.find_project(
@@ -61,9 +71,16 @@ proj = ppx.find_project(
     local=dset_dir,
 )
 fnames = [fname for fname in proj.remote_files() if fname.lower().endswith(".raw")][:N_FILES]
+if SKIP_EXISTING:
+    fnames = [f for f in fnames if os.path.splitext(f)[0] not in labeled_fnames]
 proj.download(fnames)
 
 raw_file_pathes = [file_path for file_path in proj.local_files() if file_path.suffix.lower() == ".raw"]
+if SKIP_EXISTING:
+    raw_file_pathes = [
+        file_path for file_path in raw_file_pathes
+        if file_path.stem not in labeled_fnames
+    ]
 print(raw_file_pathes)
 
 # Convert raw files to mzml (ThermoRawFileParser)
@@ -123,7 +140,12 @@ fasta.write_decoy_db(
 
 # Run DB search on mzml files (MSFragger)
 search_params_file = os.path.join(SEARCH_PARAMS_DIR, SEARCH_PARAMS_FILE)
-mzml_files = os.path.join(mzml_files_dir, "*.mzML")
+
+# Generate <list of mzML/mzXML/MGF/RAW/.d files> :
+mzml_files = [f for f in os.listdir(mzml_files_dir) if os.path.splitext(f)[1].lower() == ".mzml"]
+if SKIP_EXISTING:
+    mzml_files = [f for f in mzml_files if os.path.splitext(f)[0] not in labeled_fnames]
+mzml_files = [os.path.join(mzml_files_dir, f) for f in mzml_files]
 
 cmd = [
     "java",
@@ -131,7 +153,7 @@ cmd = [
     "-jar",
     MSFRAGGER_PATH,
     search_params_file,
-    mzml_files,
+    *mzml_files,
 ]
 subprocess.run(" ".join(cmd), shell=True, check=True)
 
@@ -139,6 +161,8 @@ subprocess.run(" ".join(cmd), shell=True, check=True)
 rescored_files_dir = os.path.join(RESCORED_DATA_DIR, DSET_ID)
 os.makedirs(rescored_files_dir, exist_ok=True)
 
+# Oktoberfest only accepts the whole dir, but will try to automatically skip files
+# if rescoring results already exist for them
 spectra = mzml_files_dir  # the location of the mzML file containing the measured spectra
 spectra_type = "mzml"  # the format the spectra are provided in ("mzml", "RAW", "d")
 search_results = mzml_files_dir  # the location of the search engine output
@@ -181,15 +205,15 @@ results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "filename", "proteinIds", "q-value"]]
 results_df["scan_id"] = results_df["PSMId"].apply(get_psm_scan_id)
 
-# Create dir for labeled mgf files
-labeled_mgf_files_dir = os.path.join(DATASET_STORAGE_DIR, DSET_ID)
-os.makedirs(labeled_mgf_files_dir, exist_ok=True)
-
 # Annotated spectra with found PSMS, save as a dataset in DATASET_STORAGE_DIR
 for mgf_file in os.listdir(mgf_files_dir):
     fname = mgf_file.split(".")[0]
-    print(fname)
     
+    if SKIP_EXISTING and fname in labeled_fnames:
+        print(fname, "skipped.")
+        continue
+    
+    print(fname)
     file_labels_df = results_df[results_df["filename"] == fname]
     file_labels_df = file_labels_df.sort_values("scan_id", key=lambda x: x.apply(int))
     file_scan_ids = file_labels_df.scan_id.values.tolist()

@@ -9,4 +9,7 @@ DATASETS = {
 
     The species that is different from model species and was not used for training of any de novo tool.
     """,
+    "Apis-mellifera": """
+    De novo nine-species benchmark (MSV000090982)
+    """
 }

@@ -51,7 +51,7 @@ with tab1:
         Unless otherwise specified, PSMs with estimated FDR (Percolator q-value) **<1%** 
         were selected as ground truth peptides.
 
-        The plots demonstrate performance of *de novo* peptide sequencing algorithms according to 2 metrics:
+        The plots demonstrate performance of *de novo* peptide sequencing algorithms according to **2** metrics:
         - Peptide prediction precision and coverage
         - Amino acids prediction precision and coverage
 
