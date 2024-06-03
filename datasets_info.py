@@ -1,6 +1,6 @@
 DATASETS = {
     "PXD004280": """
-    Human (Jurkat cells)
+    Homo sapiens (Human Jurkat cells)
     Instrument: Q Exactive
     """,
     "MSV000085941": """
