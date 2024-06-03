@@ -1,6 +1,8 @@
 import os
 import streamlit as st
 import streamlit.components.v1 as components
+from datasets_info import DATASETS
+
 
 RESULTS_DIR = "results"
 PLOT_HEIGHT = 600
@@ -60,6 +62,10 @@ with tab1:
     datasets = os.listdir(RESULTS_DIR)
     for dataset_name in datasets:
         st.subheader(dataset_name)
+        if dataset_name in DATASETS:
+            dataset_descr = DATASETS[dataset_name]
+            st.text(dataset_descr)
+
         col1, col2 = st.columns(2, gap="medium")
 
         with col1:
