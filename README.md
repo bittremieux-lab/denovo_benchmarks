@@ -1,5 +1,3 @@
-TODO: update for Apptainer (Singularity) containers.
-
 # Benchmarking de novo peptide sequencing algorithms
 
 ## Adding a new algorithm
@@ -16,6 +14,7 @@ It also includes the `InputMapperBase` and `OutputMapperBase` base classes for i
 For examples, you can check 
 [Casanovo](https://github.com/PominovaMS/denovo_benchmarks/tree/main/algorithms/casanovo) 
 and [DeepNovo](https://github.com/PominovaMS/denovo_benchmarks/tree/main/algorithms/deepnovo) implementations. 
+
 
 - **`container.def`** — definition file of the [Apptainer](https://apptainer.org/docs/user/main/definition_files.html) 
 container image that creates environment and installs dependencies required for running the algorithm.
@@ -41,7 +40,8 @@ from its original representation (**input format**) to the format expected by th
     - If the algorithm uses the ground truth sequence from the input file (e.g. for evaluation), 
     tokens in the annotation sequence may need conversion to the expected format  
     (e.g. `'M[UNIMOD:35]' → 'Mmod'` or `'M[+15.999]' → 'Mmod'` )  
-` `  
+
+
 - **`output_mapper.py`** — python script to convert the algorithm output to the common **output format**.
 
     **Output format**
@@ -54,7 +54,7 @@ from its original representation (**input format**) to the format expected by th
             `F{filename}:{scan_id}` string, where  
             `filename` — name of the .mgf file in a dataset,  
             `scan_id` — scan id of each spectrum (SCANS= in an .mgf file)  
-        ` `  
+        
     
     - **Output sequence format**
         - 20 amino acid tokens:  
