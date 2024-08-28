@@ -66,7 +66,7 @@ with tab1:
             dataset_descr = DATASETS[dataset_name]
             st.text(dataset_descr)
 
-        col1, col2 = st.columns(2, gap="medium")
+        col1, col2, col3 = st.columns(3, gap="medium")
 
         with col1:
             path_to_html = os.path.join(
@@ -81,6 +81,16 @@ with tab1:
         with col2:
             path_to_html = os.path.join(
                 RESULTS_DIR, dataset_name, "AA_precision_coverage.html"
+            )
+            with open(path_to_html, "r") as f:
+                html_data = f.read()
+            components.html(
+                html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
+            )
+
+        with col3:
+            path_to_html = os.path.join(
+                RESULTS_DIR, dataset_name, "number_of_proteome_matches.html"
             )
             with open(path_to_html, "r") as f:
                 html_data = f.read()
@@ -155,9 +165,9 @@ with tab2:
                     - `"sequence"` — predicted peptide sequence, written in the predefined **output sequence format**
                     - `"score"` — *de novo* algorithm "confidence" score for a predicted sequence
                     - `"aa_scores"` — per-amino acid scores, if available. If not available, the whole peptide `score` will be used as a score for each amino acid.
-                    - `"scans"` — information to match each prediction with its ground truth sequence.  
-                        `F{file_i}:{scan_id}` string, where  
-                        `file_i` — number of the .mgf file in a dataset (lexicographically sorted),  
+                    - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
+                        `{filename}:{scan_id}` string, where  
+                        `filename` — name of the .mgf file in a dataset,  
                         `scan_id` — scan id of each spectrum (SCANS= in an .mgf file)  
                     ` `  
                 

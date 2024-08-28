@@ -24,7 +24,7 @@ container image that creates environment and installs dependencies required for 
     **Input**: path to a dataset folder containing .mgf files with spectra data  
     **Output**: output file (in a common output format) containing predictions for all spectra in the dataset
 
-    To configure the model for specific data properties (e.g. non-tryptic data, data from a particular instrument, etc.), please use `dataset tags`. 
+    To configure the model for specific data properties (e.g. non-tryptic data, data from a particular instrument, etc.), please use **dataset tags**. 
     Current set of tags includes `nontryptic`, `timstof`, `waters`, `sciex`.
     Example usage can be found in `algorithms/base/make_predictions_template.sh`.
 
