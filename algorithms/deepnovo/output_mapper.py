@@ -47,7 +47,7 @@ class OutputMapper(OutputMapperBase):
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--output_path", help="The path to the algorithm predictions file."
+    "--output_path", required=True, help="The path to the algorithm predictions file."
 )
 args = parser.parse_args()
 
@@ -60,7 +60,7 @@ output_data = output_data.rename(
     {
         "output_seq": "sequence",
         "output_score": "score",
-        "scan": "scans",
+        "scan": "spectrum_id",
     },
     axis=1,
 )

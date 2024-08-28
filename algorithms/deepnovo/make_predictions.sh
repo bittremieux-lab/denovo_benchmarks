@@ -4,25 +4,29 @@
 cp config.py DeepNovo/deepnovo_config.py
 rm -f outputs.tab
 
-# List and sort files in the dataset
-read -a sorted_files -d "\n" < <(ls -1 "$@"/*.mgf | sort)
+# Get dataset property tags
+DSET_TAGS=$(python base/dataset_tags_parser.py --dataset "$@")
+# Parse tags and set individual environment variables for each of them
+# (variable names are identical to tag names
+#  -- check DatasetTag values in config.py)
+while IFS='=' read -r key value; do
+    export "$key"="$value"
+done <<< "$DSET_TAGS"
 
-# Iterate through sorted files in the dataset
-for file_idx in "${!sorted_files[@]}"; do
+# Iterate through files in the dataset
+for input_file in "$@"/*.mgf; do
 
-    input_file=${sorted_files[file_idx]}
-    echo "Processing file $file_idx: $input_file"
+    echo "Processing file: $input_file"
 
     # Convert input data to model format
     python input_mapper.py \
         --input_path "$input_file" \
-        --file_i "$file_idx" \
         --output_path ./input_data.mgf
 
     # Run de novo algorithm on the input data
     python DeepNovo/deepnovo_main.py \
-    --train_dir . --decode \
-    --beam_search --beam_size 5
+        --train_dir . --decode \
+        --beam_search --beam_size 5
 
     # Collect predictions
     cat decode_output.tab >> outputs.tab

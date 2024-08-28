@@ -92,8 +92,8 @@ class InputMapper(InputMapperBase):
         ----------
         spectrum : dict
             Peptide sequence in the original format.
-        file_i: int
-            Number of .mgf file being processed. Used to ensure a unique
+        filename: int
+            Name of .mgf file being processed. Used to ensure a unique
             scan_id for each spectrum.
 
         Returns
@@ -105,10 +105,12 @@ class InputMapper(InputMapperBase):
             spectrum["params"]["seq"]
         )
 
+        # add dummy labels
+        spectrum["params"]["seq"] = "PEPTIDE"
+
         # add file id to scan data
-        spectrum["params"]["scans"] = "F{}:{}".format(
-            file_i, spectrum["params"]["scans"]
-        )
+        scan_id = spectrum["params"]["scans"]
+        spectrum["params"]["scans"] = filename + ":" + scan_id
         return spectrum
 
 
@@ -118,10 +120,6 @@ parser.add_argument(
     help="The path to the input .mgf file.",
 )
 parser.add_argument(
-    "--file_i",
-    help="Number the input .mgf file in a sorted list.",
-)
-parser.add_argument(
     "--output_path",
     help="The path to write prepared input data in the format expected by the algorithm.",
 )
@@ -129,9 +127,11 @@ args = parser.parse_args()
 
 # Transform data to the algorithm input format
 input_mapper = InputMapper()
+
+filename = os.path.basename(filename).split(".")[0]
 spectra = mgf.read(args.input_path)
 mapped_spectra = [
-    input_mapper.format_input(spectra[i], args.file_i)
+    input_mapper.format_input(spectra[i], filename)
     for i in tqdm(range(len(spectra)))
 ]
 
