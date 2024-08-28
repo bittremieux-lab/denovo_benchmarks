@@ -4,6 +4,7 @@ from oktoberfest.runner import run_job
 from dataset_utils import *
 from dataset_config import get_config
 
+Q_VAL_THRESHOLD = 0.01
 
 # Paths parsing
 parser = argparse.ArgumentParser()
@@ -20,28 +21,28 @@ for data_dir in [
     RAW_DATA_DIR, 
     MZML_DATA_DIR, 
     RESCORED_DATA_DIR, 
-    MGF_DATA_DIR, 
     RESCORE_PARAMS_DIR, 
     DATASET_STORAGE_DIR
+    # MGF_DATA_DIR,
 ]:
     os.makedirs(data_dir, exist_ok=True)
 
 # Create dirs for intermediate dataset files
 raw_files_dir = os.path.join(RAW_DATA_DIR, dset_id)
-mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name) # TODO: renamve to smth search_files_dir? 
+mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name) # TODO: rename to smth search_files_dir? 
 rescored_files_dir = os.path.join(RESCORED_DATA_DIR, dset_name)
-mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
-labeled_mgf_files_dir = os.path.join(DATASET_STORAGE_DIR, dset_name)
+mgf_files_dir = os.path.join(DATASET_STORAGE_DIR, dset_name, "mgf")
 
 for data_dir in [
-    raw_files_dir, mzml_files_dir, rescored_files_dir, mgf_files_dir, labeled_mgf_files_dir
+    raw_files_dir, mzml_files_dir, rescored_files_dir, mgf_files_dir,
 ]:
     os.makedirs(data_dir, exist_ok=True)
 
-print("Creating dataset at:", labeled_mgf_files_dir)
-labeled_fnames = [os.path.splitext(f)[0] for f in os.listdir(labeled_mgf_files_dir)]
-print("Existing labeled files:")
-print(labeled_fnames)
+print("Creating dataset at:", mgf_files_dir)
+fnames = [os.path.splitext(f)[0] for f in os.listdir(mgf_files_dir)]
+print("Existing files:")
+print(fnames)
+# TODO: list summary of csv with labels instead?
 
 # Get list of files to process 
 files_list = get_files_list(config.download)
@@ -55,10 +56,10 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
     if not set(fname.lower() + config.db_search.ext for fname in files_list).issubset(
             set(fname.lower() for fname in os.listdir(mzml_files_dir))
         ):
-        # Download raw files from repository if needed      
-        if not set(fname.lower() + config.download.ext for fname in files_list).issubset(
-                set(fname.lower() for fname in os.listdir(raw_files_dir))
-            ):
+        # Download raw files from repository if needed
+        if not all(
+            os.path.exists(os.path.join(raw_files_dir, file_path)) for file_path in files_list.values()
+        ):
             download_files(config.download, files_list)
 
         # распаковать ЕСЛИ они еще не распакованы
@@ -79,20 +80,16 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
                     file_path = os.path.join(raw_files_dir, fname)
                     shutil.unpack_archive(filename=file_path, extract_dir=unpack_dir)
 
-        if config.download.ext == ".raw":
-            # Convert raw files to mzml (ThermoRawFileParser) # TODO: check for files from files_list only?
+        if config.download.ext in [".raw", ".wiff"]:
+            # Convert raw files to mzml (msconvert) # TODO: check for files from files_list only?
             convert_raw(dset_id, files_list, mzml_files_dir, target_ext=config.db_search.ext) # also always mzml??
 
-        elif config.download.ext == ".wiff":
-            # Convert raw files to mzml (msconvert) # TODO: check for files from files_list only?
-            convert_wiff(dset_id, files_list, mzml_files_dir, target_ext=config.db_search.ext) # always mzml?
-        
         else:
             print(f"Unknown file extension {config.download.ext}")
     
     # TODO: add contaminants (before or after decoys?)
     # Generate decoys for DB search # TODO: add decoys generation only if doesn't exist
-    db_w_decoys_path = generate_decoys_fasta(db_file=config.db_search.database_path)
+    db_w_decoys_path = generate_decoys_fasta(dset_name, config.db_search.database_path)
 
     # Run DB search (MSFragger)
     run_database_search(dset_name, db_w_decoys_path, config.db_search)
@@ -116,10 +113,8 @@ if not f"{file_prefix}.percolator.psms.txt" in os.listdir(rescored_files_dir):
 if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
         set(fname.lower() for fname in os.listdir(mgf_files_dir))
     ):
-    # Download raw files from repository if needed  
-    if not set(fname.lower() + config.download.ext for fname in files_list).issubset(
-            set(fname.lower() for fname in os.listdir(raw_files_dir))
-        ):
+    # Download raw files from repository if needed
+    if not all(os.path.exists(os.path.join(raw_files_dir, file_path)) for file_path in files_list.values()):
         download_files(config.download, files_list)
 
     # распаковать ЕСЛИ они еще не распакованы
@@ -140,21 +135,41 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
                 file_path = os.path.join(raw_files_dir, fname)
                 shutil.unpack_archive(filename=file_path, extract_dir=unpack_dir)
 
-    if config.download.ext == ".raw":
-        # Convert raw files to mgf (ThermoRawFileParser)
+    if config.download.ext in [".raw", ".wiff"]:
+        # Convert raw files to mgf (msconvert)
         convert_raw(dset_id, files_list, mgf_files_dir, target_ext=".mgf")
-
-    elif config.download.ext == ".wiff":
-        # Convert wiff files to mgf (msconvert)
-        convert_wiff(dset_id, files_list, mgf_files_dir, target_ext=".mgf")
 
     elif config.download.ext == ".d.zip":
         # After DB search files should be already created 
-        # from uncalibrated.mgf produced by MSFagger
+        # from uncalibrated.mgf produced by MSFragger
         print("No mgf files found for .d data")
     
     else:
         print(f"Unknown file extension {config.download.ext}")
 
 # Load DB search + rescoring results
-create_labeled_mgf(dset_name, labeled_mgf_files_dir, config.rescoring.q_val_threshold)
+# create_labeled_mgf(dset_name, labeled_mgf_files_dir, config.rescoring.q_val_threshold)
+# instead:
+# - save unlabeled mgf to dataset on VSC_DATA (should we just change location of mgf folder)?
+# - process and store labels from rescoring separately
+
+# Load DB search + rescoring results
+results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
+results_df = pd.read_csv(results_path, sep="\t")
+results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
+
+results_df["filename"] = results_df["PSMId"].apply(get_filename)
+results_df["scan_id"] = results_df[["PSMId", "filename"]].apply(
+    lambda row: get_psm_scan_id(row["PSMId"], row["filename"]), 
+    axis=1
+)
+results_df["peptide"] = results_df["peptide"].apply(format_peptide_notation)
+results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["scan_id"]
+sequences_true = results_df[["peptide", "spectrum_id"]]
+sequences_true = sequences_true.rename({"peptide": "seq"}, axis=1)
+
+labels_path = os.path.join(DATASET_STORAGE_DIR, dset_name, "labels.csv")
+sequences_true.to_csv(labels_path, index=False)
+
+# Add dataset tags to the dataset_tags file
+collect_dataset_tags(config)

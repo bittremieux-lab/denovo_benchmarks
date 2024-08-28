@@ -28,6 +28,8 @@ KOINA_URL = "https://koina.wilhelmlab.org:443/v2/models/"
 MSBOOSTER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "rescore_params", "msbooster_base.params")
 # Spectrum params order for saving labeled mgf files
 MGF_KEY_ORDER = ["title", "pepmass", "rtinseconds", "charge", "scans", "seq"]
+# Path to the file with datasets properties (tags)
+DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
 
 PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
 RESCORE_PARAMS_DIR = os.path.join(ROOT, "rescore_params")
@@ -51,14 +53,6 @@ def get_files_list(download_config):
     
     TODO.
     """
-    dset_id = download_config.dset_id
-    dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
-    ext = download_config.ext
-    proj = ppx.find_project(
-        dset_id, 
-        local=dset_dir,
-    )
-
     def check_file(file_path):
         for keyword in download_config.keywords:
             if keyword not in file_path:
@@ -67,13 +61,32 @@ def get_files_list(download_config):
             return False
         return True
 
-    files_list = [
-        file_path
-        for file_path 
-        in proj.remote_files() 
-        if check_file(file_path)
-    ][:download_config.n_files]
+    dset_id = download_config.dset_id
+    dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
+    ext = download_config.ext
 
+    if "PXD" in dset_id or "MSV" in dset_id:
+        proj = ppx.find_project(
+            dset_id, 
+            local=dset_dir,
+        )
+
+        files_list = [
+            file_path
+            for file_path 
+            in proj.remote_files() 
+            if check_file(file_path)
+        ]
+    else:
+        # if load via wget, file_path is just fname.ext
+        files_list = [
+            os.path.basename(file_link) 
+            for file_link 
+            in download_config.links
+            # if check_file(file_link)
+        ]
+
+    files_list = files_list[:download_config.n_files]
     files_list = {
         os.path.basename(file_path)[:-len(ext)]: file_path
         for file_path
@@ -88,53 +101,44 @@ def download_files(download_config, files_list):#, unpack_dir=None, raw_ext=None
     dset_id = download_config.dset_id
     dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
     print(f"Loading dataset {dset_id} to the folder {dset_dir}")
-    proj = ppx.find_project(
-        dset_id, 
-        local=dset_dir,
-    )
-    print("local files:", proj.local_files())
+
+    if "PXD" in dset_id or "MSV" in dset_id:
+        proj = ppx.find_project(
+            dset_id, 
+            local=dset_dir,
+        )
+        print("Local files:", proj.local_files())
     
-    # select files to download
-    # TODO: change: not skipping existing files so far = download all from fnames
-    fnames = list(files_list.values())
-    if download_config.ext == ".wiff":
-        fnames += [fname + ".scan" for fname in fnames]
-    proj.download(fnames)
-    print("All local files:\n", proj.local_files()) # TODO: remove
+        # select files to download
+        # TODO: change: not skipping existing files so far = download all from fnames
+        fnames = list(files_list.values())
+        if download_config.ext == ".wiff":
+            fnames += [fname + ".scan" for fname in fnames]
+        proj.download(fnames)
+        print("Loaded files:\n", proj.local_files()) # TODO: remove
+
+    else:
+        # if load via wget, need to take download_links from downloag_config for each file
+        file_links = {
+            os.path.basename(file_link)[:-len(download_config.ext)]: file_link
+            for file_link 
+            in download_config.links
+        }
+        print("Local files:", os.listdir(dset_dir))
+        for fname, file_path in files_list.items():
+            if not os.path.exists(os.path.join(dset_dir, file_path)):
+                cmd = [
+                    "wget",
+                    "-P",
+                    dset_dir,
+                    file_links[fname]
+                ]
+                subprocess.run(" ".join(cmd), shell=True, check=True)
+        print("Loaded files:", os.listdir(dset_dir))
 
 
 def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
     os.makedirs(target_dir, exist_ok=True)    
-    
-    dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
-    raw_file_pathes = [
-        os.path.join(dset_dir, file_path)
-        for fname, file_path
-        in files_list.items()
-    ]
-    print("Files:\n", raw_file_pathes)
-    print(f"Converting to {target_ext}. Storing to {target_dir}")
-
-    for file_path in tqdm(raw_file_pathes):
-        cmd = [
-            "apptainer",
-            "exec",
-            "--cleanenv",
-            RAW_FILE_PARSER_PATH,
-            "ThermoRawFileParser.sh",
-            "-i",
-            str(file_path),
-            "-o",
-            target_dir,
-        ]
-        if target_ext == ".mgf":
-            cmd += ["-f", "0"]
-        subprocess.run(" ".join(cmd), shell=True, check=True)
-    print(os.listdir(target_dir)) # need this?
-
-
-def convert_wiff(dset_id, files_list, target_dir, target_ext=".mzml"):
-    os.makedirs(target_dir, exist_ok=True)
 
     dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
     raw_file_pathes = {
@@ -146,7 +150,9 @@ def convert_wiff(dset_id, files_list, target_dir, target_ext=".mzml"):
     print(f"Converting to {target_ext}. Storing to {target_dir}")
 
     ext_flag = "--mgf" if target_ext == ".mgf" else "--mzML"
+    filter_ms_level = 2 if target_ext == ".mgf" else 1
     for fname, file_path in tqdm(raw_file_pathes.items()):
+        # TODO в идеале тоже надо пропускать файлы, которые уже существуют
         out_fname = fname + target_ext
         cmd = [
             "apptainer",
@@ -161,51 +167,40 @@ def convert_wiff(dset_id, files_list, target_dir, target_ext=".mzml"):
             "--outfile",
             out_fname,
             "--filter",
-            '"peakPicking vendor msLevel=1-2"',
-            file_path
+            '"peakPicking vendor"',
+            "--filter",
+            f'"msLevel {filter_ms_level}-"',
         ]
+        # if target_ext == ".mgf":
+        #     cmd += [
+        #         "--filter",
+        #         '"threshold bpi-relative .001 most-intense"'
+        #     ]
+        cmd += [file_path]
         subprocess.run(" ".join(cmd), shell=True, check=True)
-    print(os.listdir(target_dir)) # need this?
-
-
-# TODO: remove, mb not needed
-def convert_d_to_mgf(dset_name, files_list):# raw_data_dir, bruker_file_name, mgf_data_dir, mgf_file_name):    
-    mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
-    mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
-    
-    for fname in files_list:
-        bruker_file_name = fname + ".d"
-        bruker_d_folder_name = os.path.join(mzml_files_dir, bruker_file_name)
-        mgf_file_name = fname + ".mgf"
-        print(fname, bruker_d_folder_name, mgf_file_name)
-
-        data = alphatims.bruker.TimsTOF(bruker_d_folder_name)
-        data.save_as_spectra(
-            mgf_files_dir, 
-            mgf_file_name, 
-            centroiding_window=CENTROID_WINDOW,
-            keep_n_most_abundant_peaks=-1,
-        )
+    print(os.listdir(target_dir))
     
     
 # should we run it only if there is no prepared decoys file? 
-def generate_decoys_fasta(db_file):
+def generate_decoys_fasta(dset_name, db_file):
+    mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     db_path = os.path.join(PROTEOMES_DIR, db_file)
 
-    name, ext = db_file.split(".")
-    name = name + "_w_decoys"
-    db_w_decoys_file = ".".join([name, ext])
+    cmd = [
+        "cd",
+        mzml_files_dir,
+        "&&",
+        "philosopher workspace --init",
+        "&&",
+        "philosopher database",
+        "--custom",
+        db_path,
+        "--contam"
+    ]
+    subprocess.run(" ".join(cmd), shell=True, check=True)
 
-    db_w_decoys_path = os.path.join(PROTEOMES_DIR, db_w_decoys_file)
-    
-    # TODO: check if file at db_w_decoys_path already exists (if yes, skip creation step)
-    
-    fasta.write_decoy_db(
-        db_path, 
-        db_w_decoys_path,
-        mode='reverse',
-        prefix='rev_', # what Percolator expects to see
-    )
+    db_w_decoys_path = [fname for fname in os.listdir(mzml_files_dir) if fname.endswith(".fas")][0]
+    db_w_decoys_path = os.path.join(mzml_files_dir, db_w_decoys_path)
     return db_w_decoys_path
 
 
@@ -232,7 +227,7 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
     
     cmd = [
         "java",
-        "-Xmx64G",
+        "-Xmx160G",
         "-jar",
         MSFRAGGER_PATH,
         *options,
@@ -247,7 +242,7 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
             fname = os.path.splitext(file_path)[0]
             src_fname = fname + "_uncalibrated.mzML"
             dst_fname = fname + ".mzML"
-            shutil.copyfile(src=src_fname, dst=dst_fname) # TODO: replace copy to rename (move)
+            shutil.move(src_fname, dst_fname) # TODO: replace copy to rename (move)
         print("Created mzML files:\n", os.listdir(mzml_files_dir))
 
         # Use uncalibrared mgf files to get unlabeled mgf files from .d
@@ -256,7 +251,7 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
             fname = os.path.splitext(file_path)[0]
             src_fname = fname + "_uncalibrated.mgf"
             dst_fname = os.path.join(mgf_files_dir, os.path.basename(fname + ".mgf"))
-            shutil.copyfile(src=src_fname, dst=dst_fname) # TODO: replace copy to move
+            shutil.move(src_fname, dst_fname) # TODO: replace copy to move
         print("Created unlabeled mgf files\n", os.listdir(mgf_files_dir))
 
 
@@ -305,8 +300,8 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
         MSBOOSTER_PATH,
         *options,
     ]
-    print("MSBOOSTER DEBUG:\n")
-    print(" ".join(cmd))
+    print("MSBOOSTER DEBUG:\n") # TODO for debug only, remove
+    print(" ".join(cmd)) # TODO
     subprocess.run(" ".join(cmd), shell=True, check=True)
     print("Created PSMs features (_rescore.pin):\n", os.listdir(mzml_files_dir))
 
@@ -314,6 +309,7 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
 def run_psm_rescoring(dset_name, rescoring_config, files_list):
     """Run Percolator for PSMs rescoring (using MSBooster features)."""
     # TODO: move outside (to constants?)
+    n_cols = 38
     num_threads = 3
     test_fdr = 0.01
     train_fdr = 0.01
@@ -326,6 +322,7 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
     dfs = [
         pd.read_csv(
             os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
+            usecols=list(range(n_cols)),
             sep="\t"
         ) for fname in files_list
     ]
@@ -361,50 +358,6 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
         "PSMs rescoring results (.percolator.psms.txt):\n", 
         os.listdir(rescored_files_dir)
     )
-    
-    
-# TODO: remove? (only used for Oktoberfest)
-def get_rescoring_config(dset_name, rescoring_config):
-    mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
-    rescored_files_dir = os.path.join(RESCORED_DATA_DIR, dset_name)
-    # oktoberfest only accepts the whole dir, but will try to automatically skip files
-    # if rescoring results already exist for them
-    spectra = mzml_files_dir  # the location of the mzML file containing the measured spectra, i.e. "<your download_dir>/<filename>.mzml"
-    search_results = mzml_files_dir  # the location of the search engine output
-    
-    rescoring_config = {
-        "type": "Rescoring",
-        "inputs": {
-            "search_results": search_results,
-            "search_results_type": "MSFragger",
-            "spectra": spectra,
-            "spectra_type": rescoring_config.spectra_type
-        },
-        "output": rescored_files_dir,
-        "models": {
-            # the model used for fragment intensity prediction, e.g. "some model"
-            "intensity": rescoring_config.intensity_model,
-            # the model used for retention time prediction, e.g. "some model"
-            "irt": rescoring_config.irt_model,
-        },
-        # the Koina server that provides access to the specified models, e.g. "<url>:<port number>"
-        "prediction_server": "koina.wilhelmlab.org:443",
-        "ssl": True,
-        "numThreads": 1,
-        "fdr_estimation_method": "percolator",
-        "massTolerance": rescoring_config.massTolerance,
-        "unitMassTolerance": rescoring_config.unitMassTolerance,
-        # "ce_alignment_options": {
-        #     "ce_range": rescoring_config.ce_range
-        # }
-    }
-    
-    # TODO: do we really need to save and store it, 
-    # or just save -> run -> delete (because we will have a general config instead)
-    rescoring_config_path = os.path.join(RESCORE_PARAMS_DIR, f"{dset_name}_rescoring_config.json")
-    with open(rescoring_config_path, 'w') as fp:
-        json.dump(rescoring_config, fp)
-    return rescoring_config_path
 
 
 def get_filename(psm_id: str):
@@ -486,6 +439,24 @@ def create_labeled_mgf(dset_name, labeled_mgf_files_dir, q_val_threshold=0.01):
                 labeled_spectra_i,
                 labeled_mgf_path,
                 key_order=MGF_KEY_ORDER,
-            #     file_mode="w",
             )
             print(f"{len(labeled_spectra_i)} spectra written to {labeled_mgf_path}.")
+
+
+def collect_dataset_tags(config):
+    if os.path.exists(DATASET_TAGS_PATH):
+        tags_df = pd.read_csv(DATASET_TAGS_PATH, sep="\t").to_dict('records')
+    else:
+        tags_df = []
+        
+    # add reference proteome information (for each dataset)
+    dset_tags = {"proteome": config.db_search.database_path}
+    # add dataset property tags
+    dset_tags.update({tag.name: 1 for tag in config.tags})
+    print(f"Dataset {config.name} tags:\n", dset_tags)
+    
+    tags_df.append({"dataset": config.name, **dset_tags})
+    tags_df = pd.DataFrame(tags_df).fillna(0)
+    tags_df = tags_df.drop_duplicates(subset="dataset", keep="last")
+    tags_df.to_csv(DATASET_TAGS_PATH, index=False, sep="\t")
+    print(f"Written to {DATASET_TAGS_PATH}")

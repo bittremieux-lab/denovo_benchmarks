@@ -16,11 +16,13 @@ class DatasetTag(str, enum.Enum):
 class DataDownloadConfig(BaseModel):
     # Dataset id in MS repository 
     dset_id: str
+    # Download links (alternative to dataset id)
+    links: tp.Optional[tp.List[str]] = None
     # Extension of raw spectra files to download (lowercase) # TODO: rename to raw_ext? 
     ext: str = ".raw"
     # Number of raw files to download.
     # If null, all matching files are downloaded
-    n_files: tp.Optional[int] = None 
+    n_files: tp.Optional[int] = None
     # Keywords to select files to download.
     # Only filenames containing all the keywords are downloaded
     keywords: tp.Optional[tp.List[str]] = []
@@ -40,25 +42,8 @@ class RescoringConfig(BaseModel):
     # Additional feature prediction params for MSBooster.
     # Can be an empty dict.
     feat_pred_params: tp.Dict[str, tp.Any]
-    # the format the spectra are provided in ("mzml", "RAW", "d")
-    spectra_type: str # TODO: to enum?
-    # search_results_type: str # "MSFragger"
-    # the model used for fragment intensity prediction, e.g. "some model"
-    intensity_model: str # TODO: to enum?
-    # the model used for retention time prediction, e.g. "some model"
-    irt_model: str # TODO: to enum?
-    # TODO: Optional?
-    massTolerance: float = 20
-    unitMassTolerance: str = "ppm"
-    # ce_range: tp.List[int] = [19, 50]
     # Max q-value threshold for rescored DB search results
     q_val_threshold: float = 0.01
-
-
-# TODO: remove
-# class SubModel(BaseModel):
-#     foo: str = 'bar'
-#     apple: int = 1
 
 
 class Config(BaseModel):
