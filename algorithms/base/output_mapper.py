@@ -10,24 +10,15 @@ class OutputMapperBase:
         """
         return ",".join(map(str, scores))
 
-    def format_scan(self, scan):
+    def format_spectrum_id(self, spectrum_id):
         """
-        Represent spectrum scan id as F{file_i}:{scan_id} string, where
-        - `file_i` - number of the .mgf file in a dataset 
+        Represent spectrum scan id as {filename}:{scan_id} string, where
+        - `filename` - name of the .mgf file in a dataset 
             (lexicographically sorted)
         - `scan_id` - scan id of the spectrum 
             (SCANS= in an .mgf file).
         """
-        return scan
-
-    def format_scan_index(self, scan_index):
-        """
-        Represent spectrum scan id as F{file_i}:{scan_index} string, where
-        - `file_i` - number of the .mgf file in a dataset 
-            (lexicographically sorted)
-        - `scan_index` - number of the spectrum in an .mgf file.
-        """
-        return scan_index
+        return spectrum_id
 
     def format_sequence(self, sequence):
         """
@@ -138,12 +129,7 @@ class OutputMapperBase:
                 axis=1,
             )
             
-        if "scans" in output_data:
-            output_data["scans"] = output_data["scans"].apply(self.format_scan)
-
-        if "scan_indices" in output_data:
-            output_data["scan_indices"] = output_data["scan_indices"].apply(
-                self.format_scan_index
-            )
+        if "spectrum_id" in output_data:
+            output_data["spectrum_id"] = output_data["spectrum_id"].apply(self.format_spectrum_id)
 
         return output_data

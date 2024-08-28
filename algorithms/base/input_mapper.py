@@ -22,7 +22,7 @@ class InputMapperBase:
         """
         return sequence
 
-    def format_input(self, spectrum, file_i=0):
+    def format_input(self, spectrum, filename):
         """
         Convert the spectrum (annotation sequence and params) to the
         input format expected by the algorithm.
@@ -31,8 +31,8 @@ class InputMapperBase:
         ----------
         spectrum : dict
             Peptide sequence in the original format.
-        file_i: int
-            Number of .mgf file being processed. Used to ensure a unique
+        filename: int
+            Name of .mgf file being processed. Used to ensure a unique
             scan_id for each spectrum.
 
         Returns
@@ -40,12 +40,9 @@ class InputMapperBase:
         transformed_spectrum : dict
             Peptide sequence in the algorithm input format.
         """
-        spectrum["params"]["seq"] = self.format_sequence(
-            spectrum["params"]["seq"]
-        )
+        
+        spectrum["params"]["seq"] = "PEPTIDE"
 
-        # add file id to the spectrum scan data
-        spectrum["params"]["scans"] = "F{}:{}".format(
-            file_i, spectrum["params"]["scans"]
-        )
+        scan_id = spectrum["params"]["scans"]
+        spectrum["params"]["scans"] = filename + ":" + scan_id
         return spectrum

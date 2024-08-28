@@ -24,7 +24,9 @@ From: python:3.10
     cd /algo
     git clone ... 
     
-    # [Optional] Install algorithm dependencies,
+    # [Optional] Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    pip install --no-cache-dir pandas
     # install or build from source the algorithm, etc.
     pip install --no-cache-dir ...
     
