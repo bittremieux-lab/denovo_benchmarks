@@ -7,8 +7,15 @@ From: python:3.10
     algorithms/base /algo/base
 
 %post
+    # Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    pip install --no-cache-dir pandas
     # Install algorithm
     pip install --no-cache-dir casanovo
+
+    # Download additional weights
+    cd /algo
+    curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt
 
 %post
     # Make sure make_predictions.sh file is executable.
