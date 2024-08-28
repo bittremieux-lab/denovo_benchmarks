@@ -24,6 +24,10 @@ container image that creates environment and installs dependencies required for 
     **Input**: path to a dataset folder containing .mgf files with spectra data  
     **Output**: output file (in a common output format) containing predictions for all spectra in the dataset
 
+    To configure the model for specific data properties (e.g. non-tryptic data, data from a particular instrument, etc.), please use `dataset tags`. 
+    Current set of tags includes `nontryptic`, `timstof`, `waters`, `sciex`.
+    Example usage can be found in `algorithms/base/make_predictions_template.sh`.
+
 - **`input_mapper.py`** — python script to convert input data 
 from its original representation (**input format**) to the format expected by the algorithm.
 
@@ -51,7 +55,7 @@ from its original representation (**input format**) to the format expected by th
         - `"score"` — *de novo* algorithm "confidence" score for a predicted sequence
         - `"aa_scores"` — per-amino acid scores, if available. If not available, the whole peptide `score` will be used as a score for each amino acid.
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
-            `F{filename}:{scan_id}` string, where  
+            `{filename}:{scan_id}` string, where  
             `filename` — name of the .mgf file in a dataset,  
             `scan_id` — scan id of each spectrum (SCANS= in an .mgf file)  
         
