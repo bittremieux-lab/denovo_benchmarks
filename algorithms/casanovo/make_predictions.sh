@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # Get dataset property tags
-DSET_TAGS=$(python base/dataset_tags_parser.py --dataset "$@")
+DSET_TAGS=$(python /algo/base/dataset_tags_parser.py --dataset "$@")
 while IFS='=' read -r key value; do
-    export $key=$value
+    export "$key"="$value"
 done <<< "$DSET_TAGS"
-
 
 # Use tag variables to specify de novo algorithm
 # for the particular dataset properties

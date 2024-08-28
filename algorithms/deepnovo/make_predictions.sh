@@ -5,7 +5,7 @@ cp config.py DeepNovo/deepnovo_config.py
 rm -f outputs.tab
 
 # Get dataset property tags
-DSET_TAGS=$(python base/dataset_tags_parser.py --dataset "$@")
+DSET_TAGS=$(python /algo/base/dataset_tags_parser.py --dataset "$@")
 # Parse tags and set individual environment variables for each of them
 # (variable names are identical to tag names
 #  -- check DatasetTag values in config.py)
