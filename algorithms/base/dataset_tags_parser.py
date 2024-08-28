@@ -34,4 +34,7 @@ dset_tags = dset_tags.to_dict()
 # Print the extracted values in a key=value format
 # (Expected to be read by make_predictions.sh script)
 for key, value in dset_tags.items():
-    print(f"{key}={int(value)}")
+    if key == "proteome":
+        print(f"{key}={value}")
+    else:
+        print(f"{key}={int(value)}")

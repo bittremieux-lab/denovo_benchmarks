@@ -6,7 +6,7 @@ DSET_TAGS=$(python base/dataset_tags_parser.py --dataset "$@")
 # (variable names are identical to tag names
 #  -- check DatasetTag values in config.py)
 while IFS='=' read -r key value; do
-    export "$key"=$value
+    export "$key"="$value"
 done <<< "$DSET_TAGS"
 
 # Iterate through files in the dataset
