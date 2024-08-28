@@ -1,11 +1,12 @@
 #!/bin/bash
-spectra_dir="$1"
+dset_dir="$1"
+spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
 overlay_size=1024
 
 # TODO maybe now we need separate output dir for each dataset
-dataset_name=$(basename "$spectra_dir")
-output_dir="$output_root_dir/$dataset_name"
+dset_name=$(basename "$dset_dir")
+output_dir="$output_root_dir/$dset_name"
 
 recalculate=false
 
@@ -28,7 +29,7 @@ fi
 mkdir -p "$output_dir"
 
 # List input files
-echo "Processing dataset: $dataset_name ($spectra_dir)"
+echo "Processing dataset: $dset_name ($dset_dir)"
 ls "$spectra_dir"/*.mgf
 
 # Loop through each algorithm in the algorithms directory
@@ -74,4 +75,5 @@ done
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot "evaluation.sif" \
-    bash -c "python evaluate.py ${output_dir}/ ${spectra_dir}"
+    bash -c "python evaluate.py ${output_dir}/ ${dset_dir}"
+# TODO change to dset_dir/labels? 

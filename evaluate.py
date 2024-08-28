@@ -7,13 +7,20 @@ import re
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from pyteomics import mgf
+from functools import partial
+from pyteomics import mgf, fasta
 from sklearn.metrics import auc
 from tqdm import tqdm
 
 from ground_truth_mapper import format_sequence as format_sequence_GT
 from metrics import aa_match_metrics, aa_match_batch
 from token_masses import AA_MASSES
+
+# TODO: remove? and pass full path to ref proteome.fasta instead? 
+VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
+ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
+PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
+DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -26,6 +33,35 @@ def parse_scores(aa_scores: str) -> list[float]:
     aa_scores = aa_scores.split(",")
     aa_scores = list(map(float, aa_scores))
     return aa_scores
+
+
+def remove_ptms(sequence, ptm_pattern="[^A-Z]"):
+    return re.sub(ptm_pattern, "", sequence)
+
+
+def isoleucine_to_leucine(sequence):
+    return sequence.replace("I", "L")
+
+
+def read_fasta(filename):
+    # Initialize an empty list to store sequences
+    sequences = {}
+    # Read the sequences from the FASTA file
+    with fasta.read(filename) as fasta_file:
+        for record in fasta_file:
+            # entry is a tuple (description, sequence)
+            description, sequence = record
+            
+            sequence = isoleucine_to_leucine(sequence)
+            sequences[description] = sequence
+    return sequences
+
+
+def find_match_in_proteome(peptide_seq, proteome):
+    for ref_id, ref_seq in proteome.items():
+        if peptide_seq in ref_seq:
+            return True
+    return False
 
 
 parser = argparse.ArgumentParser()
@@ -51,27 +87,17 @@ args = parser.parse_args()
 dataset_name = os.path.basename(os.path.normpath(args.output_dir))
 print(f"Evaluating results for {dataset_name}.")
 
-# Load ground truth labels and convert to the common output format
-input_paths = [
-    os.path.join(args.data_dir, x)
-    for x in os.listdir(args.data_dir)
-    if ".mgf" in x
-]
-input_paths = sorted(
-    input_paths
-)  # TODO remove? not needed if match by scan or scan_index
-
-sequences_true = {k: [] for k in ["seq", "scans", "scan_indices"]}
-for file_i, mgf_path in enumerate(input_paths):
-    spectra = mgf.read(mgf_path)
-    for spectrum_i, spectrum in tqdm(enumerate(spectra)):
-        sequences_true["seq"].append(spectrum["params"]["seq"])
-        sequences_true["scans"].append(
-            f'F{file_i}:{spectrum["params"]["scans"]}'
-        )
-        sequences_true["scan_indices"].append(f"F{file_i}:{spectrum_i}")
-sequences_true = pd.DataFrame(sequences_true)
+labels_path = os.path.join(args.data_dir, "labels.csv")
+sequences_true = pd.read_csv(labels_path)
 sequences_true["seq"] = sequences_true["seq"].apply(format_sequence_GT)
+
+# get database_path from dataset tags (proteome column, by dataset_name)
+tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
+tags_df = tags_df.set_index("dataset")
+database_path = tags_df.loc[dataset_name, "proteome"]
+proteome = read_fasta(os.path.join(PROTEOMES_DIR, database_path))
+print(f"Reference proteome length: {len(proteome)} proteins.")
+proteome = "|".join(list(proteome.values()))
 
 # Load predictions data, match to GT by scan id or scan index if available
 PLOT_N_POINTS = 10000
@@ -92,6 +118,13 @@ layout = go.Layout(
         x=0.01,
     ),
 )
+prot_match_fig = go.Figure(layout=layout)
+prot_match_fig.update_layout(
+    title_text="<b>Number of proteome matches vs. score</b>",
+    xaxis_title="Score threshold",
+    yaxis_title="Number of matches",
+    yaxis_range=None,
+)
 pep_fig = go.Figure(layout=layout)
 pep_fig.update_layout(title_text="<b>Peptide precision & coverage</b>")
 aa_fig = go.Figure(layout=layout)
@@ -103,37 +136,31 @@ for output_file in os.listdir(args.output_dir):
     output_path = os.path.join(args.output_dir, output_file)
 
     output_data = pd.read_csv(output_path)
-    use_cols = ["sequence", "score", "aa_scores"]
-
-    if "scans" in output_data.columns:
-        use_cols.append("scans")
-        output_data = pd.merge(
-            sequences_true,
-            output_data[use_cols],
-            on="scans",
-            how="left",
-        )
-    elif "scan_indices" in output_data.columns:
-        use_cols.append("scan_indices")
-        output_data = pd.merge(
-            sequences_true,
-            output_data[use_cols],
-            on="scan_indices",
-            how="left",
-        )
-    else:  # TODO: keep or replace with exception+skip algorithm?
-        output_data = output_data[use_cols]
-        output_data["seq"] = sequences_true["seq"].values
+    use_cols = ["sequence", "score", "aa_scores", "spectrum_id"]
+    output_data = pd.merge(
+        sequences_true,
+        output_data[use_cols],
+        on="spectrum_id",
+        how="outer",
+    )
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
+
+    output_data["sequence_no_ptm"] = output_data["sequence"].apply(
+        partial(remove_ptms, ptm_pattern='[^A-Z]')
+    )
+    matches = [
+        isoleucine_to_leucine(seq) in proteome # TODO: move to one place with remove_ptms? 
+        for seq in tqdm(output_data["sequence_no_ptm"].tolist())
+    ]
+    output_data["proteome_match"] = matches
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
-    sequenced_idx = output_data[
-        "sequence"
-    ].notnull()  # TODO: indicate number of not sequenced peptides?
+    sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
+    labeled_idx = output_data["sequence_true"].notnull()
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
-        output_data["sequence"][sequenced_idx],
-        output_data["sequence_true"][sequenced_idx],
+        output_data["sequence"][sequenced_idx * labeled_idx],
+        output_data["sequence_true"][sequenced_idx * labeled_idx],
         AA_MASSES,
     )
 
@@ -147,7 +174,24 @@ for output_file in os.listdir(args.output_dir):
         "AA precision": aa_precision,
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
+        "N proteome matches": output_data["proteome_match"][sequenced_idx].mean()
     }
+
+    # Plot the peptide precision–coverage curve
+    prot_matches = output_data["proteome_match"][sequenced_idx].values
+    n_matches = np.cumsum(prot_matches) # ?
+    pep_score = output_data["score"][sequenced_idx].values # ?
+    plot_idxs = np.linspace(0, len(pep_score) - 1, PLOT_N_POINTS).astype(
+        np.int64
+    )
+    prot_match_fig.add_trace(
+        go.Scatter(
+            x=pep_score[plot_idxs],
+            y=n_matches[plot_idxs],
+            mode="lines",
+            name=f"{algo_name}",
+        )
+    )
 
     # Plot the peptide precision–coverage curve
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
@@ -170,7 +214,7 @@ for output_file in os.listdir(args.output_dir):
         list(
             map(
                 parse_scores,
-                output_data["aa_scores"][sequenced_idx].values.tolist(),
+                output_data["aa_scores"][sequenced_idx * labeled_idx].values.tolist(),
             )
         )
     )
@@ -199,6 +243,9 @@ for output_file in os.listdir(args.output_dir):
 dataset_results_dir = os.path.join(args.results_dir, dataset_name)
 os.makedirs(dataset_results_dir, exist_ok=True)
 
+prot_match_fig.write_html(
+    os.path.join(dataset_results_dir, "number_of_proteome_matches.html")
+)
 pep_fig.write_html(
     os.path.join(dataset_results_dir, "peptide_precision_coverage.html")
 )

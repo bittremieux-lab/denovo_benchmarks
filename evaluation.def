@@ -3,8 +3,8 @@ From: python:3.10
 
 %post
     # Setup evaluation environment
-    pip install --no-cache-dir numpy==1.22.3
-    pip install --no-cache-dir pandas==1.4.2
+    pip install --no-cache-dir numpy
+    pip install --no-cache-dir pandas>=2.1.2
     pip install --no-cache-dir scikit-learn
     pip install --no-cache-dir matplotlib
     pip install --no-cache-dir plotly==5.20.0
