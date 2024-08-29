@@ -53,9 +53,9 @@ for algorithm_dir in algorithms/*; do
             echo "RUN ALGORITHM"
             apptainer exec --fakeroot --nv \
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
-                -B "${spectra_dir}":/algo/data \
+                -B "${spectra_dir}":"/algo/${dset_name}" \
                 "algorithms/${algorithm_name}/container.sif" \
-                bash -c "cd /algo && ./make_predictions.sh data"
+                bash -c "cd /algo && ./make_predictions.sh ${dset_name}"
             
             # Collect predictions in output_dir
             echo "EXPORT PREDICTIONS"
