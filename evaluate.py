@@ -101,7 +101,7 @@ proteome = "|".join(list(proteome.values()))
 
 # Load predictions data, match to GT by scan id or scan index if available
 PLOT_N_POINTS = 10000
-PLOT_HEIGHT = 400
+PLOT_HEIGHT = 500
 PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
 
 layout = go.Layout(

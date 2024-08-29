@@ -5,7 +5,7 @@ from datasets_info import DATASETS
 
 
 RESULTS_DIR = "results"
-PLOT_HEIGHT = 400
+PLOT_HEIGHT = 500
 PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
 
 st.set_page_config(layout="wide")
