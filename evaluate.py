@@ -101,8 +101,8 @@ proteome = "|".join(list(proteome.values()))
 
 # Load predictions data, match to GT by scan id or scan index if available
 PLOT_N_POINTS = 10000
-PLOT_HEIGHT = 600
-PLOT_WIDTH = int(600 * 1.2)
+PLOT_HEIGHT = 400
+PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
 
 layout = go.Layout(
     height=PLOT_HEIGHT,
@@ -145,19 +145,21 @@ for output_file in os.listdir(args.output_dir):
     )
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
 
-    output_data["sequence_no_ptm"] = output_data["sequence"].apply(
-        partial(remove_ptms, ptm_pattern='[^A-Z]')
-    )
-    matches = [
-        isoleucine_to_leucine(seq) in proteome # TODO: move to one place with remove_ptms? 
-        for seq in tqdm(output_data["sequence_no_ptm"].tolist())
-    ]
-    output_data["proteome_match"] = matches
-
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
     sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
     labeled_idx = output_data["sequence_true"].notnull()
+
+    output_data["sequence_no_ptm"] = np.nan
+    output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
+        partial(remove_ptms, ptm_pattern='[^A-Z]')
+    )
+    matches = [
+        (isinstance(seq, str)) and (isoleucine_to_leucine(seq) in proteome) # TODO: move to one place with remove_ptms? 
+        for seq in tqdm(output_data["sequence_no_ptm"].tolist())
+    ]
+    output_data["proteome_match"] = matches
+
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][sequenced_idx * labeled_idx],
         output_data["sequence_true"][sequenced_idx * labeled_idx],

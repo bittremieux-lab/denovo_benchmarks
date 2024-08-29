@@ -101,10 +101,6 @@ class InputMapper(InputMapperBase):
         transformed_spectrum : dict
             Peptide sequence in the algorithm input format.
         """
-        spectrum["params"]["seq"] = self.format_sequence(
-            spectrum["params"]["seq"]
-        )
-
         # add dummy labels
         spectrum["params"]["seq"] = "PEPTIDE"
 
@@ -128,7 +124,7 @@ args = parser.parse_args()
 # Transform data to the algorithm input format
 input_mapper = InputMapper()
 
-filename = os.path.basename(filename).split(".")[0]
+filename = os.path.basename(args.input_path).split(".")[0]
 spectra = mgf.read(args.input_path)
 mapped_spectra = [
     input_mapper.format_input(spectra[i], filename)
