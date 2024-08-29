@@ -5,7 +5,7 @@ from datasets_info import DATASETS
 
 
 RESULTS_DIR = "results"
-PLOT_HEIGHT = 600
+PLOT_HEIGHT = 500
 PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
 
 st.set_page_config(layout="wide")
@@ -66,7 +66,7 @@ with tab1:
             dataset_descr = DATASETS[dataset_name]
             st.text(dataset_descr)
 
-        col1, col2, col3 = st.columns(3, gap="medium")
+        col1, col2, col3 = st.columns(3, gap="small")
 
         with col1:
             path_to_html = os.path.join(
