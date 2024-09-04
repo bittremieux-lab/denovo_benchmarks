@@ -57,5 +57,5 @@ from its original representation (**input format**) to the format expected by th
         - Amino acids with post-translational modifications (PTMs) are written in 
         **[ProForma](https://github.com/HUPO-PSI/ProForma/tree/master) format** with **Unimod accession codes** for PTMs:  
         `C[UNIMOD:4]` for Cysteine Carbamidomethylation, `M[UNIMOD:35]` for Methionine Oxidation, etc.
-        - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma Delta mass notation**:  
+        - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma notation** with **Unimod accession codes**:  
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
