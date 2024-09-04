@@ -32,7 +32,7 @@ container image that creates environment and installs dependencies required for 
 from its original representation (**input format**) to the format expected by the algorithm.
 
     **Input format**
-    - Input: a dataset folder with separate .mgf files containing MS spectra with annotations.
+    - Input: a dataset folder with separate .mgf files containing MS spectra.
     - Keys order for a spectrum in .mgf file:  
     `[TITLE, RTINSECONDS, PEPMASS, CHARGE]`
 
