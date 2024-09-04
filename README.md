@@ -25,7 +25,7 @@ container image that creates environment and installs dependencies required for 
     **Output**: output file (in a common output format) containing predictions for all spectra in the dataset
 
     To configure the model for specific data properties (e.g. non-tryptic data, data from a particular instrument, etc.), please use **dataset tags**. 
-    Current set of tags includes `nontryptic`, `timstof`, `waters`, `sciex`.
+    Current set of tags can be found in the `DatasetTag` in [dataset_config.py](https://github.com/PominovaMS/denovo_benchmarks/blob/main/dataset_config.py) and includes `nontryptic`, `timstof`, `waters`, `sciex`.
     Example usage can be found in `algorithms/base/make_predictions_template.sh`.
 
 - **`input_mapper.py`** — python script to convert input data 
@@ -34,7 +34,7 @@ from its original representation (**input format**) to the format expected by th
     **Input format**
     - Input: a dataset folder with separate .mgf files containing MS spectra with annotations.
     - Keys order for a spectrum in .mgf file:  
-    `[TITLE, PEPMASS, RTINSECONDS, CHARGE, SCANS]`
+    `[TITLE, RTINSECONDS, PEPMASS, CHARGE]`
 
 
 - **`output_mapper.py`** — python script to convert the algorithm output to the common **output format**.
@@ -46,16 +46,16 @@ from its original representation (**input format**) to the format expected by th
         - `"score"` — *de novo* algorithm "confidence" score for a predicted sequence
         - `"aa_scores"` — per-amino acid scores, if available. If not available, the whole peptide `score` will be used as a score for each amino acid.
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
-            `{filename}:{scan_id}` string, where  
+            `{filename}:{index}` string, where  
             `filename` — name of the .mgf file in a dataset,  
-            `scan_id` — scan id of each spectrum (SCANS= in an .mgf file)  
+            `index` —  index (0-based) of each spectrum in an .mgf file.
         
     
     - **Output sequence format**
         - 20 amino acid tokens:  
         `G, A, S, P, V, T, C, L, I, N, D, Q, K, E, M, H, F, R, Y, W`
         - Amino acids with post-translational modifications (PTMs) are written in 
-        **[ProForma](https://github.com/HUPO-PSI/ProForma/tree/master) format** **Delta mass notation**:  
-        `M[+15.999]`, etc.
+        **[ProForma](https://github.com/HUPO-PSI/ProForma/tree/master) format** with **Unimod accession codes** for PTMs:  
+        `C[UNIMOD:4]` for Cysteine Carbamidomethylation, `M[UNIMOD:35]` for Methionine Oxidation, etc.
         - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma Delta mass notation**:  
-        `[+n_mod]-PEPTIDE-[+c_mod]`
+        `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`

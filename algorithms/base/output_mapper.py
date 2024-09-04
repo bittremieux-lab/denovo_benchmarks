@@ -12,19 +12,19 @@ class OutputMapperBase:
 
     def format_spectrum_id(self, spectrum_id):
         """
-        Represent spectrum scan id as {filename}:{scan_id} string, where
+        Represent spectrum spectrum id as {filename}:{index} string, 
+        where
         - `filename` - name of the .mgf file in a dataset 
             (lexicographically sorted)
-        - `scan_id` - scan id of the spectrum 
-            (SCANS= in an .mgf file).
+        - `index` - index (0-based) of each spectrum in an .mgf file.
         """
         return spectrum_id
 
     def format_sequence(self, sequence):
         """
         Convert peptide sequence to the common output data format 
-        (ProForma with modifications represented 
-        in the delta mass notation).
+        (ProForma with modifications represented with 
+        Unimod accession codes, e.g. M[UNIMOD:35]).
 
         Parameters
         ----------
@@ -41,12 +41,13 @@ class OutputMapperBase:
     def format_sequence_and_scores(self, sequence, aa_scores):
         """
         Convert peptide sequence to the common output data format
-        (ProForma with modifications represented 
-        in the delta mass notation) and modify per-token scores 
-        if needed.
-        (Only needed if per-token scores have to be modified 
+        (ProForma with modifications represented with 
+        Unimod accession codes, e.g. M[UNIMOD:35])
+        and modify per-token scores if needed.
+
+        This method is only needed if per-token scores have to be modified 
         to correspond the transformed sequence in ProForma format.
-        Otherwise use `format_sequence` method).
+        Otherwise use `format_sequence` method instead.
 
         Parameters
         ----------
@@ -88,7 +89,7 @@ class OutputMapperBase:
 
     def format_output(self, output_data):
         """
-        Transform ['scans', 'sequence', 'score', 'aa_scores'] columns 
+        Transform ['spectrum_id', 'sequence', 'score', 'aa_scores'] columns 
         of `output_data` dataframe to the common outout format.
         Assumes that predicted sequences are provided 
         for all dataframe entries (no NaNs).
@@ -102,9 +103,8 @@ class OutputMapperBase:
             - 'aa_scores' - per-amino acid scores, if available. 
                 Otherwise, the whole peptide `score` will be used 
                 as a score for each amino acid.
-            - 'scans' or 'scan_indices' - information to match 
-                each prediction with its ground truth sequence. 
-                One of two columns must be provided.
+            - 'spectrum_id' - `{filename}:{index}` string to match 
+                each prediction with its ground truth sequence.
 
         Returns
         -------

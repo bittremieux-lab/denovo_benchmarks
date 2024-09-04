@@ -21,27 +21,27 @@ parser.add_argument(
     help="The path to the input .mgf file.",
 )
 parser.add_argument(
-    "--file_i",
-    help="Number the input .mgf file in a sorted list.",
-)
-parser.add_argument(
     "--output_path",
     help="The path to write prepared input data in the format expected by the algorithm.",
 )
 args = parser.parse_args()
 
-# Transform data to the algorithm input format
+# Transform data to the algorithm input format.
+# Modify InputMapper to customize arguments and transformation.
 input_mapper = InputMapper()
+
 spectra = mgf.read(args.input_path)
 mapped_spectra = [
-    input_mapper.format_input(spectra[i], args.file_i)
+    input_mapper.format_input(spectra[i])
     for i in tqdm(range(len(spectra)))
 ]
 
+# Save spectra in the algorithm input format.
+# Modify the .mgf key order if needed.
 mgf.write(
     mapped_spectra,
     args.output_path,
-    key_order=["title", "pepmass", "charge", "scans", "rtinseconds"],
+    key_order=["title", "rtinseconds", "pepmass", "charge"],
     file_mode="w",
 )
 print(

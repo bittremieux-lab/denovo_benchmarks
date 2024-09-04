@@ -4,7 +4,7 @@
 DSET_TAGS=$(python /algo/base/dataset_tags_parser.py --dataset "$@")
 # Parse tags and set individual environment variables for each of them
 # (variable names are identical to tag names
-#  -- check DatasetTag values in config.py)
+#  -- check DatasetTag values in dataset_config.py)
 while IFS='=' read -r key value; do
     export "$key"="$value"
 done <<< "$DSET_TAGS"

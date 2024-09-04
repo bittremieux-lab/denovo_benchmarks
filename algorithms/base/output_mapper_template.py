@@ -29,13 +29,15 @@ output_data = output_data.rename(
     {
         # "output_sequence": "sequence",
         # "output_score": "score",
-        # "scan": "scans",
+        # "output_spectrum_id": "spectrum_id",
+        # "output_aa_scores": "aa_scores",
         # ...
     },
     axis=1,
 )
 
 # Transform data to the common output format
+# Modify OutputMapper to customize arguments and transformation.
 output_mapper = OutputMapper()
 output_data = output_mapper.format_output(output_data)
 
