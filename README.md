@@ -34,16 +34,7 @@ from its original representation (**input format**) to the format expected by th
     **Input format**
     - Input: a dataset folder with separate .mgf files containing MS spectra with annotations.
     - Keys order for a spectrum in .mgf file:  
-    `[TITLE, PEPMASS, RTINSECONDS, CHARGE, SCANS, SEQ]`
-    - Annotation (peptide sequence) format:
-        - `SEQ=PEPTIDE` string
-        - 20 amino acid tokens:  
-        `G, A, S, P, V, T, C, L, I, N, D, Q, K, E, M, H, F, R, Y, W`
-        - PTMs represented in the [ProForma](https://github.com/HUPO-PSI/ProForma/tree/master) notation:  
-        `C[UNIMOD:4]`, `M[UNIMOD:35]` , etc.
-    - If the algorithm uses the ground truth sequence from the input file (e.g. for evaluation), 
-    tokens in the annotation sequence may need conversion to the expected format  
-    (e.g. `'M[UNIMOD:35]' → 'Mmod'` or `'M[+15.999]' → 'Mmod'` )  
+    `[TITLE, PEPMASS, RTINSECONDS, CHARGE, SCANS]`
 
 
 - **`output_mapper.py`** — python script to convert the algorithm output to the common **output format**.
@@ -63,8 +54,6 @@ from its original representation (**input format**) to the format expected by th
     - **Output sequence format**
         - 20 amino acid tokens:  
         `G, A, S, P, V, T, C, L, I, N, D, Q, K, E, M, H, F, R, Y, W`
-        - `C` is written **without** Carbamidomethyl modification 
-        (even if it was considered as modified on the prediction stage).
         - Amino acids with post-translational modifications (PTMs) are written in 
         **[ProForma](https://github.com/HUPO-PSI/ProForma/tree/master) format** **Delta mass notation**:  
         `M[+15.999]`, etc.

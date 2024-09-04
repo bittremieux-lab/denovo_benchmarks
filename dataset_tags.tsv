@@ -1,3 +1,7 @@
-dataset	proteome
-PXD004280	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta
-NIST_RM8321	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta
+dataset	proteome	sciex
+NIST_RM8321	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0
+PXD004280	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0
+PXD041356	RefSeq_CA_sea_lion_101-GCF_009762305_2_mZalCal1_pri_v2_protein.fasta	0.0
+PXD008808	GCF_001922835.1_NIST_Tur_tru_v1_protein101.fasta	0.0
+PXD026192	SCTLD_unigenes_protein_cdhit.fasta	0.0
+PXD028735_Sciex	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0

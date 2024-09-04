@@ -13,9 +13,7 @@ from base import OutputMapperBase
 
 
 class OutputMapper(OutputMapperBase):
-    REPLACEMENTS = [
-        ("C+57.021", "C")  # C is written without Carbamidomethyl modification
-    ]
+    REPLACEMENTS = []
     PTM_PATTERN = r"([A-Z])([0-9.+-]+)" # find AAs with PTMs 
     N_TERM_MOD_PATTERN = r"^([0-9.+-]+)" # find N-term modifications
 

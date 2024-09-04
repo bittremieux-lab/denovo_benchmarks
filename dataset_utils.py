@@ -309,7 +309,6 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
 def run_psm_rescoring(dset_name, rescoring_config, files_list):
     """Run Percolator for PSMs rescoring (using MSBooster features)."""
     # TODO: move outside (to constants?)
-    n_cols = 38
     num_threads = 3
     test_fdr = 0.01
     train_fdr = 0.01
@@ -319,6 +318,17 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
     rescored_files_dir = os.path.join(RESCORED_DATA_DIR, dset_name)
 
     # Merge together PSMs features for all the _rescore.pin files in files_list
+    print(files_list, "\n")
+
+    # Get number of columns
+    fname = list(files_list.keys())[0]
+    file_path = os.path.join(mzml_files_dir, f"{fname}_rescore.pin")
+    with open(file_path, 'r') as file:
+        first_line = file.readline().strip()
+    # Split the first line into column names
+    column_names = first_line.split("\t")
+    n_cols = len(column_names)
+
     dfs = [
         pd.read_csv(
             os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
@@ -326,7 +336,9 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
             sep="\t"
         ) for fname in files_list
     ]
+    print(len(dfs), "\n")
     df = pd.concat(dfs, axis=0).reset_index(drop=True)
+    print(df.shape)
     # Save merged PSMs features df to be used by Percolator
     df.to_csv(
         os.path.join(rescored_files_dir, f"{file_prefix}.pin"), 
