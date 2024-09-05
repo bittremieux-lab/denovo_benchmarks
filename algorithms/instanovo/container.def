@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: python:3.10
+
+%files
+    # Copy algorithm-related files
+    algorithms/instanovo /algo
+    algorithms/base /algo/base
+
+
+%post
+    # Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    # pip install --no-cache-dir pandas
+    # Install algorithm
+    pip install --no-cache-dir instanovo
+
+    # Download additional weights
+    cd /algo
+    curl -O https://github.com/instadeepai/InstaNovo/releases/download/0.1.4/instanovo.pt
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
