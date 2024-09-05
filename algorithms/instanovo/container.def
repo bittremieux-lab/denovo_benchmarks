@@ -3,20 +3,17 @@ From: python:3.10
 
 %files
     # Copy algorithm-related files
-    algorithms/instanovo /algo
     algorithms/base /algo/base
-
-
+    algorithms/instanovo/make_predictions.sh /algo
+    algorithms/instanovo/output_mapper.py /algo
+    
 %post
-    # Install dependencies
-    # (pandas is recommended to support parsing dataset tags)
-    # pip install --no-cache-dir pandas
     # Install algorithm
-    pip install --no-cache-dir instanovo
+    pip install --no-cache-dir "instanovo>=1.0.0"
 
     # Download additional weights
     cd /algo
-    curl -O https://github.com/instadeepai/InstaNovo/releases/download/0.1.4/instanovo.pt
+    curl -LRO https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt
 
 %post
     # Make sure make_predictions.sh file is executable.
