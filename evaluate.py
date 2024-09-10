@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from functools import partial
 from pyteomics import mgf, fasta
+from pyteomics.mass.unimod import Unimod
 from sklearn.metrics import auc
 from tqdm import tqdm
 
@@ -21,6 +22,30 @@ VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
 ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
 PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
 DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
+
+UNIMOD_DB = Unimod()
+ptm_masses = {}
+
+def _transform_match_ptm(match: re.Match) -> str:
+    """
+    TODO
+    """
+    ptm_idx = int(match.group(1))
+    
+    if ptm_idx not in ptm_masses:
+        ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
+        print(ptm_masses)
+    
+    ptm_mass = str(ptm_masses[ptm_idx])
+    if not ptm_mass.startswith("-"):
+        ptm_mass = "+" + ptm_mass
+    return f"[{ptm_mass}]"
+
+
+def ptms_to_delta_mass(sequence):
+    PTM_PATTERN = r"\[UNIMOD:([0-9]+)\]" # find ptms
+    sequence = re.sub(PTM_PATTERN, _transform_match_ptm, sequence)
+    return sequence
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -144,6 +169,7 @@ for output_file in os.listdir(args.output_dir):
         how="outer",
     )
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
+    output_data["sequence"] = output_data["sequence"].apply(ptms_to_delta_mass)
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
@@ -176,7 +202,7 @@ for output_file in os.listdir(args.output_dir):
         "AA precision": aa_precision,
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
-        "N proteome matches": output_data["proteome_match"][sequenced_idx].mean()
+        "N proteome matches": output_data["proteome_match"][sequenced_idx].mean() #sum()
     }
 
     # Plot the peptide precision–coverage curve

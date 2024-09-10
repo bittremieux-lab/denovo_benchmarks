@@ -12,10 +12,10 @@ from base import OutputMapperBase
 
 class OutputMapper(OutputMapperBase):
     REPLACEMENTS = [
-        ("Cmod", "C"),  # C is written without Carbamidomethyl modification
-        ("Mmod", "M[+15.995]"),  # M Oxidation in ProForma delta mass notation
-        ("Nmod", "N[+0.984]"),  # N Deamidation in ProForma delta mass notation
-        ("Qmod", "Q[+0.984]"),  # Q Deamidation in ProForma delta mass notation
+        ("Cmod", "C[UNIMOD:4]"),  # C Carbamidomethyl
+        ("Mmod", "M[UNIMOD:35]"),  # M Oxidation
+        ("Nmod", "N[UNIMOD:7]"),  # N Deamidation
+        ("Qmod", "Q[UNIMOD:7]"),  # Q Deamidation
     ]
 
     def format_sequence(self, sequence):
