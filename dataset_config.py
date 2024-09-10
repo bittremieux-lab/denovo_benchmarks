@@ -11,6 +11,7 @@ class DatasetTag(str, enum.Enum):
     timstof = "timstof"
     waters = "waters"
     sciex = "sciex"
+    phosphorylation = "phosphorylation"
 
 
 class DataDownloadConfig(BaseModel):
