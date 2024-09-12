@@ -59,3 +59,46 @@ from its original representation (**input format**) to the format expected by th
         `C[UNIMOD:4]` for Cysteine Carbamidomethylation, `M[UNIMOD:35]` for Methionine Oxidation, etc.
         - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma notation** with **Unimod accession codes**:  
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
+
+
+## Running the benchmark
+
+To run the benchmark locally:
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/PominovaMS/denovo_benchmarks.git
+    cd denovo_benchmarks
+    ```
+
+2. **Build containers for algorithms and evaluation**:
+    Build container for an algorithm `algo_name`:
+    ```bash
+    apptainer build algorithms/algo_name/container.sif algorithms/algo_name/container.def
+    ```
+    If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
+
+    Build container for evaluation:
+    ```bash
+    apptainer build evaluation.sif evaluation.def
+    ```
+
+3. **Run benchmark on a dataset**:
+    ```bash
+    ./run.sh /path/to/dataset/dir
+    ```
+    Example:
+    ```bash
+    ./run.sh sample_data/PXD004424
+    ```
+
+
+## Instructions to Run Streamlit App Locally:
+To view the Streamlit dashboard for the benchmark locally, run:
+```bash
+# If Streamlit is not installed
+pip install streamlit
+
+streamlit run dashboard.py
+```
+
