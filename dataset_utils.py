@@ -25,14 +25,13 @@ MSFRAGGER_PATH = os.path.join(VSC_DATA, "easybuild", "build", "MSFragger-4.0", "
 MSBOOSTER_PATH = os.path.join(VSC_FRAGPIPE, "MSBooster", "1.2.31-Java-11", "MSBooster-1.2.31.jar")
 DIANN_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/diann/1.8.2_beta_8/linux/diann-1.8.1.8")
 KOINA_URL = "https://koina.wilhelmlab.org:443/v2/models/"
-MSBOOSTER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "rescore_params", "msbooster_base.params")
+MSBOOSTER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "params_rescore", "msbooster_base.params")
 # Spectrum params order for saving labeled mgf files
 MGF_KEY_ORDER = ["title", "pepmass", "rtinseconds", "charge", "scans", "seq"]
 # Path to the file with datasets properties (tags)
 DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
 
 PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
-RESCORE_PARAMS_DIR = os.path.join(ROOT, "rescore_params")
 
 RAW_DATA_DIR = os.path.join(ROOT, "raw")
 MZML_DATA_DIR = os.path.join(ROOT, "mzml")
@@ -168,8 +167,13 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
             out_fname,
             "--filter",
             '"peakPicking vendor"',
+            # "--filter",
+            # '"chargeStatePredictor singleChargeFractionTIC=0.9 maxKnownCharge=4"',
             "--filter",
             f'"msLevel {filter_ms_level}-"',
+            "--filter",
+            '"titleMaker <RunId>.<ScanNumber>.<ScanNumber>.<ChargeState>"'
+            # '"titleMaker <RunId>.<Index>.<ChargeState>.<MsLevel>"'
         ]
         # if target_ext == ".mgf":
         #     cmd += [
@@ -376,10 +380,6 @@ def get_filename(psm_id: str):
     """Assumes that there are no `.` in the file name."""
     return psm_id.split(".")[0]
 
-def get_psm_scan_id(psm_id, filename):
-    if psm_id.startswith(filename):
-        psm_id = psm_id[len(filename):]
-    return psm_id.split(".")[1]
 
 def format_peptide_notation(sequence: str):
     """TODO: PTMs may need conversion to ProForma notation."""
@@ -389,70 +389,6 @@ def format_peptide_notation(sequence: str):
     ):  # check is not mandatory
         sequence = sequence[2:-2]
     return sequence
-
-
-def create_labeled_mgf(dset_name, labeled_mgf_files_dir, q_val_threshold=0.01):
-    file_prefix = "rescore"
-    rescored_files_dir = os.path.join(RESCORED_DATA_DIR, dset_name)
-    
-    # Load DB search + rescoring results
-    results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
-    results_df = pd.read_csv(results_path, sep="\t")
-    results_df = results_df[results_df["q-value"] < q_val_threshold][["PSMId", "peptide", "q-value"]]
-
-    results_df["filename"] = results_df["PSMId"].apply(get_filename)
-    results_df["scan_id"] = results_df[["PSMId", "filename"]].apply(
-        lambda row: get_psm_scan_id(row["PSMId"], row["filename"]), 
-        axis=1
-    )
-    results_df["peptide"] = results_df["peptide"].apply(format_peptide_notation)
-    
-    # TODO: should we take mgf files from repository if available? so far decided that not
-    mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
-    
-    for mgf_file in os.listdir(mgf_files_dir):
-        fname = mgf_file.split(".")[0]
-        print(fname)
-        
-        file_labels_df = results_df[results_df["filename"] == fname]
-        file_labels_df = file_labels_df.sort_values("scan_id", key=lambda x: x.apply(int))
-        file_scan_ids = file_labels_df.scan_id.values.tolist()
-
-        assert len(file_scan_ids) == len(set(file_scan_ids)), "Contains non-unique scan_ids."
-        print(len(file_scan_ids))
-        file_labels_df = file_labels_df.set_index("scan_id")
-
-        # Load original spectra (.mgf)
-        unlabeled_mgf_path = os.path.join(mgf_files_dir, f"{fname}.mgf")
-        spectra = mgf.IndexedMGF(unlabeled_mgf_path)
-        print("Number of unlabeled spectra:", len(spectra))
-
-        # Annotate spectra if possible, keep annotated only
-        labeled_spectra = []
-        for spectrum in tqdm(spectra):
-            # spectrum["params"]["scans"] = get_d_spectrum_scan_id(spectrum["params"]["title"])
-            scan_id = spectrum["params"]["scans"]
-            if scan_id in file_scan_ids:
-                spectrum["params"]["seq"] = file_labels_df.loc[scan_id, "peptide"]
-                labeled_spectra.append(spectrum)
-        print("Number of labeled spectra:", len(labeled_spectra))
-        del spectra
-
-        # Write annotated spectra (to DATASET_STORAGE_DIR)
-        # For large files: split into portions of MAX_SPECTRA_PER_FILE
-        idxs = list(range(0, len(labeled_spectra), MAX_SPECTRA_PER_FILE))
-        for i, idx in tqdm(enumerate(idxs), total=len(idxs)):
-            labeled_mgf_path = os.path.join(labeled_mgf_files_dir, f"{fname}_{i}.mgf")
-            if os.path.isfile(labeled_mgf_path): # TODO make optional (add forced re-writing of all files)
-                continue
-            
-            labeled_spectra_i = labeled_spectra[idx: idx + MAX_SPECTRA_PER_FILE]
-            mgf.write(
-                labeled_spectra_i,
-                labeled_mgf_path,
-                key_order=MGF_KEY_ORDER,
-            )
-            print(f"{len(labeled_spectra_i)} spectra written to {labeled_mgf_path}.")
 
 
 def collect_dataset_tags(config):

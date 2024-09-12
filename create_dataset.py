@@ -1,8 +1,11 @@
 import argparse
 import os
+from tqdm import tqdm
 from oktoberfest.runner import run_job
 from dataset_utils import *
 from dataset_config import get_config
+from pyteomics import mgf # TODO: move to dataset_utils?
+
 
 Q_VAL_THRESHOLD = 0.01
 
@@ -21,7 +24,6 @@ for data_dir in [
     RAW_DATA_DIR, 
     MZML_DATA_DIR, 
     RESCORED_DATA_DIR, 
-    RESCORE_PARAMS_DIR, 
     DATASET_STORAGE_DIR
     # MGF_DATA_DIR,
 ]:
@@ -147,11 +149,6 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
     else:
         print(f"Unknown file extension {config.download.ext}")
 
-# Load DB search + rescoring results
-# create_labeled_mgf(dset_name, labeled_mgf_files_dir, config.rescoring.q_val_threshold)
-# instead:
-# - save unlabeled mgf to dataset on VSC_DATA (should we just change location of mgf folder)?
-# - process and store labels from rescoring separately
 
 # Load DB search + rescoring results
 results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
@@ -159,12 +156,46 @@ results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
 
 results_df["filename"] = results_df["PSMId"].apply(get_filename)
-results_df["scan_id"] = results_df[["PSMId", "filename"]].apply(
-    lambda row: get_psm_scan_id(row["PSMId"], row["filename"]), 
-    axis=1
-)
+
+ext = config.download.ext
+print("file type:", ext)
+
+if ext == ".wiff":
+    results_df["title"] = None
+else:
+    results_df["title"] = results_df["PSMId"].apply(lambda x: "_".join(x.split("_")[:-1]))
+
+# filter and keep only spectra with defined charge
+# get 0-based idxs from mgf files
+spectra_idxs_0 = []
+for fname in tqdm(files_list):
+    input_path = os.path.join(mgf_files_dir, fname + ".mgf")
+    spectra = mgf.read(input_path)
+    
+    spectra_filtered = []
+    idxs_0 = {}
+    idx = 0
+    for spectrum in tqdm(spectra):
+        if "charge" in spectrum["params"]:
+            spectra_filtered.append(spectrum)
+            idxs_0[idx] = spectrum["params"]["title"]
+            idx += 1
+            
+    idxs_0 = pd.Series(idxs_0).reset_index()
+    spectra_idxs_0.append(idxs_0)
+    mgf.write(
+        spectra_filtered,
+        input_path,
+#         key_order=MGF_KEY_ORDER,
+    )
+    print(f"{len(spectra_filtered)} spectra with charge written to {input_path}.")
+spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
+
+spectra_idxs_0.columns = ["idx_0", "title"]
+results_df = pd.merge(results_df, spectra_idxs_0, on="title")
+results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["idx_0"].astype(str)
+
 results_df["peptide"] = results_df["peptide"].apply(format_peptide_notation)
-results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["scan_id"]
 sequences_true = results_df[["peptide", "spectrum_id"]]
 sequences_true = sequences_true.rename({"peptide": "seq"}, axis=1)
 
