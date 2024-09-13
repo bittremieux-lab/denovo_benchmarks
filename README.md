@@ -93,7 +93,7 @@ To run the benchmark locally:
     ```
 
 
-## Instructions to Run Streamlit App Locally:
+## Running Streamlit dashboard locally:
 To view the Streamlit dashboard for the benchmark locally, run:
 ```bash
 # If Streamlit is not installed
@@ -102,3 +102,4 @@ pip install streamlit
 streamlit run dashboard.py
 ```
 
+The dashboard reads the benchmark results stored in the `results/` folder.
