@@ -93,6 +93,41 @@ To run the benchmark locally:
     ```
 
 
+## Input data structure
+
+The benchmark expects input data to follow a specific folder structure. 
+
+- Each dataset is stored in a separate folder with unique name.
+- **Spectra** are stored as `.mgf` files inside the `mgf/` subfolder.
+- **Ground truth labels** (PSMs found via database search) are contained in `labels.csv` file within each dataset folder.
+
+Below is an example layout for our evaluation datasets stored on the HPC:
+
+```
+datasets/
+    PXD004424/
+        labels.csv
+        mgf/
+            151009_exo3_1.mgf
+            151009_exo3_2.mgf
+            151009_exo3_3.mgf
+            ...
+    PXD004947/
+        labels.csv
+        mgf/...
+    PXD004948/
+        labels.csv
+        mgf/...
+    PXD004325/
+        labels.csv
+        mgf/...
+    ...
+```
+
+Note that algorithm containers only get as input the `/mgf` subfolder with spectra files and **do not** have access to the `labels.csv` file. 
+Only the evaluation container accesses the `labels.csv` file to evaluate algorithm predictions.
+
+
 ## Running Streamlit dashboard locally:
 To view the Streamlit dashboard for the benchmark locally, run:
 ```bash
