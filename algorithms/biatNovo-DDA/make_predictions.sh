@@ -22,9 +22,12 @@ for input_file in "$@"/*.mgf; do
     echo "Processing file: $input_file"
 
     # Convert input data to model format
+    python input_mapper.py \
+        --input_path "$input_file" \
+        --output_path /algo/input_data/input_data.mgf
     python biatNovo-DDA/Biatnovo/data_format_convert.py \
         --data_convert \
-        --denovo_file "$input_file" \
+        --denovo_file /algo/input_data/input_data.mgf \
         --folder_name ./input_data
 
     # Run de novo algorithm on the input data
