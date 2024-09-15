@@ -16,11 +16,11 @@ from utils import *
 print(tf.__version__, tf.config.list_physical_devices('GPU'))
 
 
-def read_mgf(data, default_charge=-1):
+def read_mgf(data, default_charge=-1, maxc=7):
     collision_const = {1: 1, 2: 0.9, 3: 0.85, 4: 0.8, 5: 0.75, 6: 0.75, 7: 0.75, 8: 0.75}
     spectra = []
 
-    for sp in data:
+    for idx, sp in enumerate(data):
         param = sp['params']
 
         if not 'charge' in param:
@@ -30,6 +30,10 @@ def read_mgf(data, default_charge=-1):
                 raise AttributeError("MGF contains spectra without charge")
         else:
             c = int(str(param['charge'][0])[0])
+
+            if c > maxc:
+                print(f"Charge {c} exceed maximum support charge ({maxc}), ignore spectrum id {idx}")
+                continue
 
         if 'seq' in param:
             pep = param['seq'].strip()
@@ -58,8 +62,9 @@ def read_mgf(data, default_charge=-1):
         mz = sp['m/z array']
         it = sp['intensity array']
 
-        spectra.append({'pep': pep, 'charge': c, 'type': 3, 'nmod': 0, 'mod': np.zeros(len(pep), 'int32'),
-                    'mass': mass, 'mz': mz, 'it': it, 'nce': hcd})
+        spectra.append({'pep': pep, 'charge': c, 'type': 3, 'idx': idx,
+            'nmod': 0, 'mod': np.zeros(len(pep), 'int32'),
+            'mass': mass, 'mz': mz, 'it': it, 'nce': hcd})
 
     return spectra
 
@@ -219,7 +224,10 @@ if len(spectra) <= 0:
 
 peps, ppeps, scores, pscores, ppms, _ = denovo(model, spectra, args.batch_size)
 
-outputs = [f"{seq},{score},{str(pscore).replace(',', ' ')},{args.input}:{idx}\n" for idx, (seq, score, pscore) in enumerate(zip(ppeps, scores, pscores))]
+outputs = [
+    f"{seq},{score},[{' '.join(['{0:.6f}'.format(s) for s in pscore])}],{args.input}:{sp['idx']}\n"
+    for seq, score, pscore, sp in zip(ppeps, scores, pscores, spectra)
+]
 
 f.writelines(outputs)
 
