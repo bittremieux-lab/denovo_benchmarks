@@ -41,6 +41,7 @@ class OutputMapper:
                 output_data = output_data[["spectrum_id", "sequence", "score", "aa_scores"]]
                 output_data["spectrum_id"] = output_data.spectrum_id.apply(lambda x: f"{mgf_file}:{x}")
                 output_data["sequence"] = output_data.sequence.apply(lambda x: self.format_sequence(x))
+                output_data["aa_scores"] = output_data.aa_scores.apply(lambda x: x.replace("-", ","))
                 output_data = output_data.apply(lambda e: e.map(lambda x: x.strip() if isinstance(x, str) else x))
                 if output_frame is None:
                     output_frame = output_data
