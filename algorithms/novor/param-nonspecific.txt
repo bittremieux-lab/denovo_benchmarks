@@ -1,0 +1,8 @@
+enzyme = Nonspecific
+fragmentation = HCD
+massAnalyzer = FT
+fragmentIonErrorTol = 0.02Da
+precursorErrorTol = 15ppm
+variableModifications = Oxidation (M), Phospho (ST), Phospho (Y), Acetyl (N-term), Carbamyl (K), Carbamyl (N-term)
+fixedModifications = Carbamidomethyl (C)
+forbiddenResidues = I,O,U
