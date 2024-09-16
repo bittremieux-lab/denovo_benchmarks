@@ -47,6 +47,9 @@ for input_file in "$@"/*.mgf; do
 
 done
 
+# Go back to writable location
+cd /algo/data
+
 # Compile predictions 
 python /algo/create_denovo_report.py /algo/data/smsnet_temp/mgf_output /algo/data/smsnet_temp/mgf $MODE
 
