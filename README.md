@@ -84,6 +84,14 @@ To run the benchmark locally:
     ```
 
 3. **Run benchmark on a dataset**:
+    Make sure the required packages are installed:
+
+    ```bash
+    sudo apt install squashfuse gocryptfs fuse-overlayfs  
+    ```
+
+    Run the benchmark:
+
     ```bash
     ./run.sh /path/to/dataset/dir
     ```
