@@ -48,7 +48,7 @@ from its original representation (**input format**) to the format expected by th
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
             `{filename}:{index}` string, where  
             `filename` — name of the .mgf file in a dataset,  
-            `index` —  index (0-based) of each spectrum in an .mgf file.
+            `index` — index (0-based) of each spectrum in an .mgf file.
         
     
     - **Output sequence format**
@@ -83,7 +83,12 @@ To run the benchmark locally:
     apptainer build evaluation.sif evaluation.def
     ```
 
-3. **Run benchmark on a dataset**:
+3. **Configure Paths:**
+    Configure the path to `dataset_tags.tsv`. 
+    
+    Open `denovo_benchmarks/algorithms/base/constants.py` and set the `DATASET_TAGS_PATH` variable to the absolute path of `dataset_tags.tsv` on your machine.
+
+4. **Run benchmark on a dataset**:
     Make sure the required packages are installed:
 
     ```bash

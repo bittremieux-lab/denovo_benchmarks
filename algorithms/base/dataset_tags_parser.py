@@ -1,4 +1,4 @@
-# here we will read dataset tags from 
+# read dataset tags from 
 # DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
 # get tags for a specififc object (passed as argument)
 # and pass them to the bash script as a KEY=VALUE pairs
@@ -10,12 +10,7 @@ import argparse
 # TODO: should be installed in all the algorithm containers 
 # (if this script is used in make_predictions.sh)
 import pandas as pd
-
-
-# TODO: move to constants?
-VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
-ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
-DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
+from constants import DATASET_TAGS_PATH
 
 
 parser = argparse.ArgumentParser()
