@@ -90,7 +90,7 @@ class OutputMapperBase:
     def format_output(self, output_data):
         """
         Transform ['spectrum_id', 'sequence', 'score', 'aa_scores'] columns 
-        of `output_data` dataframe to the common outout format.
+        of `output_data` dataframe to the common output format.
         Assumes that predicted sequences are provided 
         for all dataframe entries (no NaNs).
 
