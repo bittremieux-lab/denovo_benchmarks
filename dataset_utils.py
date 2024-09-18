@@ -8,7 +8,6 @@ import pandas as pd
 import alphatims.bruker
 from tqdm import tqdm
 from pyteomics import fasta, mgf
-from oktoberfest.runner import run_job # TODO: remove?
 
 VSC_DATA = "/data/antwerpen/209/vsc20960/"
 VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
@@ -19,6 +18,8 @@ VSC_FRAGPIPE = "/apps/antwerpen/testing/3276_FragPipe/software/breniac-skylake-r
 RAW_FILE_PARSER_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "thermorawfileparser_latest.sif")
 # Path to msconvert apptainer container
 MSCONVERT_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "pwiz-skyline-i-agree-to-the-vendor-licenses_latest.sif")
+# Path to MSFragger DB split script (for running DB search with large DB)
+SPLIT_SCRIPT_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/msfragger_pep_split.py")
 # Path to MSFragger executable file (jar)
 MSFRAGGER_PATH = os.path.join(VSC_DATA, "easybuild", "build", "MSFragger-4.0", "MSFragger-4.0.jar")
 # Path to MSBooster executable file (jar)
@@ -167,6 +168,8 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
             out_fname,
             "--filter",
             '"peakPicking vendor"',
+            "--filter",
+            '"precursorRefine"',
             # "--filter",
             # '"chargeStatePredictor singleChargeFractionTIC=0.9 maxKnownCharge=4"',
             "--filter",
@@ -175,11 +178,6 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
             '"titleMaker <RunId>.<ScanNumber>.<ScanNumber>.<ChargeState>"'
             # '"titleMaker <RunId>.<Index>.<ChargeState>.<MsLevel>"'
         ]
-        # if target_ext == ".mgf":
-        #     cmd += [
-        #         "--filter",
-        #         '"threshold bpi-relative .001 most-intense"'
-        #     ]
         cmd += [file_path]
         subprocess.run(" ".join(cmd), shell=True, check=True)
     print(os.listdir(target_dir))
@@ -257,6 +255,39 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
             dst_fname = os.path.join(mgf_files_dir, os.path.basename(fname + ".mgf"))
             shutil.move(src_fname, dst_fname) # TODO: replace copy to move
         print("Created unlabeled mgf files\n", os.listdir(mgf_files_dir))
+
+
+def run_database_search_split(dset_name, db_w_decoys_path, db_search_config):
+    # Search for mzml files in the directory
+    search_ext = db_search_config.ext
+    mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
+    mzml_files = [f for f in os.listdir(mzml_files_dir) if os.path.splitext(f)[1].lower() == search_ext]
+    mzml_files = [os.path.join(mzml_files_dir, f) for f in mzml_files]
+
+    # TODO: better add to closed.params
+    # db_w_decoys_path -- path to DB file with decoys and contams
+
+    n_db_splits = db_search_config.n_db_splits
+    params_file = os.path.join(mzml_files_dir, "closed.params")
+    # Iterate over each mzML file and run the msfragger command
+    for mzml_file in mzml_files:
+        print(f"PROCESSING {mzml_file}")
+        cmd = [
+            "python",
+            SPLIT_SCRIPT_PATH,
+            f"{n_db_splits}",
+            '"java -jar -Dfile.encoding=UTF-8 -Xmx160G"',
+            MSFRAGGER_PATH,
+            params_file,
+            mzml_file,
+        ]
+
+        # Run the command
+        subprocess.run(" ".join(cmd), shell=True, check=True)
+        print(f"PROCESSED {mzml_file}\n\n")
+
+    # Print results
+    print("DB search results (.pepXML, .pin):\n", os.listdir(mzml_files_dir))
 
 
 def get_psm_rescoring_features(dset_name, rescoring_config):
@@ -408,3 +439,65 @@ def collect_dataset_tags(config):
     tags_df = tags_df.drop_duplicates(subset="dataset", keep="last")
     tags_df.to_csv(DATASET_TAGS_PATH, index=False, sep="\t")
     print(f"Written to {DATASET_TAGS_PATH}")
+
+
+
+
+# # Set maximum number of spectra per MGF file
+# MAX_SPECTRA_PER_FILE = 20000
+
+# # Store the 0-based indices of spectra with respect to new split files
+# spectra_idxs_0 = []
+
+# for fname in tqdm(files_list):
+#     input_path = os.path.join(mgf_files_dir, fname + ".mgf")
+#     spectra = mgf.read(input_path)
+    
+#     # Filter spectra based on "charge"
+#     spectra_filtered = []
+#     for spectrum in tqdm(spectra):
+#         if "charge" in spectrum["params"]:
+#             spectra_filtered.append(spectrum)
+    
+#     # Split filtered spectra into multiple files if needed
+#     num_filtered_spectra = len(spectra_filtered)
+#     num_splits = (num_filtered_spectra // MAX_SPECTRA_PER_FILE) + (1 if num_filtered_spectra % MAX_SPECTRA_PER_FILE > 0 else 0)
+    
+#     split_idx_0 = []
+    
+#     for k in range(num_splits):
+#         # Define the range of spectra to include in the current split file
+#         start_idx = k * MAX_SPECTRA_PER_FILE
+#         end_idx = min((k + 1) * MAX_SPECTRA_PER_FILE, num_filtered_spectra)
+#         spectra_chunk = spectra_filtered[start_idx:end_idx]
+        
+#         # Create the new MGF file with split spectra
+#         output_filename = f"{fname}_{k}.mgf"
+#         output_path = os.path.join(mgf_files_dir, output_filename)
+        
+#         mgf.write(spectra_chunk, output_path)
+#         print(f"Written {len(spectra_chunk)} spectra to {output_path}.")
+        
+#         # Store the 0-based index and spectrum title for this chunk
+#         idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra_chunk)}
+#         idxs_0 = pd.Series(idxs_0).reset_index()
+#         idxs_0.columns = ["idx_0", "title"]
+#         idxs_0["filename"] = output_filename
+        
+#         # Append indices for this split
+#         split_idx_0.append(idxs_0)
+    
+#     # Concatenate indices from all splits for this file
+#     if split_idx_0:
+#         spectra_idxs_0.append(pd.concat(split_idx_0, axis=0).reset_index(drop=True))
+    
+#     # Remove the original MGF file after splitting
+#     os.remove(input_path)
+#     print(f"Original file {input_path} removed.")
+    
+# # Combine indices from all files
+# spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
+
+# # Update the results dataframe with the new idx_0 and filename fields
+# results_df = pd.merge(results_df, spectra_idxs_0, on="title")
+# results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["idx_0"].astype(str)

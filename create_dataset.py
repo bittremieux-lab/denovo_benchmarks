@@ -8,6 +8,7 @@ from pyteomics import mgf # TODO: move to dataset_utils?
 
 
 Q_VAL_THRESHOLD = 0.01
+MAX_SPECTRA_PER_FILE = 20000
 
 # Paths parsing
 parser = argparse.ArgumentParser()
@@ -64,7 +65,7 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
         ):
             download_files(config.download, files_list)
 
-        # распаковать ЕСЛИ они еще не распакованы
+        # Unpack if not unpacked yet
         if config.download.ext.endswith(".zip"):
             base_file_ext = config.download.ext[:-len(".zip")]
             # If files can be directly processed by MSFragger (.d, .mzml), unpack to mzml_files_dir
@@ -94,7 +95,10 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
     db_w_decoys_path = generate_decoys_fasta(dset_name, config.db_search.database_path)
 
     # Run DB search (MSFragger)
-    run_database_search(dset_name, db_w_decoys_path, config.db_search)
+    if config.db_search.n_db_splits == 1:
+        run_database_search(dset_name, db_w_decoys_path, config.db_search)
+    else:
+        run_database_search_split(dset_name, db_w_decoys_path, config.db_search)
 
 # Rescore DB search results (MSBooster + Percolator)
 # Create features with MSBooster
@@ -119,7 +123,7 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
     if not all(os.path.exists(os.path.join(raw_files_dir, file_path)) for file_path in files_list.values()):
         download_files(config.download, files_list)
 
-    # распаковать ЕСЛИ они еще не распакованы
+    # Unpack if not unpacked yet
     if config.download.ext.endswith(".zip"):
         base_file_ext = config.download.ext[:-len(".zip")]
         # If files can be directly processed by MSFragger (.d, .mzml), unpack to mzml_files_dir
@@ -154,8 +158,7 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
 results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
 results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
-
-results_df["filename"] = results_df["PSMId"].apply(get_filename)
+# results_df["filename"] = results_df["PSMId"].apply(get_filename)
 
 ext = config.download.ext
 print("file type:", ext)
@@ -168,30 +171,44 @@ else:
 # filter and keep only spectra with defined charge
 # get 0-based idxs from mgf files
 spectra_idxs_0 = []
+
 for fname in tqdm(files_list):
     input_path = os.path.join(mgf_files_dir, fname + ".mgf")
     spectra = mgf.read(input_path)
     
-    spectra_filtered = []
-    idxs_0 = {}
-    idx = 0
-    for spectrum in tqdm(spectra):
-        if "charge" in spectrum["params"]:
-            spectra_filtered.append(spectrum)
-            idxs_0[idx] = spectrum["params"]["title"]
-            idx += 1
-            
-    idxs_0 = pd.Series(idxs_0).reset_index()
-    spectra_idxs_0.append(idxs_0)
-    mgf.write(
-        spectra_filtered,
-        input_path,
-#         key_order=MGF_KEY_ORDER,
+    spectra_filtered = [
+        spectrum for spectrum in tqdm(spectra)
+        if "charge" in spectrum["params"]
+    ]
+
+    # split filtered spectra into multiple files if needed
+    n_splits = len(spectra_filtered) // MAX_SPECTRA_PER_FILE + int(
+        len(spectra_filtered) % MAX_SPECTRA_PER_FILE > 0
     )
-    print(f"{len(spectra_filtered)} spectra with charge written to {input_path}.")
+    print(f"Split {fname} file into {n_splits} files")
+    
+    for k in range(n_splits):
+        start_idx = k * MAX_SPECTRA_PER_FILE
+        end_idx = min((k + 1) * MAX_SPECTRA_PER_FILE, len(spectra_filtered))
+        spectra_chunk = spectra_filtered[start_idx:end_idx]
+
+        output_fname = f"{fname}_{k}"
+        output_path = os.path.join(mgf_files_dir, output_fname + ".mgf")
+        mgf.write(spectra_chunk, output_path)
+        print(f"{len(spectra_chunk)} spectra with charge written to {output_path}.")
+
+        idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra_chunk)}
+        idxs_0 = pd.Series(idxs_0).reset_index()
+        idxs_0.columns = ["idx_0", "title"]
+        idxs_0["filename"] = output_fname
+        spectra_idxs_0.append(idxs_0)
+
+    # Remove the original MGF file after splitting
+    os.remove(input_path)
+    print(f"Original file {input_path} removed.")
+
 spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
 
-spectra_idxs_0.columns = ["idx_0", "title"]
 results_df = pd.merge(results_df, spectra_idxs_0, on="title")
 results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["idx_0"].astype(str)
 

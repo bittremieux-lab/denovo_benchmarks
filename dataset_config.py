@@ -34,6 +34,8 @@ class DBSearchConfig(BaseModel):
     database_path: tp.Union[str, tp.List[str]]
     # Extension of spectra files used for the search # TODO: rename to search_ext? 
     ext: str = ".mzml"
+    # Number of splits (for running DB search with large DB).
+    n_db_splits: int = 1
     # Additional (optional) search params. Only needs to be passed 
     # for non-default params. Can be an emtpy dict. 
     search_params: tp.Dict[str, tp.Any]
@@ -53,6 +55,8 @@ class Config(BaseModel):
     name: str
     # Dataset properties tags
     tags: tp.List[DatasetTag] = []
+    # Dataset description
+    desc: str
     # Data downloading related properties
     download: DataDownloadConfig
     # Database search related properties
