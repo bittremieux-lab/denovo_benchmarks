@@ -169,13 +169,15 @@ for output_file in os.listdir(args.output_dir):
         how="outer",
     )
     output_data = output_data.rename({"seq": "sequence_true"}, axis=1)
-    output_data["sequence"] = output_data["sequence"].apply(ptms_to_delta_mass)
 
     # Calculate metrics
     output_data = output_data.sort_values("score", ascending=False)
     sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
     labeled_idx = output_data["sequence_true"].notnull()
 
+    output_data.loc[sequenced_idx, "sequence"] = output_data.loc[sequenced_idx, "sequence"].apply(
+        ptms_to_delta_mass
+    )
     output_data["sequence_no_ptm"] = np.nan
     output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
         partial(remove_ptms, ptm_pattern='[^A-Z]')
