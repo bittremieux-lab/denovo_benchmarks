@@ -83,7 +83,7 @@ To run the benchmark locally:
     apptainer build evaluation.sif evaluation.def
     ```
 
-3. **Configure Paths:**
+3. **Configure paths:**
     Configure the path to `dataset_tags.tsv`. 
     
     Open `denovo_benchmarks/algorithms/base/constants.py` and set the `DATASET_TAGS_PATH` variable to the absolute path of `dataset_tags.tsv` on your machine.
