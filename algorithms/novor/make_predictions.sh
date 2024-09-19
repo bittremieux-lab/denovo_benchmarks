@@ -23,7 +23,7 @@ for input_file in "$@"/*.mgf; do
         --output_path "$input_basename"
 
     # for the particular dataset properties
-    if  [[ -v phosphorylation && $phosphorylation -eq 1]]; then
+    if  [[ -v phosphorylation && $phosphorylation -eq 1 ]]; then
         echo "Using phosphorylation tag"
         pho="-phospho"
     fi
