@@ -4,18 +4,33 @@ to the algorithm expected format.
 """
 
 import argparse
-
+import re
 
 class InputMapper:
     def format_input(self, input_file, output_file):
         with open(input_file, 'r') as input_fd:
             with open(output_file, 'w') as output_fd:
                 scan_idx = 0
+                spectra_buffer = []
+                keep = True
                 for line in input_fd:
-                    output_fd.write(line)
-                    if line.startswith("TITLE="):
-                        output_fd.write(f"SCANS={scan_idx}\n")
+                    line = line.strip()
+                    spectra_buffer.append(line + "\n")
+                    if line == "END IONS":
                         scan_idx += 1
+                        if keep:
+                            output_fd.writelines(spectra_buffer)
+                        spectra_buffer = []
+                        keep = True
+                    elif line.startswith("TITLE="):
+                        spectra_buffer.append(f"SCANS={scan_idx}\n")
+                    elif line.startswith("CHARGE="):
+                        pattern = r"CHARGE=(\d+)"
+                        match = re.search(pattern, line)
+                        charge = int(match.group(1))
+                        if charge > 10:
+                            keep = False
+
         return output_file
 
 
