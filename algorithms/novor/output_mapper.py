@@ -6,13 +6,17 @@ to the common output format.
 
 import argparse
 import os
+
 import pandas as pd
+
 
 class OutputMapper:
     REPLACEMENTS = [
         ("C(Cam)", "C[UNIMOD:4]"),
         ("K(Carbamyl)", "K[UNIMOD:5]"),
         ("M(O)", "M[UNIMOD:35]"),
+        ("Q(Pyro-Glu)", "Q[UNIMOD:28]"),
+        ("E(Pyro-Glu)", "E[UNIMOD:27]"),
         ("S(Phospho)", "S[UNIMOD:21]"),
         ("T(Phospho)", "T[UNIMOD:21]"),
         ("Y(Phospho)", "Y[UNIMOD:21]"),

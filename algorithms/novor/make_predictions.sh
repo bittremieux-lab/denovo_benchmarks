@@ -1,6 +1,9 @@
 #!/bin/bash
 . /home/novor/.bashrc
+
+# Start novor server
 /algo/start-novor-server.sh
+
 # Get dataset property tags
 DSET_TAGS=$(python3 /algo/base/dataset_tags_parser.py --dataset "$@")
 # Parse tags and set individual environment variables for each of them
@@ -39,10 +42,12 @@ for input_file in "$@"/*.mgf; do
     echo "Using parameter file: $param_file"
     #run novor
     /home/novor/bin/novor -f --topnout 12 -p "$param_file" -o "$output_novor" "$input_basename"
-
     #run novorpt
     /home/novor/bin/novorpt -f -d "$output_novor"
 done
+
+# Stop novor server
+/algo/stop-novor-server.sh
 
 # Convert predictions to the general output format
 python3 output_mapper.py --output_dir="."
