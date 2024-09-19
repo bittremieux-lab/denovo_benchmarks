@@ -1,0 +1,2 @@
+export APPTAINER_DOCKER_USERNAME="docket_hub_account"
+export APPTAINER_DOCKER_PASSWORD="docker_hub_access_token"
