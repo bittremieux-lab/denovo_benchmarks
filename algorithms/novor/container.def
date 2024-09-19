@@ -24,6 +24,7 @@ From: rapidnovor/novor-docker:latest
     # Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
     chmod +x /algo/start-novor-server.sh
+    chmod +x /algo/stop-novor-server.sh
 
 %environment  
     # Set up environment variables  

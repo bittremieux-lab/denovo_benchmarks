@@ -8,3 +8,4 @@ while true; do
     [ -f "$LOGFILE" ] || break
     [ -n "$(grep -o 'Server starts.' $LOGFILE)" ] && break
 done
+echo "Novor server started."
