@@ -1,8 +1,8 @@
-enzyme = Trypsin
+enzyme = Nonspecific
 fragmentation = HCD
 massAnalyzer = FT
 fragmentIonErrorTol = 0.02Da
 precursorErrorTol = 15ppm
-variableModifications = Oxidation (M), Acetyl (N-term), Pyro-Glu (Q)
+variableModifications = Oxidation (M), Acetyl (N-term), Pyro-Glu (Q), Phospho (Y), Phospho (ST)
 fixedModifications = Carbamidomethyl (C)
 forbiddenResidues = I,O,U
