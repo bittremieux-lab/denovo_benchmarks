@@ -48,7 +48,7 @@ from its original representation (**input format**) to the format expected by th
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
             `{filename}:{index}` string, where  
             `filename` — name of the .mgf file in a dataset,  
-            `index` —  index (0-based) of each spectrum in an .mgf file.
+            `index` — index (0-based) of each spectrum in an .mgf file.
         
     
     - **Output sequence format**
@@ -72,18 +72,37 @@ To run the benchmark locally:
     ```
 
 2. **Build containers for algorithms and evaluation**:
-    Build container for an algorithm `algo_name`:
+    To build all apptainer images, make sure you have [apptainer installed](https://apptainer.org/docs/user/main/quick_start.html#installation). Then run:
+
     ```bash
-    apptainer build algorithms/algo_name/container.sif algorithms/algo_name/container.def
+    chmod +x build_apptainer_images.sh
+    ./build_apptainer_images.sh
     ```
+
+    This will build the apptainer images for all algorithms and the evaluation apptainer image.
+
+    If an apptainer image already exists, the script will ask if you want to rebuild it.
+
+    ```bash
+    A .sif image for casanovo already exists. Force rebuild? (y/N) 
+    ```
+
     If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
 
-    Build container for evaluation:
+3. **Configure paths:**
+    Configure the path to `dataset_tags.tsv`. 
+    
+    Open `denovo_benchmarks/algorithms/base/constants.py` and set the `DATASET_TAGS_PATH` variable to the absolute path of `dataset_tags.tsv` on your machine.
+
+4. **Run benchmark on a dataset**:
+    Make sure the required packages are installed:
+
     ```bash
-    apptainer build evaluation.sif evaluation.def
+    sudo apt install squashfuse gocryptfs fuse-overlayfs  
     ```
 
-3. **Run benchmark on a dataset**:
+    Run the benchmark:
+
     ```bash
     ./run.sh /path/to/dataset/dir
     ```

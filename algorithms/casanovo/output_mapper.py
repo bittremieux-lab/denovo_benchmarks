@@ -107,11 +107,6 @@ class OutputMapper(OutputMapperBase):
         for repl_args in self.REPLACEMENTS:
             sequence = sequence.replace(*repl_args)
 
-        # transform PTM notation:
-        # represent in ProForma delta mass notation PE[+ptm]P
-        # if re.search(self.PTM_PATTERN, sequence):
-            # sequence = re.sub(self.PTM_PATTERN, self._transform_match_ptm, sequence)
-
         # transform n-term modification notation
         # represent in ProForma delta mass notation [+n_term_mod]-PEP
         if re.search(self.N_TERM_MOD_PATTERN, sequence):
