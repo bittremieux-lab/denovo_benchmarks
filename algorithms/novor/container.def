@@ -7,6 +7,10 @@ From: rapidnovor/novor-docker:latest
     algorithms/novor /algo
     algorithms/base /algo/base
 
+%post
+    rm -f /algo/container.sif
+    rm -f /algo/overlay.img
+
 %post  
     # Commands to run in the container during the build  
     apt-get update && apt-get install -y \
