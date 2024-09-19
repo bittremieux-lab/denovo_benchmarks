@@ -23,14 +23,20 @@ for input_file in "$@"/*.mgf; do
         --output_path "$input_basename"
 
     # for the particular dataset properties
-    if  [[ -v nontryptic && $nontryptic -eq 1 ]]; then
-        echo "Using non-tryptic model."
-        param_file="param-nonspecific.txt"
-    else
-        echo "Using general model."
-        param_file="param-trypsin.txt"
+    if  [[ -v phosphorylation && $phosphorylation -eq 1]]; then
+        echo "Using phosphorylation tag"
+        pho="-phospho"
     fi
 
+    if  [[ -v nontryptic && $nontryptic -eq 1 ]]; then
+        echo "Using non-tryptic model."
+        param_file="param-nonspecific${pho}.txt"
+    else
+        echo "Using general model."
+        param_file="param-trypsin${pho}.txt"
+    fi
+
+    echo "Using parameter file: $param_file"
     #run novor
     /home/novor/bin/novor -f --topnout 12 -p "$param_file" -o "$output_novor" "$input_basename"
 
