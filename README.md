@@ -108,7 +108,7 @@ To run the benchmark locally:
     ```
     Example:
     ```bash
-    ./run.sh sample_data/PXD004424
+    ./run.sh sample_data/9_species_human
     ```
 
 
@@ -124,20 +124,20 @@ Below is an example layout for our evaluation datasets stored on the HPC:
 
 ```
 datasets/
-    PXD004424/
+    9_species_human/
         labels.csv
         mgf/
             151009_exo3_1.mgf
             151009_exo3_2.mgf
             151009_exo3_3.mgf
             ...
-    PXD004947/
+    9_species_solanum_lycopersicum/
         labels.csv
         mgf/...
-    PXD004948/
+    9_species_mus_musculus/
         labels.csv
         mgf/...
-    PXD004325/
+    9_species_methanosarcina_mazei/
         labels.csv
         mgf/...
     ...
