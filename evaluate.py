@@ -17,11 +17,8 @@ from ground_truth_mapper import format_sequence as format_sequence_GT
 from metrics import aa_match_metrics, aa_match_batch
 from token_masses import AA_MASSES
 
-# TODO: remove? and pass full path to ref proteome.fasta instead? 
-VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
-ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
-PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
-DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
+DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
+PROTEOMES_DIR = os.environ['PROTEOMES_DIR']
 
 UNIMOD_DB = Unimod()
 ptm_masses = {}
