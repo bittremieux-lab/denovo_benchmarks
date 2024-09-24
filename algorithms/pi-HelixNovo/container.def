@@ -14,7 +14,7 @@ From: ytp22/pi-helixnovo-env:v1
 
 %post
     # Make sure make_predictions.sh file is executable.
-    chmod +x algorithms/pi-HelixNovo/make_predictions.sh
+    chmod +x /algo/make_predictions.sh
 
 # Run algorithm and convert outputs.
 # Data is expected to be mounted into /algo/data dir.
