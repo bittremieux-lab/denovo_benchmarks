@@ -21,7 +21,6 @@ fi
 
 # Use tag variables to specify de novo algorithm
 # for the particular dataset properties
-conda activate main_env
 cd /algo
 echo "Processing mgf files:"
 python pi-HelixNovo/main.py --mode=denovo --config=pi-HelixNovo/config.yaml --gpu=$device --output=outputs.csv --peak_path="$@"/*.mgf --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
