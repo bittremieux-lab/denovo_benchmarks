@@ -49,7 +49,7 @@ for algorithm_dir in algorithms/*; do
             # Create writable overlay for the container
             apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay.img"
 
-            # Calculate predicitons
+            # Calculate predictions
             echo "RUN ALGORITHM"
             apptainer exec --fakeroot --nv \
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
