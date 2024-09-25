@@ -1,0 +1,58 @@
+### PATHS
+#binreclass_model_path: 'spectralis_binreclass.pt'
+#scorer_path: 'spectralis_score.pkl'
+binreclass_model_path: '/algo/spectralis_bin_reclass.pt'
+scorer_path: '/algo/spectralis_score.pkl'
+
+
+### BIN RECLASSIFICATION
+BATCH_SIZE: 256
+
+BIN_RESOLUTION: 1
+MAX_MZ_BIN: 2000
+
+N_CHANNELS: 24
+N_CONVS: 16
+DROPOUT: 0.35108249289592314
+KERNEL_SIZE: 3
+BATCH_NORM: True
+ION_TYPES: ['y', 'b']
+ION_CHARGES: [1]
+ADD_INPUT_TO_END: True
+
+add_intensity_diff: False
+add_precursor_range: False
+log_transform: False
+sqrt_transform: False
+add_leftmost_rightmost: True
+
+## training params
+focal_loss: True
+learning_rate: 0.00004 #4e-5
+n_epochs: 30
+
+### GUIDED MUTATIONS
+bin_prob_threshold: 0.35
+input_bin_weight: 0.1
+
+### SCORING
+change_prob_thresholds: [0.3 , 0.4, 0.45, 0.5, 0.55, 0.6]
+max_delta_ppm: 0.00002
+min_intensity: 0.02
+
+### GA only
+POPULATION_SIZE: 64
+ELITE_RATIO: 0.3
+NUM_GEN: 2
+TEMPERATURE: 10
+MIN_SCORE: -2
+MAX_SCORE: -1
+cache_scores: True
+
+### all
+num_cores: -1
+write_pop_to_file: False
+prosit_ce: 0.32
+
+verbose: False
+interpret_c_as_fix: True
