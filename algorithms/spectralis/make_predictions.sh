@@ -31,4 +31,6 @@ pyenv deactivate
 pyenv activate spectralis
 
 # Write the initial starting sequences to the input MGFs
-python /algo/intermediate_mapper.py --mztab_path $casanovo_output --mgf_in_dir "$@"
+spectralis_data_dir="./seq_data"
+mkdir -p $spectralis_data_dir
+python /algo/intermediate_mapper.py --mztab_path $casanovo_output --mgf_in_dir "$@" --mgf_out_dir $spectralis_data_dir
