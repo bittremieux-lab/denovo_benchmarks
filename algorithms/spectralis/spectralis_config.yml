@@ -2,7 +2,7 @@
 #binreclass_model_path: 'spectralis_binreclass.pt'
 #scorer_path: 'spectralis_score.pkl'
 binreclass_model_path: '/algo/spectralis_bin_reclass.pt'
-scorer_path: '/algo/spectralis_score.pkl'
+scorer_path: '/algo/spectralis_score_wInitiScores.pkl'
 
 
 ### BIN RECLASSIFICATION
@@ -55,4 +55,4 @@ write_pop_to_file: False
 prosit_ce: 0.32
 
 verbose: False
-interpret_c_as_fix: True
+interpret_c_as_fix: False

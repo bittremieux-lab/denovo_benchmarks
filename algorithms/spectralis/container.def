@@ -22,7 +22,7 @@ From: ubuntu:20.04
 %post
     export DEBIAN_FRONTEND=noninteractive
     
-    apt-get update && apt-get install -y libhdf5-dev curl git libedit-dev build-essential zlib1g zlib1g-dev libssl-dev libbz2-dev libsqlite3-dev libreadline-dev libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+    apt-get update && apt-get install -y libhdf5-dev curl git libedit-dev build-essential zlib1g zlib1g-dev libssl-dev libbz2-dev libsqlite3-dev libreadline-dev libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev vim
 
     # To remove warnings
     echo "LC_ALL=en_US.UTF-8" >> /etc/environment
@@ -67,6 +67,7 @@ From: ubuntu:20.04
     pip install . --no-cache-dir --prefer-binary
     cd ..
     pip install glob2
+    pip install tritonclient==2.37.0.9383150
     rm -rf spectralis
 
 %post
@@ -75,7 +76,8 @@ From: ubuntu:20.04
     curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt
 
     curl -O https://zenodo.org/records/8393846/files/spectralis_bin_reclass.pt
-    curl -O https://zenodo.org/records/8393846/files/spectralis_score.pkl
+    curl -O https://zenodo.org/records/8393846/files/spectralis_score.pkl # <-- old model
+    # curl -O https://zenodo.org/records/13844085/files/spectralis_score_wInitiScores.pkl
     
 %post
 	# Make sure make_predictions.sh file is executable.
@@ -86,6 +88,8 @@ From: ubuntu:20.04
 %runscript
     cd /algo && ./make_predictions.sh data
 
-# apptainer overlay create --size 1024 --sparse "algorithms/spectralis/overlay.img"
-# apptainer exec --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" -B "/workspaces/DNPS_benchmarking/denovo_benchmarks/sample_data/SMALL/mgf":"/algo/denovo_benchmarks/sample_data/SMALL/mgf" container/ bash -c "cd /algo && ./make_predictions.sh denovo_benchmarks/sample_data/SMALL/mgf"
-# apptainer shell --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" container
+# apptainer overlay create --size 2048 --sparse "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img"
+# apptainer exec --nv --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" -B "/workspaces/DNPS_benchmarking/denovo_benchmarks/sample_data/SMALL/mgf":"/algo/denovo_benchmarks/sample_data/SMALL/mgf" container/ bash -c "cd /algo && ./make_predictions.sh denovo_benchmarks/sample_data/SMALL/mgf"
+# apptainer shell -B "/workspaces/DNPS_benchmarking/denovo_benchmarks/sample_data/SMALL/mgf":"/algo/denovo_benchmarks/sample_data/SMALL/mgf" --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" container
+
+# _libgcc_mutex _openmp_mutex ca-certificates ld_impl_linux-64 libffi libgcc libgcc-ng libgomp libnsl libsqlite libstdcxx libstdcxx-ng libzlib ncurses openssl pip python readline setuptools sqlite tk wheel xz

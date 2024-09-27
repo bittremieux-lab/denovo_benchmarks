@@ -16,6 +16,16 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+MSV_TO_UNIMOD = {
+    "+57.021": "[UNIMOD:4]",
+    "+42.011": "[UNIMOD:1]",
+    "-17.027": "[UNIMOD:28]",
+    "+0.984": "[UNIMOD:7]",
+    "+15.995": "[UNIMOD:35]",
+    "+43.001": "[UNIMOD:5]",
+    # "+43.006-17.027": "[UNIMOD:5][UNIMOD:28]"?, TODO
+}
+
 class IntermediateMapper():
     def __init__(self, output_path: str, input_dir: str, output_dir: str):
         # Read predictions from output file
@@ -40,6 +50,14 @@ class IntermediateMapper():
         self.seq_mapping = self.output_data.groupby('file_name').apply(lambda x: x.set_index('spectrum_idx')['sequence'].to_dict()).to_dict()
         self.score_mapping = self.output_data.groupby('file_name').apply(lambda x: x.set_index('spectrum_idx')['search_engine_score[1]'].to_dict()).to_dict()
 
+    def msv_to_unimod(self, seq: str):
+        """
+        Convert the MSV format to the Unimod format
+        """
+        for msv, unimod in MSV_TO_UNIMOD.items():
+            seq = seq.replace(msv, unimod)
+        return seq
+
     def write_initial_seq_to_mfg(self):
         for input_mgf_path in glob(self.input_dir + "/*.mgf"):
             file_name = input_mgf_path.split("/")[-1]
@@ -57,8 +75,10 @@ class IntermediateMapper():
                     if line == "BEGIN IONS":
                         current_spectrum = [line]
                     elif line == "END IONS":
+                        current_spectrum.append(line)
+                        
                         if str(spectrum_idex) in current_mapping:
-                            sequence = current_mapping[str(spectrum_idex)]
+                            sequence = self.msv_to_unimod(current_mapping[str(spectrum_idex)])
                             current_spectrum.insert(1, f"SEQ={sequence}")
                             current_spectrum.insert(2, f"SCORE={current_score_mapping[str(spectrum_idex)]}")
                         else:
@@ -66,6 +86,8 @@ class IntermediateMapper():
                             current_spectrum.insert(2, f"SCORE={0}")
                             with open("missing_sequences.csv", "a+") as missing_file:
                                 missing_file.write(f"{file_name},{spectrum_idex}\n")
+
+                        current_spectrum.insert(3, f"SCANS={spectrum_idex}")
                         
                         outfile.write("\n".join(current_spectrum) + "\n\n")
 
