@@ -1,6 +1,6 @@
 # read dataset tags from 
 # DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
-# get tags for a specififc object (passed as argument)
+# get tags for a specific object (passed as argument)
 # and pass them to the bash script as a KEY=VALUE pairs
 # (in the bash script, $KEY=VALUE variables will be created for each pair
 # for (optional) subsequent use within the make_predictions logic)

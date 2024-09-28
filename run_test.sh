@@ -23,7 +23,7 @@ echo "Processing algorithm: $algorithm_name"
 apptainer overlay create --fakeroot --size $overlay_size \
     --sparse "algorithms/${algorithm_name}/test_overlay.img"
 
-# Calculate predicitons
+# Calculate predictions
 echo "RUN ALGORITHM"
 apptainer exec --fakeroot --nv \
     --overlay "algorithms/${algorithm_name}/test_overlay.img" \
