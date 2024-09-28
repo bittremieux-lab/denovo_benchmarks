@@ -45,4 +45,4 @@ for mgf_file in $input_mgf_paths; do
 done
 
 # Format the output into the target format
-python /algo/output_mapper.py --input_dir "$@" --spectralis_output_dir $spectralis_outputs --casanovo_output $casanovo_output
+python /algo/output_mapper.py --mgf_in_dir "$@" --spectralis_output_dir $spectralis_outputs --casanovo_output $casanovo_output

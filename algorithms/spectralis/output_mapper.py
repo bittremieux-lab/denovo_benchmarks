@@ -6,26 +6,17 @@ import pandas as pd
 from glob import glob
 import re
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument(
-#     "--spectralis_output_dir", required=True, help="The path to the algorithm predictions file."
-# )
-# parser.add_argument(
-#     "--mgf_in_dir", required=True, help="The dir with the input dataset .mgf files.",
-# )
-# parser.add_argument(
-#     "--casanovo_output", required=True, help="The path to casanovo's predictions file."
-# )
-# args = parser.parse_args()
-
-class Args:
-    pass
-
-args = Args()
-args.spectralis_output_dir = "algorithms/spectralis/spectralis_output"
-args.mgf_in_dir = "sample_data/SMALL/mgf"
-args.casanovo_output = "algorithms/spectralis/outputs.mztab"
-
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--spectralis_output_dir", required=True, help="The path to the algorithm predictions file."
+)
+parser.add_argument(
+    "--mgf_in_dir", required=True, help="The dir with the input dataset .mgf files.",
+)
+parser.add_argument(
+    "--casanovo_output", required=True, help="The path to casanovo's predictions file."
+)
+args = parser.parse_args()
 
 class OutputMapper(OutputMapperBase):
     REPLACEMENTS = [
