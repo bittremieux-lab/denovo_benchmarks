@@ -41,26 +41,8 @@ mkdir -p ./spectralis_outputs
 spectralis_outputs=./spectralis_outputs/
 for mgf_file in $input_mgf_paths; do
     file_name=$(basename -- "$mgf_file")
-    # Something wrong with readgin spectra:
-#     Traceback (most recent call last):
-#   File "/opt/custom/.pyenv/versions/spectralis/bin/spectralis", line 8, in <module>
-#     sys.exit(main())
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/click/core.py", line 1157, in __call__
-#     return self.main(*args, **kwargs)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/click/core.py", line 1078, in main
-#     rv = self.invoke(ctx)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/click/core.py", line 1434, in invoke
-#     return ctx.invoke(self.callback, **ctx.params)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/click/core.py", line 783, in invoke
-#     return __callback(*args, **kwargs)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/spectralis/main.py", line 81, in main
-#     spectralis.rescoring_from_mgf(mgf_path=input_path, out_path=output_path)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/spectralis/spectralis_master.py", line 510, in rescoring_from_mgf
-#     _out = self._process_mgf(mgf_path)
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/spectralis/spectralis_master.py", line 234, in _process_mgf
-#     for spectrum in tqdm.tqdm(reader):
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/tqdm/std.py", line 1181, in __iter__
-#     for obj in iterable:
-#   File "/opt/custom/.pyenv/versions/3.7.17/envs/spectralis/lib/python3.7/site-packages/pyteomics/auxiliary/file_helpers.py", line 178, in __next__
-    spectralis --mode="rescoring" --config="spectralis_config.yml" --input_path="$mgf_file" --output_path="${spectralis_outputs}${file_name%.mgf}_spectralis_rescoring.csv"
+    spectralis --mode="rescoring" --config="spectralis_config.yml" --input_path="$mgf_file" --output_path="${spectralis_outputs}${file_name%.mgf}.csv"
 done
+
+# Format the output into the target format
+python /algo/output_mapper.py --input_dir "$@" --spectralis_output_dir $spectralis_outputs --casanovo_output $casanovo_output
