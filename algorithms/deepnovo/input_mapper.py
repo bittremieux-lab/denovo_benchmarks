@@ -40,6 +40,9 @@ class InputMapper(InputMapperBase):
         # add dummy labels
         spectrum["params"]["seq"] = "PEPTIDE"
 
+        # fix pepmass to be single value
+        spectrum["params"]["pepmass"] = spectrum["params"]["pepmass"][0]
+
         # create "scans" based on filename and spectrum index (0-based)
         spectrum["params"]["scans"] = filename + ":" + str(spectrum_idx)
         return spectrum
