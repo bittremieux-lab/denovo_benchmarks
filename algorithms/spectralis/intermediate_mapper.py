@@ -98,5 +98,3 @@ class IntermediateMapper():
 
 intermediate_mapper = IntermediateMapper(args.mztab_path, args.mgf_in_dir, args.mgf_out_dir)
 intermediate_mapper.write_initial_seq_to_mfg()
-
-# python3 intermediate_mapper.py --mztab_path outputs.mztab --mgf_in_dir ../../sample_data/SMALL/mgf --mgf_out_dir ./tmp

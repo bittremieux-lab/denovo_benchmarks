@@ -95,5 +95,3 @@ class OutputMapper(OutputMapperBase):
 output_mapper = OutputMapper(args.spectralis_output_dir, args.mgf_in_dir, args.casanovo_output)
 output_mapper.format_output(output_mapper.output_data)
 output_mapper.output_data.to_csv("outputs.csv", index=False)
-
-# python3 algorithms/spectralis/output_mapper.py --casanovo_output algorithms/spectralis/outputs.mztab --mgf_in_dir sample_data/SMALL/mgf --spectralis_output_dir algorithms/spectralis/spectralis_output

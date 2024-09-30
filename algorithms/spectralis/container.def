@@ -62,13 +62,9 @@ From: ubuntu:20.04
 
     pyenv activate spectralis
     pip install --upgrade pip
-    git clone https://github.com/gagneurlab/spectralis.git
-    cd spectralis
-    pip install . --no-cache-dir --prefer-binary
-    cd ..
+    pip install git+https://github.com/gagneurlab/spectralis
     pip install glob2
     pip install tritonclient==2.37.0.9383150
-    rm -rf spectralis
 
 %post
 	# Download weigths for both Casanovo and Spectralis
@@ -87,7 +83,3 @@ From: ubuntu:20.04
 # Data is expected to be mounted into /algo/data dir.
 %runscript
     cd /algo && ./make_predictions.sh data
-
-# apptainer overlay create --size 2048 --sparse "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img"
-# apptainer exec --nv --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" -B "/workspaces/DNPS_benchmarking/denovo_benchmarks/sample_data/SMALL/mgf":"/algo/denovo_benchmarks/sample_data/SMALL/mgf" container/ bash -c "cd /algo && ./make_predictions.sh denovo_benchmarks/sample_data/SMALL/mgf"
-# apptainer shell -B "/workspaces/DNPS_benchmarking/denovo_benchmarks/sample_data/SMALL/mgf":"/algo/denovo_benchmarks/sample_data/SMALL/mgf" --overlay "/workspaces/DNPS_benchmarking/denovo_benchmarks/algorithms/spectralis/overlay.img" container
