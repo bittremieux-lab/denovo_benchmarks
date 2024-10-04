@@ -16,6 +16,8 @@ From: nvcr.io/nvidia/pytorch:23.10-py3
     algorithms/base /algo/base
 
 %post
+    chmod 1777 /tmp
+    
 	# [Optional] Install system packages
 	# (e.g. some base images may need git installation)
     apt-get update -y
