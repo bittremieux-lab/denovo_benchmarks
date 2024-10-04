@@ -90,9 +90,9 @@ To run the benchmark locally:
     If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
 
 3. **Configure paths:**
-    Configure the path to `dataset_tags.tsv`. 
+    In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
     
-    Open `denovo_benchmarks/algorithms/base/constants.py` and set the `DATASET_TAGS_PATH` variable to the absolute path of `dataset_tags.tsv` on your machine.
+    After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
 
 4. **Run benchmark on a dataset**:
     Make sure the required packages are installed:

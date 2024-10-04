@@ -10,8 +10,8 @@ import argparse
 # TODO: should be installed in all the algorithm containers 
 # (if this script is used in make_predictions.sh)
 import pandas as pd
-from constants import DATASET_TAGS_PATH
 
+DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH']
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
