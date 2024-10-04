@@ -11,7 +11,16 @@ class DatasetTag(str, enum.Enum):
     timstof = "timstof"
     waters = "waters"
     sciex = "sciex"
+    agilent = "agilent"
+    astral = "astral"
+    deamidation = "deamidation"
     phosphorylation = "phosphorylation"
+    oxidation = "oxidation"
+    acetylation = "acetylation"
+    methylation = "methylation"
+    carbamidomethylation = "carbamidomethylation"
+    ammonia_loss = "ammonia_loss"
+    # TODO: other modifications?
 
 
 class DataDownloadConfig(BaseModel):
