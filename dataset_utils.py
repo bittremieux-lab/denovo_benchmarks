@@ -9,10 +9,10 @@ import alphatims.bruker
 from tqdm import tqdm
 from pyteomics import fasta, mgf
 
-VSC_DATA = "/data/antwerpen/209/vsc20960/"
-VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
-ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
-VSC_FRAGPIPE = "/apps/antwerpen/testing/3276_FragPipe/software/breniac-skylake-rocky8/"
+VSC_DATA =  os.environ['VSC_DATA']
+VSC_SCRATCH = os.environ['VSC_DATA'] 
+ROOT = os.environ['ROOT'] 
+VSC_FRAGPIPE = os.environ['VSC_FRAGPIPE']
 
 # Path to ThermoRawFileParser apptainer container
 RAW_FILE_PARSER_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "thermorawfileparser_latest.sif")
