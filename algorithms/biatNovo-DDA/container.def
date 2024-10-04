@@ -1,0 +1,54 @@
+Bootstrap: docker
+# Define the base image to inherit from.
+# (e.g. image with a particular python version
+# or a particular pytorch/tensorflow version).
+From: nvcr.io/nvidia/pytorch:23.10-py3
+
+# Define system variables to provide GPU access within the container.
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export PYTHONPATH=/algo/biatNovo-DDA:$PYTHONPATH
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
+    algorithms/biatNovo-DDA /algo
+    algorithms/base /algo/base
+
+%post
+	# [Optional] Install system packages
+	# (e.g. some base images may need git installation)
+    apt-get update -y
+    apt-get install git-lfs unzip -y
+
+    # [Optional] Download algorithm-related files
+    # (source codes, weights, etc.)
+    # All files must be placed within /algo dir.
+    cd /algo
+    git clone https://github.com/yangshu729/biatNovo-DDA.git
+
+    # [Optional] Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    cd biatNovo-DDA
+    pip install -r requirements.txt
+
+    # install or build from source the algorithm, etc.
+    cd DataProcess
+    python deepnovo_cython_setup.py build && python deepnovo_cython_setup.py install
+    cp build/lib.linux-x86_64-3.10/DataProcess/deepnovo_cython_modules.cpython-310-x86_64-linux-gnu.so .
+
+    # Download model weights
+    cd /algo
+    export RELEASE_VERSION="v0.1"
+    wget -O sbatt_deepnovo.pth "https://github.com/yangshu729/biatNovo-DDA/releases/download/${RELEASE_VERSION}/sbatt_deepnovo.pth"
+    wget -O spectrum_cnn.pth "https://github.com/yangshu729/biatNovo-DDA/releases/download/${RELEASE_VERSION}/spectrum_cnn.pth"
+
+%post
+	# Make sure make_predictions.sh file is executable.
+    unzip /algo/biatNovo-DDA/knapsack.npy.zip -d /algo
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
