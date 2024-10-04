@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import pandas as pd
 import alphatims.bruker
+# from datetime import datetime
 from tqdm import tqdm
 from pyteomics import fasta, mgf
 
@@ -22,6 +23,7 @@ MSCONVERT_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "pwiz-skyline-i-agree
 SPLIT_SCRIPT_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/msfragger_pep_split.py")
 # Path to MSFragger executable file (jar)
 MSFRAGGER_PATH = os.path.join(VSC_DATA, "easybuild", "build", "MSFragger-4.0", "MSFragger-4.0.jar")
+MSFRAGGER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "configs", "default_closed.params")
 # Path to MSBooster executable file (jar)
 MSBOOSTER_PATH = os.path.join(VSC_FRAGPIPE, "MSBooster", "1.2.31-Java-11", "MSBooster-1.2.31.jar")
 DIANN_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/diann/1.8.2_beta_8/linux/diann-1.8.1.8")
@@ -43,7 +45,6 @@ DATASET_STORAGE_DIR = os.path.join(VSC_DATA, "benchmarking", "datasets")
 
 # Spectra smoothing for .d to .mgf conversion with alphatims
 CENTROID_WINDOW = 5
-MAX_SPECTRA_PER_FILE = 20000
 
 
 def get_files_list(download_config):
@@ -151,8 +152,33 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
 
     ext_flag = "--mgf" if target_ext == ".mgf" else "--mzML"
     filter_ms_level = 2 if target_ext == ".mgf" else 1
+
     for fname, file_path in tqdm(raw_file_pathes.items()):
-        # TODO в идеале тоже надо пропускать файлы, которые уже существуют
+        # Skip the conversion:
+        #  - for .mzML: if the target file filename.mzML already exists in files_dir, 
+        if target_ext == ".mzml":
+            out_fname = fname + ".mzML"
+            target_file = os.path.join(target_dir, out_fname)
+            if os.path.exists(target_file):
+                print(f"Skipping {fname}.mzML, already exists in {target_dir}")
+                continue
+
+        #  - for .mgf: if any file matching the pattern filename_{i}.mgf 
+        #    exists in files_dir
+        elif target_ext == ".mgf":
+            out_fname = fname + ".mgf"
+            target_file = os.path.join(target_dir, out_fname)
+            if os.path.exists(target_file):
+                print(f"Skipping {fname}.mgf, already exists in {target_dir}")
+                continue
+            # existing_files = [
+            #     f for f in os.listdir(target_dir) 
+            #     if re.fullmatch(f"{re.escape(fname)}_\d+\.mgf", f)
+            # ]
+            # if existing_files:
+            #     print(f"Skipping {fname}.mgf, corresponding .mgf files already exist in {target_dir}")
+            #     continue
+
         out_fname = fname + target_ext
         cmd = [
             "apptainer",
@@ -170,8 +196,6 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
             '"peakPicking vendor"',
             "--filter",
             '"precursorRefine"',
-            # "--filter",
-            # '"chargeStatePredictor singleChargeFractionTIC=0.9 maxKnownCharge=4"',
             "--filter",
             f'"msLevel {filter_ms_level}-"',
             "--filter",
@@ -247,14 +271,76 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
             shutil.move(src_fname, dst_fname) # TODO: replace copy to rename (move)
         print("Created mzML files:\n", os.listdir(mzml_files_dir))
 
-        # Use uncalibrared mgf files to get unlabeled mgf files from .d
-        mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
-        for file_path in mzml_files:
-            fname = os.path.splitext(file_path)[0]
-            src_fname = fname + "_uncalibrated.mgf"
-            dst_fname = os.path.join(mgf_files_dir, os.path.basename(fname + ".mgf"))
-            shutil.move(src_fname, dst_fname) # TODO: replace copy to move
-        print("Created unlabeled mgf files\n", os.listdir(mgf_files_dir))
+        # # Use uncalibrared mgf files to get unlabeled mgf files from .d
+        # mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
+        # for file_path in mzml_files:
+        #     fname = os.path.splitext(file_path)[0]
+        #     src_fname = fname + "_uncalibrated.mgf"
+        #     dst_fname = os.path.join(mgf_files_dir, os.path.basename(fname + ".mgf"))
+        #     shutil.move(src_fname, dst_fname) # TODO: replace copy to move
+        # print("Created unlabeled mgf files\n", os.listdir(mgf_files_dir))
+
+
+def generate_msfragger_params(db_w_decoys_path, config, template_path, output_path):
+    """
+    Generates a MSFragger parameter file from a given configuration and template.
+
+    Args:
+    config (dict): The configuration dictionary for the dataset.
+    template_path (str): Path to the default template .params file.
+    output_path (str): Path to save the modified .params file.
+    """
+    
+    def replace_param_value(line, new_value):
+        if "#" in line:
+            param, desc = line.split("#")
+        else:
+            param = line
+            desc = ""
+        
+        # print(param)
+        param_key, param_value = param.split(" = ", 1)
+        
+        if "variable_mod" in param_key:
+            new_value = new_value.replace("_", " ")
+        
+        param = f"{param_key} = {new_value}"
+        return f"{param}        # {desc}"
+    
+    # Step 1: Load the default template params file
+    with open(template_path, 'r') as template_file:
+        template_data = template_file.readlines()
+    
+
+    # Step 2: Modify template based on the provided config
+    search_params = {key.lstrip("-"): value for key,  value in config.search_params.items()}
+    search_params["database_name"] = db_w_decoys_path
+    
+    modified_params = []
+    for line in template_data:
+        line = line.strip()
+        
+        for key, value in search_params.items():
+            # Search for the parameter in the template file and replace if exists
+            if key in line and not line.startswith("#"):                
+                line = replace_param_value(line, value)
+                break  # No need to check other keys once matched
+        
+        modified_params.append(line)
+    modified_params.append("\n")
+
+    # Step 3: Add missing parameters from config (not in the template)
+    existing_params = {line.split('=')[0].strip() for line in modified_params if '=' in line}
+    for key, value in search_params.items():
+        if key not in existing_params:
+            if "variable_mod" in key:
+                value = value.replace("_", " ")
+            modified_params.append(f"{key} = {value}")
+
+    # Step 4: Save the modified params file
+    with open(output_path, 'w') as output_file:
+        output_file.write("\n".join(modified_params))
+    print(f"Generated MSFragger params file at: {output_path}")
 
 
 def run_database_search_split(dset_name, db_w_decoys_path, db_search_config):
@@ -264,13 +350,24 @@ def run_database_search_split(dset_name, db_w_decoys_path, db_search_config):
     mzml_files = [f for f in os.listdir(mzml_files_dir) if os.path.splitext(f)[1].lower() == search_ext]
     mzml_files = [os.path.join(mzml_files_dir, f) for f in mzml_files]
 
-    # TODO: better add to closed.params
-    # db_w_decoys_path -- path to DB file with decoys and contams
+    # create MSFragger params file from config
+    params_file = os.path.join(mzml_files_dir, "closed.params")
+    generate_msfragger_params(
+        db_w_decoys_path,
+        db_search_config, 
+        MSFRAGGER_BASE_PARAMS, 
+        params_file
+    )
 
     n_db_splits = db_search_config.n_db_splits
-    params_file = os.path.join(mzml_files_dir, "closed.params")
     # Iterate over each mzML file and run the msfragger command
     for mzml_file in mzml_files:
+        # /scratch/antwerpen/209/vsc20960/benchmarking/mzml/human_multiprotease_ptm_lysc/130328_LysC_Frac1.mzML
+        output_file = os.path.basename(mzml_file).replace("mzML", "pepXML")
+        if output_file in os.listdir(mzml_files_dir):
+            print(f"{output_file} already exists.")
+            continue
+
         print(f"PROCESSING {mzml_file}")
         cmd = [
             "python",
@@ -357,7 +454,9 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
 
     # Get number of columns
     fname = list(files_list.keys())[0]
-    file_path = os.path.join(mzml_files_dir, f"{fname}_rescore.pin")
+    # [! uncomment to use deep learning-based features in rescoring]
+    # file_path = os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin")
+    file_path = os.path.join(mzml_files_dir, f"{fname}.pin")
     with open(file_path, 'r') as file:
         first_line = file.readline().strip()
     # Split the first line into column names
@@ -366,7 +465,9 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
 
     dfs = [
         pd.read_csv(
-            os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
+            # [! uncomment to use deep learning-based features in rescoring]
+            # os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
+            os.path.join(mzml_files_dir, f"{fname}.pin"),
             usecols=list(range(n_cols)),
             sep="\t"
         ) for fname in files_list
@@ -439,65 +540,3 @@ def collect_dataset_tags(config):
     tags_df = tags_df.drop_duplicates(subset="dataset", keep="last")
     tags_df.to_csv(DATASET_TAGS_PATH, index=False, sep="\t")
     print(f"Written to {DATASET_TAGS_PATH}")
-
-
-
-
-# # Set maximum number of spectra per MGF file
-# MAX_SPECTRA_PER_FILE = 20000
-
-# # Store the 0-based indices of spectra with respect to new split files
-# spectra_idxs_0 = []
-
-# for fname in tqdm(files_list):
-#     input_path = os.path.join(mgf_files_dir, fname + ".mgf")
-#     spectra = mgf.read(input_path)
-    
-#     # Filter spectra based on "charge"
-#     spectra_filtered = []
-#     for spectrum in tqdm(spectra):
-#         if "charge" in spectrum["params"]:
-#             spectra_filtered.append(spectrum)
-    
-#     # Split filtered spectra into multiple files if needed
-#     num_filtered_spectra = len(spectra_filtered)
-#     num_splits = (num_filtered_spectra // MAX_SPECTRA_PER_FILE) + (1 if num_filtered_spectra % MAX_SPECTRA_PER_FILE > 0 else 0)
-    
-#     split_idx_0 = []
-    
-#     for k in range(num_splits):
-#         # Define the range of spectra to include in the current split file
-#         start_idx = k * MAX_SPECTRA_PER_FILE
-#         end_idx = min((k + 1) * MAX_SPECTRA_PER_FILE, num_filtered_spectra)
-#         spectra_chunk = spectra_filtered[start_idx:end_idx]
-        
-#         # Create the new MGF file with split spectra
-#         output_filename = f"{fname}_{k}.mgf"
-#         output_path = os.path.join(mgf_files_dir, output_filename)
-        
-#         mgf.write(spectra_chunk, output_path)
-#         print(f"Written {len(spectra_chunk)} spectra to {output_path}.")
-        
-#         # Store the 0-based index and spectrum title for this chunk
-#         idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra_chunk)}
-#         idxs_0 = pd.Series(idxs_0).reset_index()
-#         idxs_0.columns = ["idx_0", "title"]
-#         idxs_0["filename"] = output_filename
-        
-#         # Append indices for this split
-#         split_idx_0.append(idxs_0)
-    
-#     # Concatenate indices from all splits for this file
-#     if split_idx_0:
-#         spectra_idxs_0.append(pd.concat(split_idx_0, axis=0).reset_index(drop=True))
-    
-#     # Remove the original MGF file after splitting
-#     os.remove(input_path)
-#     print(f"Original file {input_path} removed.")
-    
-# # Combine indices from all files
-# spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
-
-# # Update the results dataframe with the new idx_0 and filename fields
-# results_df = pd.merge(results_df, spectra_idxs_0, on="title")
-# results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["idx_0"].astype(str)

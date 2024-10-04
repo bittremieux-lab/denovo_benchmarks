@@ -84,6 +84,7 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
                     shutil.unpack_archive(filename=file_path, extract_dir=unpack_dir)
 
         if config.download.ext in [".raw", ".wiff"]:
+            # TODO: add: or (config.download.ext == ".d.zip" and config.search.ext == ".mzml")
             # Convert raw files to mzml (msconvert) # TODO: check for files from files_list only?
             convert_raw(dset_id, files_list, mzml_files_dir, target_ext=config.db_search.ext) # also always mzml??
 
@@ -104,11 +105,12 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
 # Create features with MSBooster
 # If already have _rescore.pin, no need to run feature prediction (TODO: add flag for FORCED RE-RUN)
 file_prefix = "rescore"
-if not set(fname.lower() + f"_{file_prefix}.pin" for fname in files_list).issubset(
-        set(fname.lower() for fname in os.listdir(mzml_files_dir))
-    ):
-    # TODO: ideally should also check whether mzml files exist and add them otherwise
-    get_psm_rescoring_features(dset_name, config.rescoring)
+# [! uncomment to use deep learning-based features in rescoring]
+# if not set(fname.lower() + f"_{file_prefix}.pin" for fname in files_list).issubset(
+#         set(fname.lower() for fname in os.listdir(mzml_files_dir))
+#     ):
+#     # TODO: ideally should also check whether mzml files exist and add them otherwise
+#     get_psm_rescoring_features(dset_name, config.rescoring)
 
 # Run Percolator on created features
 # TODO: any checks whether PSMs rescoring results already available?
@@ -194,8 +196,12 @@ for fname in tqdm(files_list):
 
         output_fname = f"{fname}_{k}"
         output_path = os.path.join(mgf_files_dir, output_fname + ".mgf")
-        mgf.write(spectra_chunk, output_path)
-        print(f"{len(spectra_chunk)} spectra with charge written to {output_path}.")
+        # TODO: add flag to force RE-WRITING
+        if not os.path.exists(output_path):
+            mgf.write(spectra_chunk, output_path)
+            print(f"{len(spectra_chunk)} spectra with charge written to {output_path}.")
+        else:
+            print(f"{output_path} already exists.")
 
         idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra_chunk)}
         idxs_0 = pd.Series(idxs_0).reset_index()
@@ -204,8 +210,8 @@ for fname in tqdm(files_list):
         spectra_idxs_0.append(idxs_0)
 
     # Remove the original MGF file after splitting
-    os.remove(input_path)
-    print(f"Original file {input_path} removed.")
+    # os.remove(input_path)
+    # print(f"Original file {input_path} removed.")
 
 spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
 
