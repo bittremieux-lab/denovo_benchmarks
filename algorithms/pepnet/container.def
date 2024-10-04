@@ -1,0 +1,33 @@
+Bootstrap: docker
+From: python:3.10
+
+# Define system variables to provide GPU access within the container.
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+%files
+    # Copy algorithm-related files
+    algorithms/pepnet /algo
+    algorithms/base /algo/base
+
+%post
+    # Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    pip install --no-cache-dir numba==0.57.1
+    pip install --no-cache-dir pandas==1.5.3
+    pip install --no-cache-dir pyteomics==4.7.3
+    pip install --no-cache-dir tensorflow==2.14
+    pip install --no-cache-dir tensorflow_addons
+
+    # Download additional weights
+    cd /algo
+    curl https://zenodo.org/records/7869847/files/model.h5?download=1 -o model.h5
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
