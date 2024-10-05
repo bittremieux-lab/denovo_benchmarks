@@ -106,11 +106,11 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
 # If already have _rescore.pin, no need to run feature prediction (TODO: add flag for FORCED RE-RUN)
 file_prefix = "rescore"
 # [! uncomment to use deep learning-based features in rescoring]
-# if not set(fname.lower() + f"_{file_prefix}.pin" for fname in files_list).issubset(
-#         set(fname.lower() for fname in os.listdir(mzml_files_dir))
-#     ):
-#     # TODO: ideally should also check whether mzml files exist and add them otherwise
-#     get_psm_rescoring_features(dset_name, config.rescoring)
+if not set(fname.lower() + f"_{file_prefix}.pin" for fname in files_list).issubset(
+        set(fname.lower() for fname in os.listdir(mzml_files_dir))
+    ):
+    # TODO: ideally should also check whether mzml files exist and add them otherwise
+    get_psm_rescoring_features(dset_name, config.rescoring)
 
 # Run Percolator on created features
 # TODO: any checks whether PSMs rescoring results already available?

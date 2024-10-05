@@ -10,25 +10,28 @@ import alphatims.bruker
 from tqdm import tqdm
 from pyteomics import fasta, mgf
 
-VSC_DATA =  os.environ['VSC_DATA']
-VSC_SCRATCH = os.environ['VSC_DATA'] 
-ROOT = os.environ['ROOT'] 
-VSC_FRAGPIPE = os.environ['VSC_FRAGPIPE']
+from dotenv import load_dotenv
+load_dotenv()
+
+DATA_DIR =  os.environ['DATA_DIR']
+WORK_DIR = os.environ['WORK_DIR'] 
+ROOT = os.environ['ROOT']
+FRAGPIPE_DIR = os.environ['FRAGPIPE_DIR']
 
 # Path to ThermoRawFileParser apptainer container
-RAW_FILE_PARSER_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "thermorawfileparser_latest.sif")
+RAW_FILE_PARSER_PATH = os.path.join(WORK_DIR, "benchmarking", "thermorawfileparser_latest.sif")
 # Path to msconvert apptainer container
-MSCONVERT_PATH = os.path.join(VSC_SCRATCH, "benchmarking", "pwiz-skyline-i-agree-to-the-vendor-licenses_latest.sif")
+MSCONVERT_PATH = os.path.join(WORK_DIR, "benchmarking", "pwiz-skyline-i-agree-to-the-vendor-licenses_latest.sif")
 # Path to MSFragger DB split script (for running DB search with large DB)
-SPLIT_SCRIPT_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/msfragger_pep_split.py")
+SPLIT_SCRIPT_PATH = os.path.join(FRAGPIPE_DIR, "FragPipe/21.1-Java-11/tools/msfragger_pep_split.py")
 # Path to MSFragger executable file (jar)
-MSFRAGGER_PATH = os.path.join(VSC_DATA, "easybuild", "build", "MSFragger-4.0", "MSFragger-4.0.jar")
-MSFRAGGER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "configs", "default_closed.params")
+MSFRAGGER_PATH = os.path.join(DATA_DIR, "easybuild", "build", "MSFragger-4.0", "MSFragger-4.0.jar")
+MSFRAGGER_BASE_PARAMS = os.path.join(WORK_DIR, "benchmarking", "configs", "default_closed.params")
 # Path to MSBooster executable file (jar)
-MSBOOSTER_PATH = os.path.join(VSC_FRAGPIPE, "MSBooster", "1.2.31-Java-11", "MSBooster-1.2.31.jar")
-DIANN_PATH = os.path.join(VSC_FRAGPIPE, "FragPipe/21.1-Java-11/tools/diann/1.8.2_beta_8/linux/diann-1.8.1.8")
+MSBOOSTER_PATH = os.path.join(FRAGPIPE_DIR, "MSBooster", "1.2.31-Java-11", "MSBooster-1.2.31.jar")
+DIANN_PATH = os.path.join(FRAGPIPE_DIR, "FragPipe/21.1-Java-11/tools/diann/1.8.2_beta_8/linux/diann-1.8.1.8")
 KOINA_URL = "https://koina.wilhelmlab.org:443/v2/models/"
-MSBOOSTER_BASE_PARAMS = os.path.join(VSC_SCRATCH, "benchmarking", "params_rescore", "msbooster_base.params")
+MSBOOSTER_BASE_PARAMS = os.path.join(WORK_DIR, "benchmarking", "params_rescore", "msbooster_base.params")
 # Spectrum params order for saving labeled mgf files
 MGF_KEY_ORDER = ["title", "pepmass", "rtinseconds", "charge", "scans", "seq"]
 # Path to the file with datasets properties (tags)
@@ -41,7 +44,7 @@ MZML_DATA_DIR = os.path.join(ROOT, "mzml")
 RESCORED_DATA_DIR = os.path.join(ROOT, "rescored")
 MGF_DATA_DIR = os.path.join(ROOT, "mgf")
 
-DATASET_STORAGE_DIR = os.path.join(VSC_DATA, "benchmarking", "datasets")
+DATASET_STORAGE_DIR = os.path.join(DATA_DIR, "benchmarking", "datasets")
 
 # Spectra smoothing for .d to .mgf conversion with alphatims
 CENTROID_WINDOW = 5
@@ -455,8 +458,8 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
     # Get number of columns
     fname = list(files_list.keys())[0]
     # [! uncomment to use deep learning-based features in rescoring]
-    # file_path = os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin")
-    file_path = os.path.join(mzml_files_dir, f"{fname}.pin")
+    file_path = os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin")
+    # file_path = os.path.join(mzml_files_dir, f"{fname}.pin")
     with open(file_path, 'r') as file:
         first_line = file.readline().strip()
     # Split the first line into column names
@@ -466,8 +469,8 @@ def run_psm_rescoring(dset_name, rescoring_config, files_list):
     dfs = [
         pd.read_csv(
             # [! uncomment to use deep learning-based features in rescoring]
-            # os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
-            os.path.join(mzml_files_dir, f"{fname}.pin"),
+            os.path.join(mzml_files_dir, f"{fname}_{file_prefix}.pin"),
+            # os.path.join(mzml_files_dir, f"{fname}.pin"),
             usecols=list(range(n_cols)),
             sep="\t"
         ) for fname in files_list
