@@ -1,0 +1,1 @@
+singularity exec --bind /mnt/g/denovo_benchmarks/algorithms/gcnovo/param:/algo/param,/mnt/g/denovo_benchmarks/results:/algo/test_demo,/mnt/g/denovo_benchmarks/algorithms/gcnovo/main.py:/algo/main.py  container.sif python /algo/main.py

@@ -9,6 +9,11 @@ metrics.csv
 *.sif
 *.img
 
+# Large files 
+# TODO: replace with Git Large File Storage - https://git-lfs.github.com.
+*.pth
+*.npy
+*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

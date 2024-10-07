@@ -1,0 +1,4 @@
+spec_group_id,m/z,z,rt_mean,scans,seq,profile,feature area
+controllerType=0 controllerNumber=1 scan=3188,380.871978759766,3,820.5762,3188,HKQSLEEAAK,0,0
+controllerType=0 controllerNumber=1 scan=3361,962.316833496094,2,857.74056,3361,GGC(+57.02)GSGC(+57.02)GGC(+57.02)SSSC(+57.02)GGC(+57.02)GSR,0,0
+controllerType=0 controllerNumber=1 scan=4168,657.738647460938,2,999.2769,4168,PAC(+57.02)C(+57.02)ETTC(+57.02)C(+57.02)R,0,0
