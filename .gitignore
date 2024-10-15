@@ -3,13 +3,17 @@ datasets/*
 !datasets/sample_data/
 
 # Outputs
-*.csv
-metrics.txt
+metrics.csv
 
 # Containers
 *.sif
 *.img
 
+# Large files 
+# TODO: replace with Git Large File Storage - https://git-lfs.github.com.
+*.pth
+*.npy
+*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

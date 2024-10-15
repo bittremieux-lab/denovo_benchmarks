@@ -12,10 +12,12 @@ From: tensorflow/tensorflow:1.2.0-gpu
     algorithms/base /algo/base
 
 %post
+    # Install gnupg first to avoid GPG errors
+    apt-get update && apt-get install -y gnupg \
+    && apt-get update
+
     # Install system packages
-    apt-get update \
-    && apt-get install -y \
-        git-core \
+    apt-get install -y --allow-unauthenticated git-core \
     && rm -rf /var/lib/apt/lists/*
     git --version
 

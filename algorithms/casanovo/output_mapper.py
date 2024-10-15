@@ -13,9 +13,19 @@ from base import OutputMapperBase
 
 
 class OutputMapper(OutputMapperBase):
-    REPLACEMENTS = []
-    PTM_PATTERN = r"([A-Z])([0-9.+-]+)" # find AAs with PTMs 
-    N_TERM_MOD_PATTERN = r"^([0-9.+-]+)" # find N-term modifications
+    REPLACEMENTS = [
+        ("C+57.021", "C[UNIMOD:4]"),
+        # Amino acid modifications.
+        ("M+15.995", "M[UNIMOD:35]"),    # Met oxidation
+        ("N+0.984", "N[UNIMOD:7]"),     # Asn deamidation
+        ("Q+0.984", "Q[UNIMOD:7]"),     # Gln deamidation
+        # N-terminal modifications.
+        ("+42.011", "[UNIMOD:1]"),      # Acetylation
+        ("+43.006", "[UNIMOD:5]"),      # Carbamylation
+        ("-17.027", "[UNIMOD:385]"),     # NH3 loss
+        # "+43.006-17.027": 25.980265      # Carbamylation and NH3 loss
+    ]
+    N_TERM_MOD_PATTERN = r"^(\[UNIMOD:[0-9]+\])" # find N-term modifications
 
     def __init__(self, input_dir: str) -> None:
         """TODO."""
@@ -27,40 +37,13 @@ class OutputMapper(OutputMapperBase):
             for fname in self.file_names
         ]
         file_paths = sorted(file_paths)
-
-        self.file_scan_ids = []
-        for file_i, mgf_path in enumerate(file_paths):
-            spectra = mgf.read(mgf_path)
-            scan_ids = [spec["params"]["scans"] for spec in tqdm(spectra)]
-            self.file_scan_ids.append(scan_ids)
         return
-    
-    def _transform_match_ptm(self, match: re.Match) -> str:
-        """
-        Transform representation of peptide substring matching
-        the amino acid with PTM pattern.
-        `PE+n_modP` -> `PE[+n_mod]P`
-        
-        Parameters
-        ----------
-        match : re.Match
-            Substring matching the amino acid with PTM pattern.
-
-        Returns
-        -------
-        transformed_match : str
-            Transformed amino acid with PTM pattern representation.
-        """
-        aa, ptm = match.group(1), match.group(2)
-        if ptm[0] not in ('-', '+'):
-            ptm = "+" + ptm
-        return f"{aa}[{ptm}]"
     
     def _transform_match_n_term_mod(self, match: re.Match) -> str:
         """
         Transform representation of peptide substring matching
         the N-term modification pattern.
-        `+n_modPEP` -> `[+n_mod]-PEP`
+        `[n_mod]PEP` -> `[n_mod]-PEP`
         
         Parameters
         ----------
@@ -73,17 +56,14 @@ class OutputMapper(OutputMapperBase):
             Transformed N-term modification pattern representation.
         """
         ptm = match.group(1)
-        return f"[{ptm}]-"
+        return f"{ptm}-"
 
-    def _scan_index_to_filename_scan(self, scan_index: str) -> str:
-        file_idx, scan_idx = scan_index.split(":")
+    def _spectrum_id_to_filename_idx(self, spectrum_id: str) -> str:
+        file_idx, spectrum_idx = spectrum_id.split(":")
         
         file_idx = int(file_idx) - 1
-        filename = self.file_names[file_idx]
-        
-        scan_idx = int(scan_idx)
-        scan_id = self.file_scan_ids[file_idx][scan_idx]
-        return filename, scan_id
+        filename = self.file_names[file_idx]        
+        return filename, spectrum_idx
     
     def _parse_scores(self, scores: str) -> list[float]:
         """
@@ -102,8 +82,8 @@ class OutputMapper(OutputMapperBase):
         """
         spectrum_id = re.sub("[a-z=_\[\]]", "", spectrum_id)
 
-        filename, scan_id = self._scan_index_to_filename_scan(spectrum_id)
-        spectrum_id = filename + ":" + scan_id
+        filename, spectrum_idx = self._spectrum_id_to_filename_idx(spectrum_id)
+        spectrum_id = filename + ":" + spectrum_idx
         return spectrum_id
     
     def format_sequence(self, sequence: str) -> str:
@@ -126,11 +106,6 @@ class OutputMapper(OutputMapperBase):
         # direct (token-to-token) replacements
         for repl_args in self.REPLACEMENTS:
             sequence = sequence.replace(*repl_args)
-
-        # transform PTM notation:
-        # represent in ProForma delta mass notation PE[+ptm]P
-        if re.search(self.PTM_PATTERN, sequence):
-            sequence = re.sub(self.PTM_PATTERN, self._transform_match_ptm, sequence)
 
         # transform n-term modification notation
         # represent in ProForma delta mass notation [+n_term_mod]-PEP
@@ -166,7 +141,6 @@ output_data = output_data.rename(
 # Transform data to the common output format
 output_mapper = OutputMapper(input_dir=args.input_dir)
 output_data = output_mapper.format_output(output_data)
-
 
 # Save processed predictions to outputs.csv
 # (the expected name for the algorithm output file)

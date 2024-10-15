@@ -48,7 +48,7 @@ from its original representation (**input format**) to the format expected by th
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
             `{filename}:{index}` string, where  
             `filename` — name of the .mgf file in a dataset,  
-            `index` —  index (0-based) of each spectrum in an .mgf file.
+            `index` — index (0-based) of each spectrum in an .mgf file.
         
     
     - **Output sequence format**
@@ -59,3 +59,101 @@ from its original representation (**input format**) to the format expected by th
         `C[UNIMOD:4]` for Cysteine Carbamidomethylation, `M[UNIMOD:35]` for Methionine Oxidation, etc.
         - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma notation** with **Unimod accession codes**:  
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
+
+
+## Running the benchmark
+
+To run the benchmark locally:
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/PominovaMS/denovo_benchmarks.git
+    cd denovo_benchmarks
+    ```
+
+2. **Build containers for algorithms and evaluation**:
+    To build all apptainer images, make sure you have [apptainer installed](https://apptainer.org/docs/user/main/quick_start.html#installation). Then run:
+
+    ```bash
+    chmod +x build_apptainer_images.sh
+    ./build_apptainer_images.sh
+    ```
+
+    This will build the apptainer images for all algorithms and the evaluation apptainer image.
+
+    If an apptainer image already exists, the script will ask if you want to rebuild it.
+
+    ```bash
+    A .sif image for casanovo already exists. Force rebuild? (y/N) 
+    ```
+
+    If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
+
+3. **Configure paths:**
+    In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
+    
+    After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
+
+4. **Run benchmark on a dataset**:
+    Make sure the required packages are installed:
+
+    ```bash
+    sudo apt install squashfuse gocryptfs fuse-overlayfs  
+    ```
+
+    Run the benchmark:
+
+    ```bash
+    ./run.sh /path/to/dataset/dir
+    ```
+    Example:
+    ```bash
+    ./run.sh sample_data/9_species_human
+    ```
+
+
+## Input data structure
+
+The benchmark expects input data to follow a specific folder structure. 
+
+- Each dataset is stored in a separate folder with unique name.
+- **Spectra** are stored as `.mgf` files inside the `mgf/` subfolder.
+- **Ground truth labels** (PSMs found via database search) are contained in `labels.csv` file within each dataset folder.
+
+Below is an example layout for our evaluation datasets stored on the HPC:
+
+```
+datasets/
+    9_species_human/
+        labels.csv
+        mgf/
+            151009_exo3_1.mgf
+            151009_exo3_2.mgf
+            151009_exo3_3.mgf
+            ...
+    9_species_solanum_lycopersicum/
+        labels.csv
+        mgf/...
+    9_species_mus_musculus/
+        labels.csv
+        mgf/...
+    9_species_methanosarcina_mazei/
+        labels.csv
+        mgf/...
+    ...
+```
+
+Note that algorithm containers only get as input the `/mgf` subfolder with spectra files and **do not** have access to the `labels.csv` file. 
+Only the evaluation container accesses the `labels.csv` file to evaluate algorithm predictions.
+
+
+## Running Streamlit dashboard locally:
+To view the Streamlit dashboard for the benchmark locally, run:
+```bash
+# If Streamlit is not installed
+pip install streamlit
+
+streamlit run dashboard.py
+```
+
+The dashboard reads the benchmark results stored in the `results/` folder.

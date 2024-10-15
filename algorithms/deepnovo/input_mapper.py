@@ -16,74 +16,9 @@ from base import InputMapperBase
 
 PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_unimod_id", "representation"])
 
-class InputMapper(InputMapperBase):    
-    REPLACEMENTS = []
-
-    PTM_PATTERN = r"([A-Z])\[UNIMOD:([0-9]+)\]"
-    SUPPORTED_PTMS = [
-        PTM("C", 4, "C(+57.02)"),
-        PTM("M", 35, "M(+15.99)"),
-        PTM("N", 7, "N(+.98)"),
-        PTM("Q", 7, "Q(+.98)"),
-    ]
-
-    UNIMOD_DB = Unimod()
-
-    def _transform_match_ptm(self, match):
-        """
-        Transform representation of amino acids substring matching
-        the PTM pattern.
-        Expects PTMs in ProForma notation, e.g. 'M[UNIMOD:35]'.
-
-        Parameters
-        ----------
-        match : re.Match
-            Substring matching the PTM pattern.
-
-        Returns
-        -------
-        transformed_match : str
-            Transformed PTM pattern representation.
-        """
-        aa, ptm_id = match.group(1), int(match.group(2))
-        
-        # transform PTMs supported by DeepNovo to the model's expected representation
-        for supported_ptm in self.SUPPORTED_PTMS:
-            if aa == supported_ptm.amino_acid and ptm_id == supported_ptm.ptm_unimod_id:
-                return supported_ptm.representation
-        
-        # transform other PTMs
-        ptm = str(self.UNIMOD_DB.get(ptm_id).monoisotopic_mass)
-        if not ptm.startswith("-"):
-            ptm = "+" + ptm
-        return "{}({})".format(aa, ptm)
-
-    def format_sequence(self, sequence):
-        """
-        Convert peptide sequence to the algorithm input format.
-
-        Parameters
-        ----------
-        sequence : str
-            Peptide sequence in the original format.
-
-        Returns
-        -------
-        transformed_sequence : str
-            Peptide sequence in the algorithm input format.
-        """
-
-        # transformation of PTM notation
-        # AA[+ptm_mass] -> AA(+ptm_mass)
-        sequence = re.sub(self.PTM_PATTERN, self._transform_match_ptm, sequence)
-
-        # direct (token-to-token) replacements
-        for repl_args in self.REPLACEMENTS:
-            sequence = sequence.replace(*repl_args)
-
-        return sequence
+class InputMapper(InputMapperBase):
     
-    def format_input(self, spectrum, file_i=0):
+    def format_input(self, spectrum, spectrum_idx, filename):
         """
         Convert the spectrum (annotation sequence and params) to the
         input format expected by the algorithm.
@@ -101,12 +36,15 @@ class InputMapper(InputMapperBase):
         transformed_spectrum : dict
             Peptide sequence in the algorithm input format.
         """
+        
         # add dummy labels
         spectrum["params"]["seq"] = "PEPTIDE"
 
-        # add file id to scan data
-        scan_id = spectrum["params"]["scans"]
-        spectrum["params"]["scans"] = filename + ":" + scan_id
+        # fix pepmass to be single value
+        spectrum["params"]["pepmass"] = spectrum["params"]["pepmass"][0]
+
+        # create "scans" based on filename and spectrum index (0-based)
+        spectrum["params"]["scans"] = filename + ":" + str(spectrum_idx)
         return spectrum
 
 
@@ -127,7 +65,7 @@ input_mapper = InputMapper()
 filename = os.path.basename(args.input_path).split(".")[0]
 spectra = mgf.read(args.input_path)
 mapped_spectra = [
-    input_mapper.format_input(spectra[i], filename)
+    input_mapper.format_input(spectra[i], i, filename)
     for i in tqdm(range(len(spectra)))
 ]
 

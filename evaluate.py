@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from functools import partial
 from pyteomics import mgf, fasta
+from pyteomics.mass.unimod import Unimod
 from sklearn.metrics import auc
 from tqdm import tqdm
 
@@ -16,11 +17,32 @@ from ground_truth_mapper import format_sequence as format_sequence_GT
 from metrics import aa_match_metrics, aa_match_batch
 from token_masses import AA_MASSES
 
-# TODO: remove? and pass full path to ref proteome.fasta instead? 
-VSC_SCRATCH = "/scratch/antwerpen/209/vsc20960/"
-ROOT = os.path.join(VSC_SCRATCH, "benchmarking")
-PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
-DATASET_TAGS_PATH = os.path.join(ROOT, "denovo_benchmarks", "dataset_tags.tsv")
+DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
+PROTEOMES_DIR = os.environ['PROTEOMES_DIR']
+
+UNIMOD_DB = Unimod()
+ptm_masses = {}
+
+def _transform_match_ptm(match: re.Match) -> str:
+    """
+    TODO
+    """
+    ptm_idx = int(match.group(1))
+    
+    if ptm_idx not in ptm_masses:
+        ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
+        print(ptm_masses)
+    
+    ptm_mass = str(ptm_masses[ptm_idx])
+    if not ptm_mass.startswith("-"):
+        ptm_mass = "+" + ptm_mass
+    return f"[{ptm_mass}]"
+
+
+def ptms_to_delta_mass(sequence):
+    PTM_PATTERN = r"\[UNIMOD:([0-9]+)\]" # find ptms
+    sequence = re.sub(PTM_PATTERN, _transform_match_ptm, sequence)
+    return sequence
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -150,6 +172,9 @@ for output_file in os.listdir(args.output_dir):
     sequenced_idx = output_data["sequence"].notnull() # TODO: indicate number of not sequenced peptides?
     labeled_idx = output_data["sequence_true"].notnull()
 
+    output_data.loc[sequenced_idx, "sequence"] = output_data.loc[sequenced_idx, "sequence"].apply(
+        ptms_to_delta_mass
+    )
     output_data["sequence_no_ptm"] = np.nan
     output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
         partial(remove_ptms, ptm_pattern='[^A-Z]')
@@ -176,7 +201,7 @@ for output_file in os.listdir(args.output_dir):
         "AA precision": aa_precision,
         "AA recall": aa_recall,
         "Pep precision": pep_precision,
-        "N proteome matches": output_data["proteome_match"][sequenced_idx].mean()
+        "N proteome matches": output_data["proteome_match"][sequenced_idx].mean() #sum()
     }
 
     # Plot the peptide precision–coverage curve

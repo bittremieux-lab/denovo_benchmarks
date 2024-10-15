@@ -38,7 +38,7 @@ for algorithm_dir in algorithms/*; do
     if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
         algorithm_name=$(basename "$algorithm_dir")
         output_file="$output_dir/${algorithm_name}_output.csv"
-        echo "$output_file"
+        echo "Output file: $output_file"
         
         # Check if the output file does not exist
         if [ ! -e "$output_file" ]; then
@@ -49,11 +49,12 @@ for algorithm_dir in algorithms/*; do
             # Create writable overlay for the container
             apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay.img"
 
-            # Calculate predicitons
+            # Calculate predictions
             echo "RUN ALGORITHM"
             apptainer exec --fakeroot --nv \
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
                 -B "${spectra_dir}":"/algo/${dset_name}" \
+                --env-file .env \
                 "algorithms/${algorithm_name}/container.sif" \
                 bash -c "cd /algo && ./make_predictions.sh ${dset_name}"
             
@@ -62,6 +63,7 @@ for algorithm_dir in algorithms/*; do
             apptainer exec --fakeroot \
                 --overlay "algorithms/${algorithm_name}/overlay.img" \
                 -B "${output_dir}":/algo/outputs \
+                --env-file .env \
                 "algorithms/${algorithm_name}/container.sif" \
                 bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
 
@@ -74,6 +76,6 @@ done
 # Evaluate predictions
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
-apptainer exec --fakeroot "evaluation.sif" \
+apptainer exec --fakeroot --env-file .env "evaluation.sif" \
     bash -c "python evaluate.py ${output_dir}/ ${dset_dir}"
 # TODO change to dset_dir/labels? 

@@ -1,10 +1,14 @@
 import argparse
 import os
+from tqdm import tqdm
 from oktoberfest.runner import run_job
 from dataset_utils import *
 from dataset_config import get_config
+from pyteomics import mgf # TODO: move to dataset_utils?
+
 
 Q_VAL_THRESHOLD = 0.01
+MAX_SPECTRA_PER_FILE = 20000
 
 # Paths parsing
 parser = argparse.ArgumentParser()
@@ -21,7 +25,6 @@ for data_dir in [
     RAW_DATA_DIR, 
     MZML_DATA_DIR, 
     RESCORED_DATA_DIR, 
-    RESCORE_PARAMS_DIR, 
     DATASET_STORAGE_DIR
     # MGF_DATA_DIR,
 ]:
@@ -62,7 +65,7 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
         ):
             download_files(config.download, files_list)
 
-        # распаковать ЕСЛИ они еще не распакованы
+        # Unpack if not unpacked yet
         if config.download.ext.endswith(".zip"):
             base_file_ext = config.download.ext[:-len(".zip")]
             # If files can be directly processed by MSFragger (.d, .mzml), unpack to mzml_files_dir
@@ -81,6 +84,7 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
                     shutil.unpack_archive(filename=file_path, extract_dir=unpack_dir)
 
         if config.download.ext in [".raw", ".wiff"]:
+            # TODO: add: or (config.download.ext == ".d.zip" and config.search.ext == ".mzml")
             # Convert raw files to mzml (msconvert) # TODO: check for files from files_list only?
             convert_raw(dset_id, files_list, mzml_files_dir, target_ext=config.db_search.ext) # also always mzml??
 
@@ -92,12 +96,16 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
     db_w_decoys_path = generate_decoys_fasta(dset_name, config.db_search.database_path)
 
     # Run DB search (MSFragger)
-    run_database_search(dset_name, db_w_decoys_path, config.db_search)
+    if config.db_search.n_db_splits == 1:
+        run_database_search(dset_name, db_w_decoys_path, config.db_search)
+    else:
+        run_database_search_split(dset_name, db_w_decoys_path, config.db_search)
 
 # Rescore DB search results (MSBooster + Percolator)
 # Create features with MSBooster
 # If already have _rescore.pin, no need to run feature prediction (TODO: add flag for FORCED RE-RUN)
 file_prefix = "rescore"
+# [! uncomment to use deep learning-based features in rescoring]
 if not set(fname.lower() + f"_{file_prefix}.pin" for fname in files_list).issubset(
         set(fname.lower() for fname in os.listdir(mzml_files_dir))
     ):
@@ -117,7 +125,7 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
     if not all(os.path.exists(os.path.join(raw_files_dir, file_path)) for file_path in files_list.values()):
         download_files(config.download, files_list)
 
-    # распаковать ЕСЛИ они еще не распакованы
+    # Unpack if not unpacked yet
     if config.download.ext.endswith(".zip"):
         base_file_ext = config.download.ext[:-len(".zip")]
         # If files can be directly processed by MSFragger (.d, .mzml), unpack to mzml_files_dir
@@ -147,24 +155,70 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
     else:
         print(f"Unknown file extension {config.download.ext}")
 
-# Load DB search + rescoring results
-# create_labeled_mgf(dset_name, labeled_mgf_files_dir, config.rescoring.q_val_threshold)
-# instead:
-# - save unlabeled mgf to dataset on VSC_DATA (should we just change location of mgf folder)?
-# - process and store labels from rescoring separately
 
 # Load DB search + rescoring results
 results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
 results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
+# results_df["filename"] = results_df["PSMId"].apply(get_filename)
 
-results_df["filename"] = results_df["PSMId"].apply(get_filename)
-results_df["scan_id"] = results_df[["PSMId", "filename"]].apply(
-    lambda row: get_psm_scan_id(row["PSMId"], row["filename"]), 
-    axis=1
-)
+ext = config.download.ext
+print("file type:", ext)
+
+if ext == ".wiff":
+    results_df["title"] = None
+else:
+    results_df["title"] = results_df["PSMId"].apply(lambda x: "_".join(x.split("_")[:-1]))
+
+# filter and keep only spectra with defined charge
+# get 0-based idxs from mgf files
+spectra_idxs_0 = []
+
+for fname in tqdm(files_list):
+    input_path = os.path.join(mgf_files_dir, fname + ".mgf")
+    spectra = mgf.read(input_path)
+    
+    spectra_filtered = [
+        spectrum for spectrum in tqdm(spectra)
+        if "charge" in spectrum["params"]
+    ]
+
+    # split filtered spectra into multiple files if needed
+    n_splits = len(spectra_filtered) // MAX_SPECTRA_PER_FILE + int(
+        len(spectra_filtered) % MAX_SPECTRA_PER_FILE > 0
+    )
+    print(f"Split {fname} file into {n_splits} files")
+    
+    for k in range(n_splits):
+        start_idx = k * MAX_SPECTRA_PER_FILE
+        end_idx = min((k + 1) * MAX_SPECTRA_PER_FILE, len(spectra_filtered))
+        spectra_chunk = spectra_filtered[start_idx:end_idx]
+
+        output_fname = f"{fname}_{k}"
+        output_path = os.path.join(mgf_files_dir, output_fname + ".mgf")
+        # TODO: add flag to force RE-WRITING
+        if not os.path.exists(output_path):
+            mgf.write(spectra_chunk, output_path)
+            print(f"{len(spectra_chunk)} spectra with charge written to {output_path}.")
+        else:
+            print(f"{output_path} already exists.")
+
+        idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra_chunk)}
+        idxs_0 = pd.Series(idxs_0).reset_index()
+        idxs_0.columns = ["idx_0", "title"]
+        idxs_0["filename"] = output_fname
+        spectra_idxs_0.append(idxs_0)
+
+    # Remove the original MGF file after splitting
+    # os.remove(input_path)
+    # print(f"Original file {input_path} removed.")
+
+spectra_idxs_0 = pd.concat(spectra_idxs_0, axis=0).reset_index(drop=True)
+
+results_df = pd.merge(results_df, spectra_idxs_0, on="title")
+results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["idx_0"].astype(str)
+
 results_df["peptide"] = results_df["peptide"].apply(format_peptide_notation)
-results_df["spectrum_id"] = results_df["filename"] + ":" + results_df["scan_id"]
 sequences_true = results_df[["peptide", "spectrum_id"]]
 sequences_true = sequences_true.rename({"peptide": "seq"}, axis=1)
 

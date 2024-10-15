@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
+
+%files
+    # Copy algorithm-related files
+    algorithms/DePS /algo
+    algorithms/base /algo/base
+
+%post
+    chmod 1777 /tmp
+
+    # Update and install packages with GPG signature checks disabled
+    apt-get update \
+    && apt-get install -y --allow-unauthenticated git curl \
+    && rm -rf /var/lib/apt/lists/*
+    
+    # Install dependencies
+    # (pandas is recommended to support parsing dataset tags)
+    pip install pandas
+    pip install numpy
+    
+    # Install algorithm
+    cd /algo
+    git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
+    cd DePS4DenovoBenchmarks
+    curl -L ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy
+
+    # Download additional weights
+    cd /algo
+    
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
