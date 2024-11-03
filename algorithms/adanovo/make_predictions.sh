@@ -15,6 +15,8 @@ for input_file in "$@"/*.mgf; do
     echo "Processing file: $input_file"
 
     # Convert input data to model format
-    python adanovo.py --mode=denovo --model=xx.ckpt --peak_path="$input_file" --config=config.yaml --output=log_file/case4
+    python ./adanovo_v1/adanovo.py --mode=denovo --model=./ckpt_1.ckpt --peak_path="$input_file" --config=./adanovo_v1/config.yaml --output=./demo.mztab
 
+    # Convert predictions to the general output format
+    python ./output_mapper.py --output_path=./demo.mztab --input_dir="$@"
 done
