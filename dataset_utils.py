@@ -43,7 +43,6 @@ RAW_DATA_DIR = os.path.join(ROOT, "raw")
 MZML_DATA_DIR = os.path.join(ROOT, "mzml")
 RESCORED_DATA_DIR = os.path.join(ROOT, "rescored")
 MGF_DATA_DIR = os.path.join(ROOT, "mgf")
-
 DATASET_STORAGE_DIR = os.path.join(DATA_DIR, "benchmarking", "datasets")
 
 # Spectra smoothing for .d to .mgf conversion with alphatims
@@ -58,11 +57,14 @@ def get_files_list(download_config):
     TODO.
     """
     def check_file(file_path):
+        if not file_path.lower().endswith(ext):
+            return False
         for keyword in download_config.keywords:
             if keyword not in file_path:
                 return False
-        if not file_path.lower().endswith(ext):
-            return False
+        for keyword in download_config.exclude_keywords:
+            if keyword in file_path:
+                return False
         return True
 
     dset_id = download_config.dset_id

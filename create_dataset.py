@@ -162,13 +162,9 @@ results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
 # results_df["filename"] = results_df["PSMId"].apply(get_filename)
 
-ext = config.download.ext
-print("file type:", ext)
-
-if ext == ".wiff":
-    results_df["title"] = None
-else:
-    results_df["title"] = results_df["PSMId"].apply(lambda x: "_".join(x.split("_")[:-1]))
+# ext = config.download.ext
+# print("file type:", ext)
+results_df["title"] = results_df["PSMId"].apply(lambda x: "_".join(x.split("_")[:-1]))
 
 # filter and keep only spectra with defined charge
 # get 0-based idxs from mgf files
@@ -180,7 +176,7 @@ for fname in tqdm(files_list):
     
     spectra_filtered = [
         spectrum for spectrum in tqdm(spectra)
-        if "charge" in spectrum["params"]
+        if spectrum is not None and "charge" in spectrum["params"]
     ]
 
     # split filtered spectra into multiple files if needed

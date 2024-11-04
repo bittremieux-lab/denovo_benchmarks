@@ -16,10 +16,15 @@ class DatasetTag(str, enum.Enum):
     deamidation = "deamidation"
     phosphorylation = "phosphorylation"
     oxidation = "oxidation"
+    formylation = "formylation"
     acetylation = "acetylation"
     methylation = "methylation"
     carbamidomethylation = "carbamidomethylation"
+    formaldehyde = "formaldehyde"
     ammonia_loss = "ammonia_loss"
+    sodium_adduct = "sodium_adduct"
+    silac = "silac"
+    tmt = "tmt"
     # TODO: other modifications?
 
 
@@ -36,6 +41,8 @@ class DataDownloadConfig(BaseModel):
     # Keywords to select files to download.
     # Only filenames containing all the keywords are downloaded
     keywords: tp.Optional[tp.List[str]] = []
+    # Keywords to exclude files from downloading.
+    exclude_keywords: tp.Optional[tp.List[str]] = []
 
 
 class DBSearchConfig(BaseModel):
