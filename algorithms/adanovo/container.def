@@ -32,8 +32,7 @@ From: python:3.10
     pip install -r requirements.txt
 
     # Download model weights
-    # cd /algo
-    # TODO: add model weights download link
+    cd /algo
     curl -L -O https://github.com/Westlake-OmicsAI/adanovo_v1/releases/download/add_a_ckpt/ckpt_1.ckpt
     
 %post
