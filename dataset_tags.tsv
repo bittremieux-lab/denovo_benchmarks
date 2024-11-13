@@ -1,10 +1,67 @@
-dataset	proteome
-9_species_human	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta
-9_species_apis_mellifera	apis_mellifera_uniprotkb_proteome_UP000005203_2024_09_11.fasta
-9_species_saccharomyces_cerevisiae	saccharomyces_cerevisiae_uniprotkb_proteome_UP000002311_2024_09_11.fasta
-9_species_solanum_lycopersicum	solanum_lycopersicum_uniprotkb_proteome_UP000004994_2024_09_11.fasta
-9_species_methanosarcina_mazei	methanosarcina_mazei_go1_uniprotkb_proteome_UP000000595_2024_09_11.fasta
-9_species_bacillus_subtilis	bacillus_subtilis_168_uniprotkb_proteome_UP000001570_2024_09_11.fasta
-9_species_vigna_mungo	vigna_radiata_uniprotkb_taxonomy_id_157791_2024_09_11.fasta
-9_species_mus_musculus	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta
-human_multiprotease_ptm_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta
+dataset	proteome	nontryptic	phosphorylation	ammonia_loss	water_loss	timstof	acetylation	oxidation	thiophosphorylation	agilent	deamidation	carbamidomethylation	methylation	silac	sciex	astral	tmt
+human_multiprotease_ptm_chymotrypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_ptm_gluc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_ptm_aspn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_ptm_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_ptm_argc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	1.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_ptm_lysc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	1.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_jurkat	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_chymotrypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_aspn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_gluc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_lysc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	1.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_multiprotease_lysn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	1.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_saccharomyces_cerevisiae	saccharomyces_cerevisiae_uniprotkb_proteome_UP000002311_2024_09_11.fasta	0.0	0.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_solanum_lycopersicum	solanum_lycopersicum_uniprotkb_proteome_UP000004994_2024_09_11.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_bacillus_subtilis	bacillus_subtilis_168_uniprotkb_proteome_UP000001570_2024_09_11.fasta	0.0	0.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+CAMPI_F07	IGC.pep	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+CAMPI_S11	SIHUMI_DB1UNIPROT.fasta	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_MHCI	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+hela_single_cell	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+mouse_MHCI	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+mouse_MHCII	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+hela_single_cell_2	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+animal_mammal_1	animal_mammal_1_refseq_proteome_2024_10_05.faa	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_mus_musculus	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+animal_mammal_2	animal_mammal_2_refseq_proteome_2024_10_05.faa	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+fungus	fungus_uniprotkb_proteome_2024_06_03.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+animal_invertebrate	animal_invertebrate_refseq_proteome_2024_10_07.faa	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_phospho_SILAC	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0
+LFQ_orbitrap	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+LFQ_timstof	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+LFQ_sciex	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0
+9_species_human	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0
+9_species_apis_mellifera	apis_mellifera_uniprotkb_proteome_UP000005203_2024_09_11.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_methanosarcina_mazei	methanosarcina_mazei_go1_uniprotkb_proteome_UP000000595_2024_09_11.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_astral	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0
+9_species_candidatus_thiodiazotropha	candidatus_thiodiazotropha_uniprotkb_proteome_UP000094849_2024_10_08.fasta	0.0	0.0	1.0	0.0	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+9_species_vigna_mungo	vigna_mungo_uniprotkb_proteome_UP001374535_2024_10_08.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_phospho_GPome_SILAC	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0
+multitool_sciex	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0
+multitool_orbitrap	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_phospho_pY_SILAC	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0
+human_phospho_Phos_SILAC	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0
+human_mAb_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_mAb_lysc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_mAb_chymotrypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_mAb_aspn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+mouse_mAb_chymotrypsin	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+mouse_mAb_aspn	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+mouse_mAb_trypsin	mus_musculus_uniprotkb_proteome_UP000000589_2024_09_11.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_HLAI	human_isoforms_uniprotkb_proteome_UP000005640_2024_10_09.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_HLAII	human_isoforms_uniprotkb_proteome_UP000005640_2024_10_09.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+iPRG	iPRG_metaproteomics_database_2024_10_09.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_chymotrypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_aspn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_lysn	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_lysc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_gluc	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_herceptin_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_agilent	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_phospho_superSILAC	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0
+staphylococcus_aureus_timstof	staphylococcus_aureus_uniprotkb_proteome_UP000037011_2024_10_10.fasta	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+plant	plant_refseq_proteome_2024_10_08.faa	0.0	0.0	0.0	0.0	0.0	1.0	1.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+21PTMs_Ymod_Phospho	21PTMs.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+21PTMs	21PTMs.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+human_TMT	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0
