@@ -23,4 +23,8 @@ fi
 # for the particular dataset properties
 cd /algo
 echo "Processing mgf files:"
-python pi-HelixNovo/main.py --mode=denovo --config=pi-HelixNovo/config.yaml --gpu=$device --output=outputs.csv --peak_path="$@"/*.mgf --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+python pi-HelixNovo/main.py --mode=denovo --config=pi-HelixNovo/config.yaml --gpu=$device --output=denovo_outputs.csv --peak_path="$@"/*.mgf --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+
+# Convert predictions to the general output format
+echo "Converting outputs:"
+python ./output_mapper.py --output_path=denovo_outputs.csv
