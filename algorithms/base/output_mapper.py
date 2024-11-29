@@ -15,7 +15,7 @@ class OutputMapperBase:
         Represent spectrum spectrum id as {filename}:{index} string, 
         where
         - `filename` - name of the .mgf file in a dataset 
-            (lexicographically sorted)
+            (without .mgf extension)
         - `index` - index (0-based) of each spectrum in an .mgf file.
         """
         return spectrum_id

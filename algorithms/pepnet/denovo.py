@@ -181,10 +181,18 @@ def denovo(model, spectra, batch_size):
 
         # run post correction
         pep, pos, positional_score = post_correction(rst, ms, c)
+        
+        # FIXME modify aa_scores and peptide score calculation
+        # s.t. len(aa_scores) == len(pep)
+        seq_len = len(pep)
+        positional_score[seq_len:] = 1
+        pep_score = np.prod(positional_score)
+
+        positional_score = positional_score[:seq_len]
 
         predict_peps.append(pep)
         positional_scores.append(positional_score)
-        scores.append(np.prod(positional_score))
+        scores.append(pep_score)
 
     ppm_diffs = asnp32([ppm(sp['mass'], m1(pp, c)) for sp, pp, c in zip(spectra, predict_peps, charges)])
     return peps, predict_peps, scores, positional_scores, ppm_diffs, spectra
