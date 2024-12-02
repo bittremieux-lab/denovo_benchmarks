@@ -16,12 +16,11 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     
     # Install dependencies
     # (pandas is recommended to support parsing dataset tags)
-    pip install pandas
-    pip install numpy
+    pip install pandas numpy pyteomics SQLAlchemy lxml
     
     # Install algorithm
     cd /algo
-    git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
+    # git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
     cd DePS4DenovoBenchmarks
     curl -L ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy
 
