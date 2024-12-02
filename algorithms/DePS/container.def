@@ -20,13 +20,14 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     
     # Install algorithm
     cd /algo
-    # git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
+    git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
+    # Update source files with adjustments for denovo_benchmarks 
+    cp /algo/updated_source/* /algo/DePS4DenovoBenchmarks
+
+    # Download additional weights
     cd DePS4DenovoBenchmarks
     curl -L ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy
 
-    # Download additional weights
-    cd /algo
-    
 %post
     # Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
