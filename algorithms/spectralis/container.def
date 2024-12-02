@@ -1,0 +1,85 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+# Define system variables to provide GPU access within the container.
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+    export PYENV_ROOT="/opt/custom/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+
+    echo "To access the pyenvs run:"
+    echo 'eval "$(pyenv init -)"'
+    echo 'eval "$(pyenv virtualenv-init -)"'
+    echo 'pyenv activate {casanovo, spectralis}'
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    algorithms/spectralis /algo
+    algorithms/base /algo/base
+
+# setup pyenv
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    
+    apt-get update && apt-get install -y libhdf5-dev curl git libedit-dev build-essential zlib1g zlib1g-dev libssl-dev libbz2-dev libsqlite3-dev libreadline-dev libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev vim
+
+    # To remove warnings
+    echo "LC_ALL=en_US.UTF-8" >> /etc/environment
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf
+    apt-get clean && apt-get update
+    apt-get install locales
+    locale-gen en_US.UTF-8
+
+    # Install pyenv to manage multiple python versions
+    mkdir /opt/custom
+    git clone https://github.com/pyenv/pyenv.git /opt/custom/.pyenv
+
+    export PYENV_ROOT="/opt/custom/.pyenv"
+    export PATH="$PYENV_ROOT/bin:$PATH"
+    eval "$(pyenv init -)"
+
+    # Install pyenv virtualenv plugin
+    mkdir $PYENV_ROOT/plugins/pyenv-virtualenv
+    git clone https://github.com/pyenv/pyenv-virtualenv.git $PYENV_ROOT/plugins/pyenv-virtualenv
+    eval "$(pyenv virtualenv-init -)"
+
+# Install casanovo and spectralis into pyenv envs
+%post
+    pyenv install 3.10
+    pyenv install 3.7
+    pyenv virtualenv 3.10 casanovo
+    pyenv virtualenv 3.7 spectralis
+    pyenv global 3.10 3.7
+
+    eval "$(pyenv init -)"
+    eval "$(pyenv virtualenv-init -)"
+
+    pyenv activate casanovo
+    pip install --upgrade pip
+    pip install casanovo --no-cache-dir --prefer-binary
+
+    pyenv activate spectralis
+    pip install --upgrade pip
+    pip install git+https://github.com/gagneurlab/spectralis
+    pip install glob2
+    pip install tritonclient==2.37.0.9383150
+
+%post
+	# Download weigths for both Casanovo and Spectralis
+    cd /algo
+    curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt
+
+    curl -O https://zenodo.org/records/8393846/files/spectralis_bin_reclass.pt
+    # curl -O https://zenodo.org/records/8393846/files/spectralis_score.pkl # <-- old model
+    curl -O https://zenodo.org/records/13844085/files/spectralis_score_wInitiScores.pkl
+    
+%post
+	# Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+    
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
