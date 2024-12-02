@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: python:3.10
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
+    algorithms/ContraNovo -> /algo
+    algorithms/base -> /algo/base
+
+%post
+    # Download algorithm source code
+    cd /algo
+    git clone git@github.com:BEAM-Labs/ContraNovo.git
+    cd ContraNovo
+    conda env create -f environment.yml
+    conda activate ContraNovo
+    # Download algorithm weights from https://drive.google.com/file/d/1knNUqSwPf98j388Ds2E6bG8tAXx8voWR/view?pli=1
+    # Move the checkpoint in this dir
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
+    # De novo peptide results are generated as /algo/outputs.csv
