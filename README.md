@@ -61,55 +61,28 @@ from its original representation (**input format**) to the format expected by th
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
 
 
-## Running the benchmark
+## System requirements
 
-To run the benchmark locally:
+Building containers and running the benchmark locally requires the following:
 
-1. **Clone the repository**:
-    ```bash
-    git clone https://github.com/PominovaMS/denovo_benchmarks.git
-    cd denovo_benchmarks
-    ```
-
-2. **Build containers for algorithms and evaluation**:
-    To build all apptainer images, make sure you have [apptainer installed](https://apptainer.org/docs/user/main/quick_start.html#installation). Then run:
-
-    ```bash
-    chmod +x build_apptainer_images.sh
-    ./build_apptainer_images.sh
-    ```
-
-    This will build the apptainer images for all algorithms and the evaluation apptainer image.
-
-    If an apptainer image already exists, the script will ask if you want to rebuild it.
-
-    ```bash
-    A .sif image for casanovo already exists. Force rebuild? (y/N) 
-    ```
-
-    If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
-
-3. **Configure paths:**
-    In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
+- Operating System: Linux (required for Apptainer).
+- Dependencies:
+    - [Apptainer](https://apptainer.org/docs/user/main/quick_start.html).
     
-    After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
+    Make sure the [Apptainer dependencies](https://github.com/apptainer/apptainer/blob/main/INSTALL.md) are installed. 
 
-4. **Run benchmark on a dataset**:
-    Make sure the required packages are installed:
-
+    You may also need to install the following packages:
     ```bash
     sudo apt install squashfuse gocryptfs fuse-overlayfs  
     ```
 
-    Run the benchmark:
+    - Python 3 and [Streamlit](https://docs.streamlit.io/get-started/installation) package.
 
-    ```bash
-    ./run.sh /path/to/dataset/dir
-    ```
-    Example:
-    ```bash
-    ./run.sh sample_data/9_species_human
-    ```
+    The benchmark was tested with Python 3.11 and Streamlit 1.33.
+
+We run the tools on a high-performance computing (HPC) system using the **Suse Linux Enterprise Server** operating system, equipped with two **Intel Xeon Gold 6526Y processors**, **512 GB of RAM**, and **four NVIDIA L40S GPUs**.
+
+The current source code does not include containerized implementations for **PEAKS** and **GraphNovo** due to their integration within the **PEAKS Studio 12** software, which is only available as a graphical user interface (GUI) tool compatible with the Windows operating system. These tools will be executed manually on a desktop computer running **Windows 11**, equipped with an **Intel Core i9 processor** and **128 GB of RAM**.
 
 
 ## Input data structure
@@ -145,6 +118,61 @@ datasets/
 
 Note that algorithm containers only get as input the `/mgf` subfolder with spectra files and **do not** have access to the `labels.csv` file. 
 Only the evaluation container accesses the `labels.csv` file to evaluate algorithm predictions.
+
+We provide a simplified demo dataset in the `sample_data/` directory for testing the benchmarking pipeline locally.
+
+However, running the full benchmark, especially on larger spectra files, is **not recommended** on a local computer, as de novo prediction can be computationally intensive and time-consuming. Additionally, while some containerized tool versions support flexible switching between CPU and GPU devices, others strictly require GPU access and will fail to run if a compatible GPU is unavailable.
+
+
+## Running the benchmark
+
+To run the benchmark locally:
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/PominovaMS/denovo_benchmarks.git
+    cd denovo_benchmarks
+    ```
+
+2. **Build containers for algorithms and evaluation**:
+    To build all apptainer images, make sure you have [apptainer installed](https://apptainer.org/docs/user/main/quick_start.html#installation). Then run:
+
+    ```bash
+    chmod +x build_apptainer_images.sh
+    ./build_apptainer_images.sh
+    ```
+
+    This will build the apptainer images for all algorithms and the evaluation apptainer image.
+
+    If an apptainer image already exists, the script will ask if you want to rebuild it.
+
+    ```bash
+    A .sif image for casanovo already exists. Force rebuild? (y/N) 
+    ```
+
+    If a container is missing, that algorithm will be skipped during benchmarking. We don't share or store containers publicly yet due to ongoing development and their large size.
+
+3. **Configure paths:**
+    In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
+    
+    After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
+
+4. **Run benchmark on a dataset**:
+    <!-- Make sure the required packages are installed:
+
+    ```bash
+    sudo apt install squashfuse gocryptfs fuse-overlayfs  
+    ``` -->
+
+    Run the benchmark:
+
+    ```bash
+    ./run.sh /path/to/dataset/dir
+    ```
+    Example:
+    ```bash
+    ./run.sh sample_data/9_species_human
+    ```
 
 
 ## Running Streamlit dashboard locally:
