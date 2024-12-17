@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Activate conda environment
+conda init
+source /opt/conda/etc/profile.d/conda.sh
+conda activate ContraNovo
+
 # Get dataset property tags
 DSET_TAGS=$(python /algo/base/dataset_tags_parser.py --dataset "$@")
 while IFS='=' read -r key value; do
@@ -23,4 +28,4 @@ fi
 # for the particular dataset properties
 cd /algo/ContraNovo
 echo "Processing mgf files:"
-python -m ContraNovo.ContraNovo --mode=denovo --peak_path="$@"/*.mgf --model=./ContraNovo/ContraNovo.ckpt
+python -m ContraNovo.ContraNovo --mode=denovo --peak_path="/algo/$@"/*.mgf --model=./ContraNovo/ContraNovo.ckpt
