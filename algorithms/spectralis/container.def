@@ -22,13 +22,17 @@ From: ubuntu:20.04
 %post
     export DEBIAN_FRONTEND=noninteractive
     
-    apt-get update && apt-get install -y libhdf5-dev curl git libedit-dev build-essential zlib1g zlib1g-dev libssl-dev libbz2-dev libsqlite3-dev libreadline-dev libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev vim
-
+    chmod 1777 /tmp
+    
     # To remove warnings
     echo "LC_ALL=en_US.UTF-8" >> /etc/environment
     echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     echo "LANG=en_US.UTF-8" > /etc/locale.conf
-    apt-get clean && apt-get update
+
+    apt-get update
+    apt-get install -y libhdf5-dev curl git libedit-dev build-essential zlib1g zlib1g-dev libssl-dev libbz2-dev libsqlite3-dev libreadline-dev libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev vim
+
+    apt-get clean && apt-get update 
     apt-get install locales
     locale-gen en_US.UTF-8
 

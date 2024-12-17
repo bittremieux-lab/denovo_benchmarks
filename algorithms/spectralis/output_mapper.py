@@ -62,6 +62,25 @@ class OutputMapper(OutputMapperBase):
         self.output_data.rename(columns={'Spectralis_score': 'score'}, inplace=True)
         self.output_data = self.output_data[['sequence', 'score', 'spectrum_id']]
 
+    def _transform_match_n_term_mod(self, match: re.Match) -> str:
+        """
+        Transform representation of peptide substring matching
+        the N-term modification pattern.
+        `[n_mod]PEP` -> `[n_mod]-PEP`
+        
+        Parameters
+        ----------
+        match : re.Match
+            Substring matching the N-term modification pattern.
+
+        Returns
+        -------
+        transformed_match : str
+            Transformed N-term modification pattern representation.
+        """
+        ptm = match.group(1)
+        return f"{ptm}-"
+
     def format_sequence(self, sequence: str) -> str:
         """
         Convert peptide sequence to the common output data format 
