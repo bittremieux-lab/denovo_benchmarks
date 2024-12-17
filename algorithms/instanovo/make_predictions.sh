@@ -11,7 +11,7 @@ while IFS='=' read -r key value; do
 done <<< "$DSET_TAGS"
 
 # Run de novo algorithm on the input data
-python -m instanovo.transformer.predict data_path="$1/*.mgf" model_path="/algo/instanovo_extended.ckpt" denovo=True output_path=outputs.csv 
+python -m instanovo.transformer.predict data_path="$1/*.mgf" model_path="/algo/instanovo_extended.ckpt" denovo=True output_path=denovo_outputs.csv 
 
 # Convert predictions to the general output format
-python output_mapper.py --output_path=outputs.csv
+python output_mapper.py --output_path=denovo_outputs.csv
