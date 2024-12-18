@@ -182,13 +182,6 @@ class MztabWriter:
             for i, psm in enumerate(
                 natsort.natsorted(self.psms, key=operator.itemgetter(1)), 1
             ):
-                print(psm) ### DEBUG
-                # print(psm[1][0], os.path.abspath(psm[1][0]), psm[1][1]) ### DEBUG
-                spectrum_title = psm[1]
-                # filename, idx = os.path.abspath(psm[1][0]), psm[1][1]
-                ### DEBUG
-                filename = spectrum_title.split(".")[0]
-                idx = spectrum_title.split(".")[-1]
                 writer.writerow(
                     [
                         "PSM",
@@ -209,7 +202,7 @@ class MztabWriter:
                         psm[3],  # charge
                         psm[4],  # exp_mass_to_charge
                         psm[5],  # calc_mass_to_charge
-                        f"ms_run[{filename}]:{idx}",
+                        psm[1],  # spectrum_ref (spectrum_title)
                         "null",  # pre
                         "null",  # post
                         "null",  # start

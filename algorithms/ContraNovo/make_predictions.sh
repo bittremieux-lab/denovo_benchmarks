@@ -29,3 +29,8 @@ fi
 cd /algo/ContraNovo
 echo "Processing mgf files:"
 python -m ContraNovo.ContraNovo --mode=denovo --peak_path="/algo/$@"/*.mgf --model=./ContraNovo/ContraNovo.ckpt
+
+# Convert predictions to the general output format
+cd /algo
+mv ./ContraNovo/outputs.mztab ./
+python ./output_mapper.py --output_path=outputs.mztab --input_dir="$@"
