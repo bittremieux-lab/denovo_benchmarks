@@ -1,0 +1,8 @@
+enzyme = Nonspecific
+fragmentation = HCD
+massAnalyzer = FT
+fragmentIonErrorTol = 0.02Da
+precursorErrorTol = 15ppm
+variableModifications = Oxidation (M), Acetyl (N-term), Pyro-Glu (Q)
+fixedModifications = Carbamidomethyl (C)
+forbiddenResidues = I,O,U
