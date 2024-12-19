@@ -13,19 +13,21 @@ From: tensorflow/tensorflow:1.11.0-gpu-py3
 
 %post
     pip3 install -r /algo/requirements.txt
-    apt-key del A4B469963BF863CC
-    apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
-    apt update
-    apt install wget
+    # apt-key del A4B469963BF863CC
+    # apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
+    # apt update
+    # apt install wget
     
 %post
     # Download standard model (with M-mod)
-    wget -O /algo/standard/model.tar https://figshare.com/ndownloader/files/15438275
-    cd /algo/standard && tar -zxf model.tar && mv smsnet model
-    
+    curl -L -o /algo/standard/model.tar https://figshare.com/ndownloader/files/15438275
+    cd /algo/standard && tar -zxf model.tar --no-same-owner
+    mv smsnet model
+
     # Download phospho model (with M-mod and P-mod)
-    wget -O /algo/phospho/model.tar https://figshare.com/ndownloader/files/15438278
-    cd /algo/phospho && tar -zxf model.tar && mv smsnet_phospho model
+    curl -L -o /algo/phospho/model.tar https://figshare.com/ndownloader/files/15438278
+    cd /algo/phospho && tar -zxf model.tar --no-same-owner 
+    mv smsnet_phospho model
 
 %post
     # Make sure make_predictions.sh file is executable.

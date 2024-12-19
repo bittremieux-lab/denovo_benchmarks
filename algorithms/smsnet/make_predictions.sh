@@ -10,6 +10,7 @@ while IFS='=' read -r key value; do
 done <<< "$DSET_TAGS"
 
 # Create output folder
+mkdir /algo/data
 mkdir /algo/data/smsnet_temp
 mkdir /algo/data/smsnet_temp/mgf
 mkdir /algo/data/smsnet_temp/mgf_output
@@ -56,3 +57,5 @@ python /algo/create_denovo_report.py /algo/data/smsnet_temp/mgf_output /algo/dat
 # Convert predictions to the general output format
 python /algo/output_mapper.py --output_path=/algo/data/smsnet_temp/mgf_$MODE"_fdr5.tsv"
 
+# Store predictions in /algo (predictions are expected to be written to /algo/outputs.csv)
+cp /algo/data/outputs.csv /algo/outputs.csv
