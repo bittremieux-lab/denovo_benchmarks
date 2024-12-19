@@ -1,0 +1,36 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:1.11.0-gpu-py3
+
+# Define system variables to provide GPU access within the container.
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
+    algorithms/smsnet /algo
+    algorithms/base /algo/base
+
+%post
+    pip3 install -r /algo/requirements.txt
+    apt-key del A4B469963BF863CC
+    apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
+    apt update
+    apt install wget
+    
+%post
+    # Download standard model (with M-mod)
+    wget -O /algo/standard/model.tar https://figshare.com/ndownloader/files/15438275
+    cd /algo/standard && tar -zxf model.tar && mv smsnet model
+    
+    # Download phospho model (with M-mod and P-mod)
+    wget -O /algo/phospho/model.tar https://figshare.com/ndownloader/files/15438278
+    cd /algo/phospho && tar -zxf model.tar && mv smsnet_phospho model
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+%runscript
+    # Data is expected to be mounted into /algo/data dir.
+    cd /algo && ./make_predictions.sh data
