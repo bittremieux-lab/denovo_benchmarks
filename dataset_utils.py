@@ -5,7 +5,6 @@ import re
 import shutil
 import subprocess
 import pandas as pd
-import alphatims.bruker
 # from datetime import datetime
 from tqdm import tqdm
 from pyteomics import fasta, mgf
@@ -18,8 +17,6 @@ WORK_DIR = os.environ['WORK_DIR']
 ROOT = os.environ['ROOT']
 FRAGPIPE_DIR = os.environ['FRAGPIPE_DIR']
 
-# Path to ThermoRawFileParser apptainer container
-RAW_FILE_PARSER_PATH = os.path.join(WORK_DIR, "benchmarking", "thermorawfileparser_latest.sif")
 # Path to msconvert apptainer container
 MSCONVERT_PATH = os.path.join(WORK_DIR, "benchmarking", "pwiz-skyline-i-agree-to-the-vendor-licenses_latest.sif")
 # Path to MSFragger DB split script (for running DB search with large DB)
