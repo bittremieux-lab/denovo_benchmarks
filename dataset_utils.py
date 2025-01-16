@@ -39,7 +39,6 @@ PROTEOMES_DIR = os.path.join(ROOT, "proteomes")
 RAW_DATA_DIR = os.path.join(ROOT, "raw")
 MZML_DATA_DIR = os.path.join(ROOT, "mzml")
 RESCORED_DATA_DIR = os.path.join(ROOT, "rescored")
-MGF_DATA_DIR = os.path.join(ROOT, "mgf")
 DATASET_STORAGE_DIR = os.path.join(DATA_DIR, "benchmarking", "datasets")
 
 # Spectra smoothing for .d to .mgf conversion with alphatims

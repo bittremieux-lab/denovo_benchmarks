@@ -14,3 +14,12 @@ From: python:3.10
     pip install --no-cache-dir SQLAlchemy==2.0.30
     pip install --no-cache-dir lxml==4.9.1
     pip install --no-cache-dir spectrum-utils==0.4.2
+
+    # Install MMseqs2
+    wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz
+    tar xvzf mmseqs-linux-avx2.tar.gz
+    # Move binaries to a standard path 
+    mv mmseqs/bin/* /usr/local/bin/
+
+    # Remove installation files
+    rm mmseqs-linux-avx2.tar.gz
