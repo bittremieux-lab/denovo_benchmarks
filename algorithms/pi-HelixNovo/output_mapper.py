@@ -12,8 +12,8 @@ from base import OutputMapperBase
 class OutputMapper(OutputMapperBase):
     # Split before each AA and at "-" to separate terminal modifications
     # (Only works if PTM notation does not contain capital letters,
-    # e.g. works with A[+1.234], but not with A[UNIMOD:0])
-    SEQ_SPLIT_PATTERN = r"(?<=[^-])(?=[A-Z])|-"
+    # e.g. works with A[+1.234], but not with A[UNIMOD:X])
+    PEP_SPLIT_PATTERN = r"(?<=[^-])(?=[A-Z])|-"
 
     def format_sequence_and_scores(self, sequence, aa_scores):
         """
@@ -43,15 +43,20 @@ class OutputMapper(OutputMapperBase):
         """
         sequence = self.format_sequence(sequence)
 
+        # Fix for the case when multiple N-term modifications 
+        # are predicted in a row. Removes redundant dashes. 
+        sequence = sequence.replace("]-[", "][")
+
         aa_scores = aa_scores.split("|")
 
         # FIXME: Temporary fix for len(aa_scores) > len(sequence)
         # (probable reason: sequence tokenization pattern does not work
-        # correctly with ProFroma Unimod notation for PTMS - [UNIMOD:0])
-        # aa_scores transformation is based on denovo/model/predict_step 
-        # implementation logic, but can be incorrect.
+        # correctly with ProFroma Unimod notation for PTMs - [UNIMOD:X];
+        # number of aa_scores is too large for sequences with PTMs). 
+        # This aa_scores transformation is based on denovo/model/predict_step 
+        # implementation logic, but can be incorrect or not 100% precise.
         n_tokens = len(
-            re.split(self.SEQ_SPLIT_PATTERN, sequence.replace("UNIMOD:", ""))
+            re.split(self.PEP_SPLIT_PATTERN, sequence.replace("UNIMOD:", ""))
         )
         if len(aa_scores) != n_tokens:
             print(
