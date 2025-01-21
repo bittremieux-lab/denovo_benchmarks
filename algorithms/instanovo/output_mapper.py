@@ -18,15 +18,46 @@ class OutputMapper(OutputMapperBase):
         "T(+79.97)": "T[UNIMOD:21]", # T Phosphorylation
         "Y(+79.97)": "Y[UNIMOD:21]", # Y Phosphorylation
         "M(+15.99)": "M[UNIMOD:35]", # M Oxidation
-         "(+42.01)": "[UNIMOD:1]",   # Acetylation
+        "(+42.01)":  "[UNIMOD:1]",   # Acetylation
         "(+43.01)":  "[UNIMOD:5]",   # Carbamylation
         "(-17.03)":  "[UNIMOD:385]", # NH3 loss
-
-
+        "(+25.98)": "[UNIMOD:5][UNIMOD:385]", # Carbamylation and NH3 loss
     }
+    PEP_SPLIT_PATTERN = r"(?<=.)(?=[A-Z])"
+    N_TERM_MOD_PATTERN = r"^((\[UNIMOD:[0-9]+\])+)" # find N-term modifications
+    # handle N-term modifications in the middle of a sequence
+    N_TERM_MOD_CODES = ["[1]", "[5]", "[385]"]
 
     def __init__(self):
         self.pattern = re.compile("|".join(map(re.escape, self.REPLACEMENTS.keys())))
+
+    def _transform_match_n_term_mod(self, match: re.Match) -> str:
+        """
+        Transform representation of peptide substring matching
+        the N-term modification pattern.
+        `[n_mod]PEP` -> `[n_mod]-PEP`
+        
+        Parameters
+        ----------
+        match : re.Match
+            Substring matching the N-term modification pattern.
+
+        Returns
+        -------
+        transformed_match : str
+            Transformed N-term modification pattern representation.
+        """
+        ptm = match.group(1)
+        return f"{ptm}-"
+
+    def _parse_scores(self, scores: str) -> list[float]:
+        """
+        Convert per-token scores from a string of float scores 
+        separated by ',' to a list of float numbers.
+        """
+        scores = scores.split(",")
+        scores = list(map(float, scores))
+        return scores
 
     def format_sequence_and_scores(self, sequence, aa_scores):
         """
@@ -56,6 +87,23 @@ class OutputMapper(OutputMapperBase):
         """
         sequence = self.format_sequence(sequence)
         aa_scores = self.format_scores(aa_scores)
+
+        # format sequence and scores for n-term modifications
+        if re.search(self.N_TERM_MOD_PATTERN, sequence):
+            # transform n-term modification notation
+            # represent in ProForma delta mass notation [+n_term_mod]-PEP
+            sequence = re.sub(self.N_TERM_MOD_PATTERN, self._transform_match_n_term_mod, sequence)
+        
+        # Fix: for cases when n-term modifications are predicted in the middle of a sequence,
+        # merge scores for n-term modification token with previous AA token 
+        aa_scores = self._parse_scores(aa_scores)
+        
+        seq_tokens = re.split(self.PEP_SPLIT_PATTERN, sequence.replace("UNIMOD:", ""))
+        for i, token in enumerate(seq_tokens):
+            if any(token.endswith(n_term_code) for n_term_code in self.N_TERM_MOD_CODES):
+                aa_scores[i:i + 2] = [np.mean(aa_scores[i:i + 2])]
+        
+        aa_scores = self._format_scores(aa_scores)
         return sequence, aa_scores
     
     def format_scores(self, scores):
