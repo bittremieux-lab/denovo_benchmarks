@@ -6,6 +6,7 @@ to the common output format.
 import argparse
 import os
 import re
+import numpy as np
 from tqdm import tqdm
 from pyteomics import mgf
 from pyteomics.mztab import MzTab
@@ -23,20 +24,19 @@ class OutputMapper(OutputMapperBase):
         ("(+42.01)", "[UNIMOD:1]"),      # Acetylation
         ("(+43.00)", "[UNIMOD:5]"),      # Carbamylation
         ("(-17.02)", "[UNIMOD:385]"),     # NH3 loss
-        # "+43.006-17.027": 25.980265      # Carbamylation and NH3 loss
+        ("+42.011",  "[UNIMOD:1]"),      # Acetylation (different notation)
+        ("+43.006", "[UNIMOD:5]"),       # Carbamylation (different notation)
+        ("-17.027", "[UNIMOD:385]"),     # NH3 loss (different notation)
+        # ("+43.006-17.027", "[UNIMOD:5][UNIMOD:385]"),   # Carbamylation and NH3 loss
     ]
-    N_TERM_MOD_PATTERN = r"^(\[UNIMOD:[0-9]+\])" # find N-term modifications
+    PEP_SPLIT_PATTERN = r"(?<=.)(?=[A-Z])"
+    MOD_PATTERN = r"\[UNIMOD:[0-9]+\]"
+    N_TERM_MOD_PATTERN = r"^((\[UNIMOD:[0-9]+\])+)" # find N-term modifications
 
     def __init__(self, input_dir: str) -> None:
         """TODO."""
         fnames = [fname for fname in os.listdir(input_dir) if fname.endswith(".mgf")]
         self.file_names = [fname.split(".")[0] for fname in sorted(fnames)]
-
-        file_paths = [
-            os.path.join(input_dir, fname + ".mgf")
-            for fname in self.file_names
-        ]
-        file_paths = sorted(file_paths)
         return
     
     def _transform_match_n_term_mod(self, match: re.Match) -> str:
@@ -86,33 +86,60 @@ class OutputMapper(OutputMapperBase):
         spectrum_id = filename + ":" + spectrum_idx
         return spectrum_id
     
-    def format_sequence(self, sequence: str) -> str:
+    def format_sequence_and_scores(self, sequence, aa_scores):
         """
-        Convert peptide sequence to the common output data format 
-        (ProForma with modifications represented 
-        in the delta mass notation).
+        Convert peptide sequence to the common output data format
+        (ProForma with modifications represented with 
+        Unimod accession codes, e.g. M[UNIMOD:35])
+        and modify per-token scores if needed.
+
+        This method is only needed if per-token scores have to be modified 
+        to correspond the transformed sequence in ProForma format.
+        Otherwise use `format_sequence` method instead.
 
         Parameters
         ----------
         sequence : str
             Peptide sequence in the original algorithm output format.
+        aa_scores: str
+            String of per-token scores for each token in the sequence.
 
         Returns
         -------
         transformed_sequence : str
-            Peptide sequence in the common output data format.   
-        """
-
-        # direct (token-to-token) replacements
+            Peptide sequence in the common output data format.
+        transformed_aa_scores: str
+            String of per-token scores corresponding to each token
+            in the transformed sequence.
+        """   
+        # Direct (token-to-token) replacements
         for repl_args in self.REPLACEMENTS:
             sequence = sequence.replace(*repl_args)
 
-        # transform n-term modification notation
-        # represent in ProForma delta mass notation [+n_term_mod]-PEP
+        # Format sequence and scores for n-term modifications
         if re.search(self.N_TERM_MOD_PATTERN, sequence):
+            # Transform n-term modification notation.
+            # Represent in ProForma delta mass notation [+n_term_mod]-PEP.
             sequence = re.sub(self.N_TERM_MOD_PATTERN, self._transform_match_n_term_mod, sequence)
+            
+            # Count non-terminal tokens.
+            # Assume modification is always attached to a token or is terminal;
+            # then any non-terminal modification does not increase number of tokens.
+            n_non_term_tokens = len(re.split(
+                self.PEP_SPLIT_PATTERN,
+                re.sub(self.MOD_PATTERN, "", sequence).strip("-")
+            ))
+            # Number of scores should match number of tokens (+1 for n-term mods token, if any).
+            # Merge all scores for n-term modification tokens into a single score.
+            aa_scores = self._parse_scores(aa_scores)
+            
+            n_term_scores, non_term_scores = aa_scores[:-n_non_term_tokens], aa_scores[-n_non_term_tokens:]
+            term_score = np.mean(n_term_scores)
 
-        return sequence
+            aa_scores = [term_score] + non_term_scores
+            aa_scores = self._format_scores(aa_scores)
+        
+        return sequence, aa_scores
 
 
 parser = argparse.ArgumentParser()
