@@ -68,7 +68,8 @@ def isoleucine_to_leucine(sequence):
 
 
 def get_n_tokens(sequence: str) -> int:
-    seq = proforma.parse(sequence)
+    """Calculate number of tokens in a sequence in ProForma notation."""
+    seq = proforma.parse(sequence.replace("][", ", "))
     n_tokens = len(seq[0])
     if seq[1]["n_term"]:
         n_tokens += len(seq[1]["n_term"])
@@ -90,7 +91,10 @@ def validate_spectrum_id(spectrum_id: str) -> bool:
 
 def validate_sequence(sequence: str) -> bool:
     try:
-        seq = proforma.parse(sequence)
+        # Merge subsequent modifications together, because pyteomics.proforma 
+        # cannot parse sequence with multiple N-term modifications
+        # TODO: maybe only merge _terminal_ modifications?
+        seq = proforma.parse(sequence.replace("][", ", "))
     except:
         return False
     return True
@@ -313,7 +317,7 @@ print("targetDB (fasta):", target_fasta_path)
 
 # Load predictions data, match to GT by scan id or scan index if available
 PLOT_N_POINTS = 10000
-PLOT_HEIGHT = 400
+PLOT_HEIGHT = 440
 PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
 
 layout = go.Layout(
@@ -328,13 +332,16 @@ layout = go.Layout(
     legend=dict(
         y=0.01,
         x=0.01,
+        bgcolor="rgba(255,255,255,0.6)",  # translucent legend background
+        font=dict(size=10),
     ),
 )
 prot_match_fig = go.Figure(layout=layout)
 prot_match_fig.update_layout(
-    title_text="<b>Number of proteome matches vs. number of peptides</b>",
+    title_text="<b>Number of proteome matches\nvs. number of peptides</b>",
     xaxis_title="Number of predicted peptides",
     yaxis_title="Number of matches",
+    xaxis_range=None,
     yaxis_range=None,
 ) # plot number of matches versus number of predictions? (above some score value?)
 pep_fig = go.Figure(layout=layout)
