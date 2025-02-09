@@ -10,10 +10,11 @@ while IFS='=' read -r key value; do
 done <<< "$DSET_TAGS"
 
 # Create output folder
-mkdir /algo/data
-mkdir /algo/data/smsnet_temp
-mkdir /algo/data/smsnet_temp/mgf
-mkdir /algo/data/smsnet_temp/mgf_output
+# Should be mounted instead
+#mkdir /algo/data
+mkdir -p /algo/data/smsnet_temp
+mkdir -p /algo/data/smsnet_temp/mgf
+mkdir -p /algo/data/smsnet_temp/mgf_output
 
 rm '/algo/data/smsnet_temp/mgf/*'
 rm '/algo/data/smsnet_temp/mgf_output/*'
