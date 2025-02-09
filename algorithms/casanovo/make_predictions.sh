@@ -19,4 +19,4 @@ else
 fi
 
 # Convert predictions to the general output format
-python ./output_mapper.py --output_path=outputs.mztab --input_dir="$@"
+python ./output_mapper.py --output_path=outputs.mztab

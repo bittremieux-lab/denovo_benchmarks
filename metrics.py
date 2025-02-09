@@ -292,9 +292,9 @@ def aa_match_batch(
     for peptide1, peptide2 in zip(peptides1, peptides2):
         # Split peptides into individual AAs if necessary.
         if isinstance(peptide1, str):
-            peptide1 = re.split(r"(?<=.)(?=[A-Z])", peptide1)
+            peptide1 = re.split(r"(?<=.)(?=[A-Z])", peptide1) if peptide1 else []
         if isinstance(peptide2, str):
-            peptide2 = re.split(r"(?<=.)(?=[A-Z])", peptide2)
+            peptide2 = re.split(r"(?<=.)(?=[A-Z])", peptide2) if peptide2 else []
         n_aa1, n_aa2 = n_aa1 + len(peptide1), n_aa2 + len(peptide2)
         aa_matches_batch.append(
             aa_match(

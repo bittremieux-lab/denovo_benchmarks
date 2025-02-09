@@ -13,6 +13,9 @@
 mkdir -p /algo/input_data
 mkdir -p /algo/outputs
 
+# Output file header
+echo -e "spectrum_id,feature_area,sequence,score,predicted_position_score,precursor_mz,precursor_charge,protein_access_id,scan_list_middle,scan_list_original,predicted_score_max,aa_scores" > /algo/outputs.csv
+
 for input_file in "$@"/*.mgf; do
     echo "Processing file: $input_file"
 
@@ -28,5 +31,5 @@ for input_file in "$@"/*.mgf; do
         --denovo_output_file="/algo/outputs/output"
 
     # Collect predictions
-    cat "/algo/outputs/output[benchmark].csv" >> /algo/outputs.csv
+    tail -n+2 "/algo/outputs/output[benchmark].csv" >> /algo/outputs.csv
 done

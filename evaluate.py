@@ -53,7 +53,8 @@ def parse_scores(aa_scores: str) -> list[float]:
     * assumes that AA confidence scores always come
     as a string of float numbers separated by a comma.
     """
-
+    if not aa_scores:
+        return []
     aa_scores = aa_scores.split(",")
     aa_scores = list(map(float, aa_scores))
     return aa_scores
@@ -366,30 +367,32 @@ for output_file in os.listdir(args.output_dir):
     output_data = load_predictions(output_path, sequences_true)
 
     # Get idxs of GT labeled peptides & sequenced peptides (in correct output format)
+    print(algo_name, output_data["score"].isnull().sum())
     output_data = output_data.sort_values("score", ascending=False)
-    labeled_idx = output_data["sequence_true"].notnull()    
+    labeled_idx = output_data["sequence_true"].notnull()  
     sequenced_idx = get_sequenced_idx(output_data)
 
     # Prepare output sequences for metrics calculation
+    output_data.loc[~sequenced_idx, "sequence"] = ""
+    output_data.loc[~sequenced_idx, "aa_scores"] = ""
     output_data.loc[sequenced_idx, "sequence"] = output_data.loc[sequenced_idx, "sequence"].apply(
         ptms_to_delta_mass
     )
-    output_data["sequence_no_ptm"] = np.nan
-    output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
-        partial(remove_ptms, ptm_pattern='[^A-Z]')
-    )
-
     # Calculate metrics (aa precision, recall, peptide precision)
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
-        output_data["sequence"][sequenced_idx * labeled_idx],
-        output_data["sequence_true"][sequenced_idx * labeled_idx],
+        output_data["sequence"][labeled_idx],
+        output_data["sequence_true"][labeled_idx],
         AA_MASSES,
     )
     aa_precision, aa_recall, pep_precision = aa_match_metrics(aa_matches_batch, n_aa1, n_aa2)
 
     # Calculate number of proteome matches
     # Create "database" of de novo predicted peptides
+    # output_data["sequence_no_ptm"] = np.nan
     query_fasta_path = os.path.join(search_tmp_dir, "denovo_predicted_peptides.fasta")
+    output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
+        partial(remove_ptms, ptm_pattern='[^A-Z]')
+    )
     create_query_fasta(output_data.loc[sequenced_idx], query_fasta_path)
     
     # Run mmseqs search
@@ -413,7 +416,7 @@ for output_file in os.listdir(args.output_dir):
     # [Debug] Check number of GT peptide matches
     pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
     output_data["pep_match"] = False
-    output_data.loc[sequenced_idx * labeled_idx, "pep_match"] = pep_matches
+    output_data.loc[labeled_idx, "pep_match"] = pep_matches
     
     # Collect metrics
     output_metrics[algo_name] = {
@@ -458,7 +461,7 @@ for output_file in os.listdir(args.output_dir):
         list(
             map(
                 parse_scores,
-                output_data["aa_scores"][sequenced_idx * labeled_idx].values.tolist(),
+                output_data["aa_scores"][labeled_idx].values.tolist(),
             )
         )
     )

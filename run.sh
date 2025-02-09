@@ -3,11 +3,13 @@ dset_dir="$1"
 algorithm="$2"
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
+time_log_root_dir="./times"
 overlay_size=1024
 
 # TODO maybe now we need separate output dir for each dataset
 dset_name=$(basename "$dset_dir")
 output_dir="$output_root_dir/$dset_name"
+time_log_dir="$time_log_root_dir/$dset_name"
 
 # Echo message based on whether an algorithm is provided
 if [ -z "$algorithm" ]; then
@@ -31,10 +33,12 @@ echo "Recalculate all algorithm outputs: $recalculate"
 if "$recalculate"; then
     # Clean output dir 
     rm -rf "$output_dir"
+    rm -rf "$time_log_dir"
 fi
 
 # Create the output directory if it doesn't exist
 mkdir -p "$output_dir"
+mkdir -p "$time_log_dir"
 
 # List input files
 echo "Processing dataset: $dset_name ($dset_dir)"
@@ -49,6 +53,7 @@ for algorithm_dir in algorithms/*; do
         # If an algorithm is specified, only continue if algorithm_name matches
         if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
 
+            time_log_file="$time_log_dir/${algorithm_name}_time.log"
             output_file="$output_dir/${algorithm_name}_output.csv"
             echo "Output file: $output_file"
             
@@ -63,12 +68,12 @@ for algorithm_dir in algorithms/*; do
 
                 # Calculate predictions
                 echo "RUN ALGORITHM $algorithm_name"
-                apptainer exec --fakeroot --nv \
+                { time ( apptainer exec --fakeroot --nv \
                     --overlay "algorithms/${algorithm_name}/overlay.img" \
                     -B "${spectra_dir}":"/algo/${dset_name}" \
                     --env-file .env \
                     "algorithms/${algorithm_name}/container.sif" \
-                    bash -c "cd /algo && ./make_predictions.sh ${dset_name}"
+                    bash -c "cd /algo && ./make_predictions.sh ${dset_name}" 2>&1 ); } 2> "$time_log_file"
                 
                 # Collect predictions in output_dir
                 echo "EXPORT PREDICTIONS"
