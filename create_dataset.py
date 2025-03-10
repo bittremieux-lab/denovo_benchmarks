@@ -4,7 +4,6 @@ from tqdm import tqdm
 from oktoberfest.runner import run_job
 from dataset_utils import *
 from dataset_config import get_config
-from pyteomics import mgf # TODO: move to dataset_utils?
 
 
 Q_VAL_THRESHOLD = 0.01
@@ -26,7 +25,6 @@ for data_dir in [
     MZML_DATA_DIR, 
     RESCORED_DATA_DIR, 
     DATASET_STORAGE_DIR
-    # MGF_DATA_DIR,
 ]:
     os.makedirs(data_dir, exist_ok=True)
 
@@ -91,8 +89,7 @@ if not set(fname.lower() + ".pin" for fname in files_list).issubset(
         else:
             print(f"Unknown file extension {config.download.ext}")
     
-    # TODO: add contaminants (before or after decoys?)
-    # Generate decoys for DB search # TODO: add decoys generation only if doesn't exist
+    # Generate decoys for DB search
     db_w_decoys_path = generate_decoys_fasta(dset_name, config.db_search.database_path)
 
     # Run DB search (MSFragger)
@@ -160,10 +157,6 @@ if not set(fname.lower() + ".mgf" for fname in files_list).issubset(
 results_path = os.path.join(rescored_files_dir, f"{file_prefix}.percolator.psms.txt")
 results_df = pd.read_csv(results_path, sep="\t")
 results_df = results_df[results_df["q-value"] < Q_VAL_THRESHOLD][["PSMId", "peptide", "q-value"]]
-# results_df["filename"] = results_df["PSMId"].apply(get_filename)
-
-# ext = config.download.ext
-# print("file type:", ext)
 results_df["title"] = results_df["PSMId"].apply(lambda x: "_".join(x.split("_")[:-1]))
 
 # filter and keep only spectra with defined charge

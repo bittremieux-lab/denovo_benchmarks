@@ -1,13 +1,13 @@
-import json
 import os
 import ppx 
 import re
 import shutil
 import subprocess
 import pandas as pd
-# from datetime import datetime
 from tqdm import tqdm
 from pyteomics import fasta, mgf
+
+from dataset_config import DataDownloadConfig
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -41,26 +41,38 @@ MZML_DATA_DIR = os.path.join(ROOT, "mzml")
 RESCORED_DATA_DIR = os.path.join(ROOT, "rescored")
 DATASET_STORAGE_DIR = os.path.join(DATA_DIR, "benchmarking", "datasets")
 
-# Spectra smoothing for .d to .mgf conversion with alphatims
-CENTROID_WINDOW = 5
 
+def get_files_list(download_config: DataDownloadConfig):
+    """
+    Select raw spectra files for the dataset based on 
+    selection rules defined in the download_config such as:
+    - file extension;
+    - number of files;
+    - inclusion/exclusion keywords in the filename. 
 
-def get_files_list(download_config):
+    Args:
+        download_config (DataDownloadConfig): Config with dataset 
+            selection criteria, including spectral dataset ID,
+            file extension, and inclusion/exclusion keywords, 
+            or file download links, and the maximum number of files.
+
+    Returns:
+        dict: A dictionary where keys are file names (without extensions)
+            and values are their corresponding paths 
+            to the raw spectra file within the dataset folder.
     """
-    Select files for dataset based on 
-    selection rules defined in the download_config.
-    
-    TODO.
-    """
+
     def check_file(file_path):
+        """Check if file matches criteria."""
+
         if not file_path.lower().endswith(ext):
             return False
-        for keyword in download_config.keywords:
-            if keyword not in file_path:
-                return False
-        for keyword in download_config.exclude_keywords:
-            if keyword in file_path:
-                return False
+
+        if any(keyword not in file_path for keyword in download_config.keywords):
+            return False
+
+        if any(keyword in file_path for keyword in download_config.exclude_keywords):
+            return False
         return True
 
     dset_id = download_config.dset_id
@@ -97,9 +109,15 @@ def get_files_list(download_config):
     return files_list
 
 
-def download_files(download_config, files_list):#, unpack_dir=None, raw_ext=None):
-    # TODO: now RAW_DATA_DIR can also contain mzml and mgf -- if specified? 
-    # (just all the source data for a DSET_ID always is stored at RAW_DATA_DIR?)
+def download_files(download_config, files_list):
+    """
+    Download files from the `files_list` to a local folder. 
+
+    Args:
+        download_config (DataDownloadConfig): config with dataset details.
+        files_list (dict): Dictionary where keys are filenames (without extensions) 
+            and values are full file paths.
+    """
     dset_id = download_config.dset_id
     dset_dir = os.path.join(RAW_DATA_DIR, dset_id)
     print(f"Loading dataset {dset_id} to the folder {dset_dir}")
@@ -112,7 +130,6 @@ def download_files(download_config, files_list):#, unpack_dir=None, raw_ext=None
         print("Local files:", proj.local_files())
     
         # select files to download
-        # TODO: change: not skipping existing files so far = download all from fnames
         fnames = list(files_list.values())
         if download_config.ext == ".wiff":
             fnames += [fname + ".scan" for fname in fnames]
@@ -172,13 +189,6 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
             if os.path.exists(target_file):
                 print(f"Skipping {fname}.mgf, already exists in {target_dir}")
                 continue
-            # existing_files = [
-            #     f for f in os.listdir(target_dir) 
-            #     if re.fullmatch(f"{re.escape(fname)}_\d+\.mgf", f)
-            # ]
-            # if existing_files:
-            #     print(f"Skipping {fname}.mgf, corresponding .mgf files already exist in {target_dir}")
-            #     continue
 
         out_fname = fname + target_ext
         cmd = [
@@ -208,25 +218,40 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
     print(os.listdir(target_dir))
     
     
-# should we run it only if there is no prepared decoys file? 
 def generate_decoys_fasta(dset_name, db_file):
+    """
+    Add decoys and common contaminants to the reference database
+    with FragPipe Philosopher. 
+    Only run if there is no existing database with decoys.
+    """
+
     mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     db_path = os.path.join(PROTEOMES_DIR, db_file)
 
-    cmd = [
-        "cd",
-        mzml_files_dir,
-        "&&",
-        "philosopher workspace --init",
-        "&&",
-        "philosopher database",
-        "--custom",
-        db_path,
-        "--contam"
+    # check if database with decoys already exists
+    existing_db_w_decoys = [
+        fname for fname in os.listdir(mzml_files_dir)
+        if fname.endswith(".fas") and (f"decoys-contam-{db_file}" in fname)
     ]
-    subprocess.run(" ".join(cmd), shell=True, check=True)
 
-    db_w_decoys_path = [fname for fname in os.listdir(mzml_files_dir) if fname.endswith(".fas")][0]
+    if existing_db_w_decoys:
+        db_w_decoys_path = existing_db_w_decoys[0]
+    
+    else:
+        cmd = [
+            "cd",
+            mzml_files_dir,
+            "&&",
+            "philosopher workspace --init",
+            "&&",
+            "philosopher database",
+            "--custom",
+            db_path,
+            "--contam"
+        ]
+        subprocess.run(" ".join(cmd), shell=True, check=True)
+        db_w_decoys_path = [fname for fname in os.listdir(mzml_files_dir) if fname.endswith(".fas")][0]
+    
     db_w_decoys_path = os.path.join(mzml_files_dir, db_w_decoys_path)
     return db_w_decoys_path
 
@@ -269,17 +294,8 @@ def run_database_search(dset_name, db_w_decoys_path, db_search_config):
             fname = os.path.splitext(file_path)[0]
             src_fname = fname + "_uncalibrated.mzML"
             dst_fname = fname + ".mzML"
-            shutil.move(src_fname, dst_fname) # TODO: replace copy to rename (move)
+            shutil.move(src_fname, dst_fname)
         print("Created mzML files:\n", os.listdir(mzml_files_dir))
-
-        # # Use uncalibrared mgf files to get unlabeled mgf files from .d
-        # mgf_files_dir = os.path.join(MGF_DATA_DIR, dset_name)
-        # for file_path in mzml_files:
-        #     fname = os.path.splitext(file_path)[0]
-        #     src_fname = fname + "_uncalibrated.mgf"
-        #     dst_fname = os.path.join(mgf_files_dir, os.path.basename(fname + ".mgf"))
-        #     shutil.move(src_fname, dst_fname) # TODO: replace copy to move
-        # print("Created unlabeled mgf files\n", os.listdir(mgf_files_dir))
 
 
 def generate_msfragger_params(db_w_decoys_path, config, template_path, output_path):
@@ -399,7 +415,6 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
     print(".mzML files available for rescoring:\n", mzml_files)
 
     # select .pin files with fnames in files_list
-    # TODO: check if there are no problems with existing _rescore.pin files
     pin_files = [f for f in os.listdir(mzml_files_dir) if os.path.splitext(f)[1].lower() == ".pin"]
     pin_files = [os.path.join(mzml_files_dir, f) for f in pin_files]
     print(".pin files available for rescoring:\n", pin_files)
@@ -422,7 +437,7 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
         "--outputDirectory",
         rescored_files_dir,
     ]
-    # TODO: Parse additional params from config if provided
+
     for arg in [*rescoring_config.feat_pred_params.items()]:
         options += list(map(str, arg))
     
@@ -433,8 +448,6 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
         MSBOOSTER_PATH,
         *options,
     ]
-    print("MSBOOSTER DEBUG:\n") # TODO for debug only, remove
-    print(" ".join(cmd)) # TODO
     subprocess.run(" ".join(cmd), shell=True, check=True)
     print("Created PSMs features (_rescore.pin):\n", os.listdir(mzml_files_dir))
 

@@ -4,6 +4,7 @@ ground truth labels."""
 import argparse
 import os
 import re
+import shutil
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -512,3 +513,7 @@ aa_fig.write_html(
 
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(dataset_results_dir, "metrics.csv"))
+
+
+# Clean tmp folders
+shutil.rmtree(search_tmp_dir)
