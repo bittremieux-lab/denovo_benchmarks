@@ -177,6 +177,10 @@ output_data = output_data.rename(
     },
     axis=1,
 )
+# Drop rows with NaN predictions
+output_data = output_data[
+    output_data[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
+].reset_index(drop=True)
 
 # Transform data to the common output format
 output_mapper = OutputMapper(input_dir=args.input_dir)

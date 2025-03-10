@@ -23,6 +23,7 @@ then
 else
     device=-1 # CPU
 fi
+echo "Using device $device."
 
 # Use tag variables to specify de novo algorithm
 # for the particular dataset properties
