@@ -12,16 +12,8 @@ From: tensorflow/tensorflow:1.2.0-gpu
     algorithms/base /algo/base
 
 %post
-    # Install gnupg first to avoid GPG errors
-    apt-get update && apt-get install -y gnupg \
-    && apt-get update
-
-    # Install system packages
-    apt-get install -y --allow-unauthenticated git-core \
-    && rm -rf /var/lib/apt/lists/*
-    git --version
-
     # Install Python packages
+    pip install gnupg
     pip install numpy==1.16.6 pandas==0.24.2 
     pip install Cython==3.0.9
     # last stable pyteomics version for py27
@@ -35,8 +27,6 @@ From: tensorflow/tensorflow:1.2.0-gpu
     # Download algorithm-related files
     # (source codes, weights, etc.)
     cd /algo
-    # Download algorithm source code
-    git clone https://github.com/nh2tran/DeepNovo.git
     # Fix batch size bug in deepnovo_main_modules.py
     cp deepnovo_main_modules.py DeepNovo
     # Build DeepNovo from source
