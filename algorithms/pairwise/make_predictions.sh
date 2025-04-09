@@ -17,7 +17,7 @@ cd /algo/pairwise
 python src/data/create_lance.py --input /algo/"$@"/mgf --output /algo/data.lance
 
 #TODO: add checkpoint
-python src/main.py --config=configs/master_bm.yaml --num_workers=0 --accelerator=$accelerator --downstream_root_dir=/algo/data.lance #--downstream_weights=checkpoint.ckpt 
+python src/main.py --config=configs/master_bm.yaml --accelerator=$accelerator --downstream_root_dir=/algo/data.lance --downstream_weights=/algo/pairwise_mskb.ckpt 
 
 # Placeholder for output mapper:
 # python output_mapper.py --input predictions_table.mzTab --output final_outputs.csv
