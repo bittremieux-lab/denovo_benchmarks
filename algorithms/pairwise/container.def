@@ -2,30 +2,42 @@ Bootstrap: docker
 From: continuumio/miniconda3:latest
 # From: python:3.10
 
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
 %files
     # Copy algorithm-related files to a separate dir /algo.
     # Don't change the dir name.
-    algorithms/ContraNovo /algo
+    algorithms/pairwise /algo
     algorithms/base /algo/base
 
 %post
     # Download algorithm source code
     cd /algo
-    # git clone git@github.com:BEAM-Labs/ContraNovo.git
-    # git clone https://github.com/BEAM-Labs/ContraNovo.git
-    cd ContraNovo
+    git clone --recursive git@github.com:statisticalbiotechnology/pairwise.git
+    cd pairwise
+
+    # install conda environment
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment
     conda init
     . /opt/conda/etc/profile.d/conda.sh
+
+    conda activate pairwise_env
+
+    # install our fork of depthcharge
+    cd depthcharge
+    python -m pip install .
     
+
     # Download algorithm weights from https://drive.google.com/file/d/1knNUqSwPf98j388Ds2E6bG8tAXx8voWR/view?pli=1
-    conda activate ContraNovo
-    pip install gdown
-    gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
+    # pip install gdown
+    # gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
     # Move the checkpoint in the source dir
-    mv ContraNovo.ckpt ContraNovo/
+    # mv ContraNovo.ckpt ContraNovo/
+
+    # mv checkpoint.ckpt pairwise/
 
 %post
     # Make sure make_predictions.sh file is executable.
