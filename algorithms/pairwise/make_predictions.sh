@@ -22,4 +22,4 @@ python src/main.py --config=configs/master_bm.yaml --accelerator=$accelerator --
 cd /algo
 
 # Placeholder for output mapper:
-python output_mapper.py --input_path /algo/"$@"/ --output_path pairwise/outs/logs/log/predictions_table.mzTab
+python output_mapper.py --input_dir /algo/"$@"/ --output_path pairwise/outs/logs/log/predictions_table.mzTab
