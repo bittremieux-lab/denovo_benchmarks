@@ -14,9 +14,6 @@ echo "Using device $device with accelerator $accelerator."
 
 cd /algo/pairwise
 
-# Print current working directory
-echo "Current working directory: $(pwd)"
-
 python src/data/create_lance.py --input /algo/"$@"/ --output /algo/data.lance
 
 #TODO: add checkpoint
@@ -25,4 +22,4 @@ python src/main.py --config=configs/master_bm.yaml --accelerator=$accelerator --
 cd /algo
 
 # Placeholder for output mapper:
-python output_mapper.py --input pairwise/outs/logs/log/predictions_table.mzTab --output final_outputs.csv
+python output_mapper.py --input_path /algo/"$@"/ --output_path pairwise/outs/logs/log/predictions_table.mzTab
