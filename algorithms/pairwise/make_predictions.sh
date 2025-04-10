@@ -5,7 +5,7 @@ conda activate pairwise_env
 
 if command -v nvidia-smi &> /dev/null && nvidia-smi > /dev/null 2>&1; then
     device=0
-    accelerator=cuda
+    accelerator=gpu
 else
     device=-1
     accelerator=cpu
@@ -14,10 +14,15 @@ echo "Using device $device with accelerator $accelerator."
 
 cd /algo/pairwise
 
-python src/data/create_lance.py --input /algo/"$@"/mgf --output /algo/data.lance
+# Print current working directory
+echo "Current working directory: $(pwd)"
+
+python src/data/create_lance.py --input /algo/"$@"/ --output /algo/data.lance
 
 #TODO: add checkpoint
 python src/main.py --config=configs/master_bm.yaml --accelerator=$accelerator --downstream_root_dir=/algo/data.lance --downstream_weights=/algo/pairwise_mskb.ckpt 
 
+cd /algo
+
 # Placeholder for output mapper:
-# python output_mapper.py --input predictions_table.mzTab --output final_outputs.csv
+python output_mapper.py --input pairwise/outs/logs/log/predictions_table.mzTab --output final_outputs.csv

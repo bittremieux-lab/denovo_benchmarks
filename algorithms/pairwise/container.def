@@ -36,15 +36,6 @@ From: continuumio/miniconda3:latest
     cd /algo
     wget https://huggingface.co/alfred-n/PA-transformer/resolve/main/pairwise_mskb.ckpt
 
-
-    # Download algorithm weights from https://drive.google.com/file/d/1knNUqSwPf98j388Ds2E6bG8tAXx8voWR/view?pli=1
-    # pip install gdown
-    # gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
-    # Move the checkpoint in the source dir
-    # mv ContraNovo.ckpt ContraNovo/
-
-    # mv checkpoint.ckpt pairwise/
-
 %post
     # Make sure make_predictions.sh file is executable.
     chmod +x /algo/make_predictions.sh
