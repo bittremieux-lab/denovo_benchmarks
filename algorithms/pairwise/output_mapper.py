@@ -2,6 +2,8 @@
 Script to convert predictions from the algorithm output format 
 to the common output format.
 """
+import sys
+sys.path.append("/cmnfs/home/j.lapin/projects/denovo_benchmarks_pa/algorithms")
 
 import argparse
 import os
@@ -172,8 +174,9 @@ output_data = output_data.spectrum_match_table
 output_data = output_data.rename(
     {
         "search_engine_score[1]": "score",
-        "spectra_ref": "spectrum_id",
+        "spectra_ref": "spectrum_id_",
         "opt_ms_run[1]_aa_scores": "aa_scores",
+        'title': 'spectrum_id',
     },
     axis=1,
 )
