@@ -184,6 +184,9 @@ output_data = output_data.rename(
 # Tie comma-separated sequences together
 output_data['sequence'] = output_data['sequence'].map(lambda x: x.replace(',', ''))
 
+# Add scans column
+output_data['scans'] = output_data['spectrum_id'].map(lambda x: int(x.split('.')[-2]))
+
 # Drop rows with NaN predictions
 output_data = output_data[
     output_data[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
