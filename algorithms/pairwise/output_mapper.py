@@ -180,6 +180,10 @@ output_data = output_data.rename(
     },
     axis=1,
 )
+
+# Tie comma-separated sequences together
+output_data['sequence'] = output_data['sequence'].map(lambda x: x.replace(',', ''))
+
 # Drop rows with NaN predictions
 output_data = output_data[
     output_data[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
