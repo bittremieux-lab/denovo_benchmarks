@@ -2,6 +2,7 @@
 Script to convert predictions from the algorithm output format 
 to the common output format.
 """
+
 import sys
 sys.path.append("/cmnfs/home/j.lapin/projects/denovo_benchmarks_pa/algorithms")
 
@@ -37,6 +38,7 @@ class OutputMapper(OutputMapperBase):
         """TODO."""
         fnames = [fname for fname in os.listdir(input_dir) if fname.endswith(".mgf")]
         self.file_names = [fname.split(".")[0] for fname in sorted(fnames)]
+        self.fn_dict = {j:i+1 for i,j in enumerate(self.file_names)}
 
         self.title2spec_idx = {fname: [] for fname in self.file_names}
 
@@ -181,11 +183,16 @@ output_data = output_data.rename(
     axis=1,
 )
 
+output_data['scans'] = output_data['spectrum_id'].map(lambda x: x.split('.')[-2])
+
+# Get number of tokens
+output_data['length'] = output_data['sequence'].map(lambda x: len(x.split(',')))
+
+# Simulate aa_scores
+output_data['aa_scores'] = output_data.apply(lambda x: ",".join([str(x['score']),]*x['length']), axis=1)
+
 # Tie comma-separated sequences together
 output_data['sequence'] = output_data['sequence'].map(lambda x: x.replace(',', ''))
-
-# Add scans column
-output_data['scans'] = output_data['spectrum_id'].map(lambda x: int(x.split('.')[-2]))
 
 # Drop rows with NaN predictions
 output_data = output_data[
@@ -195,6 +202,9 @@ output_data = output_data[
 # Transform data to the common output format
 output_mapper = OutputMapper(input_dir=args.input_dir)
 output_data = output_mapper.format_output(output_data)
+
+# Add scans column
+output_data['scans'] = output_data.apply(lambda x: 'F'+str(output_mapper.fn_dict[x['spectrum_id'].split(':')[0]])+':'+x['scans'], axis=1)
 
 # Save processed predictions to outputs.csv
 # (the expected name for the algorithm output file)
