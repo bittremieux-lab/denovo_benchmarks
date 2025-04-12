@@ -4,9 +4,8 @@ algorithm="$2"
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
 time_log_root_dir="./times"
-overlay_size=1024
+overlay_size=2048
 
-# TODO maybe now we need separate output dir for each dataset
 dset_name=$(basename "$dset_dir")
 output_dir="$output_root_dir/$dset_name"
 time_log_dir="$time_log_root_dir/$dset_name"
@@ -62,14 +61,14 @@ for algorithm_dir in algorithms/*; do
                 echo "Processing algorithm: $algorithm_name"
 
                 # Remove an existing container overlay, if any
-                rm -rf "algorithms/${algorithm_name}/overlay.img"
+                rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
                 # Create writable overlay for the container
-                apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay.img"
+                apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay_${dset_name}.img"
 
                 # Calculate predictions
                 echo "RUN ALGORITHM $algorithm_name"
                 { time ( apptainer exec --fakeroot --nv \
-                    --overlay "algorithms/${algorithm_name}/overlay.img" \
+                    --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
                     -B "${spectra_dir}":"/algo/${dset_name}" \
                     --env-file .env \
                     "algorithms/${algorithm_name}/container.sif" \
@@ -78,7 +77,7 @@ for algorithm_dir in algorithms/*; do
                 # Collect predictions in output_dir
                 echo "EXPORT PREDICTIONS"
                 apptainer exec --fakeroot \
-                    --overlay "algorithms/${algorithm_name}/overlay.img" \
+                    --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
                     -B "${output_dir}":/algo/outputs \
                     --env-file .env \
                     "algorithms/${algorithm_name}/container.sif" \
@@ -86,6 +85,12 @@ for algorithm_dir in algorithms/*; do
 
             else
                 echo "Skipping algorithm: $algorithm_name. Output file already exists."
+
+                # Remove an existing container overlay, if any
+                # FIXME: mb put this part outside if-else statement? 
+                # Now when each dataset has separate container overlays,
+                # old dataset overlays must be removed if output file already exists.
+                rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
             fi
 
         fi

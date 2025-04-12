@@ -368,7 +368,8 @@ for output_file in os.listdir(args.output_dir):
     output_data = load_predictions(output_path, sequences_true)
 
     # Get idxs of GT labeled peptides & sequenced peptides (in correct output format)
-    print(algo_name, output_data["score"].isnull().sum())
+    print(algo_name)
+    print("NaN sequences:", output_data["score"].isnull().sum())
     output_data = output_data.sort_values("score", ascending=False)
     labeled_idx = output_data["sequence_true"].notnull()  
     sequenced_idx = get_sequenced_idx(output_data)
