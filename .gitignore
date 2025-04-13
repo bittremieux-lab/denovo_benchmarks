@@ -1,3 +1,6 @@
+# Private code
+algorithms/novor/set_build_envs.sh
+
 # Data
 datasets/*
 !datasets/sample_data/
