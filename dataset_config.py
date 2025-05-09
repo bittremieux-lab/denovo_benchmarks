@@ -28,12 +28,31 @@ class DatasetTag(str, enum.Enum):
     # TODO: other modifications?
 
 
+class Instrument(str, enum.Enum):
+    # MS instrument types distinguished by MSGF+
+    LCQ = "LCQ" # Linear Quadrupole Ion Trap
+    LTQ = "LTQ" # Linear Trap Quadrupole
+    Orbitrap = "Orbitrap" # Orbitrap Elite, Fusion, Lumos
+    FTICR = "FTICR" # Fourier Transform Ion Cyclotron Resonance
+    Lumos = "Lumos" # a high-end version of the Orbitrap Fusion
+    TOF = "TOF" # Bruker, Sciex TripleTOF, Agilent TOF
+    QExactive = "QExactive" # Hybrid Quadrupole-Orbitrap (QE, QE Plus / HF)
+
+
+class FragmentationMethod(str, enum.Enum):
+    not_given = "not_given" # TODO: mb rename! "as written in the spectrum or CID if no info"
+    CID = "CID"
+    ETD = "ETD"
+    HCD = "HCD"
+    UVPD = "UVPD"
+
+
 class DataDownloadConfig(BaseModel):
     # Dataset id in MS repository 
     dset_id: str
     # Download links (alternative to dataset id)
     links: tp.Optional[tp.List[str]] = None
-    # Extension of raw spectra files to download (lowercase) # TODO: rename to raw_ext? 
+    # Extension of raw spectra files to download (lowercase)
     ext: str = ".raw"
     # Number of raw files to download.
     # If null, all matching files are downloaded
@@ -47,11 +66,17 @@ class DataDownloadConfig(BaseModel):
 
 class DBSearchConfig(BaseModel):
     # Path to the protein database file in FASTA format.
-    database_path: tp.Union[str, tp.List[str]]
-    # Extension of spectra files used for the search # TODO: rename to search_ext? 
+    database_path: tp.Optional[tp.Union[str, tp.List[str]]] = None
+    # For synthetic peptides: path to dir with corresponding pool proteomes.
+    # Will be appened to PROTEOMES_DIR.
+    pool_proteomes_dir: tp.Optional[str] = None
+    # Extension of spectra files used for the search
     ext: str = ".mzml"
     # Number of splits (for running DB search with large DB).
     n_db_splits: int = 1
+    # Additional params for MSGF+
+    instrument: Instrument = Instrument.Orbitrap # TODO: what is the default?
+    fragmentation: FragmentationMethod = FragmentationMethod.HCD # TODO: set "CID" or "-" as default?
     # Additional (optional) search params. Only needs to be passed 
     # for non-default params. Can be an emtpy dict. 
     search_params: tp.Dict[str, tp.Any]
