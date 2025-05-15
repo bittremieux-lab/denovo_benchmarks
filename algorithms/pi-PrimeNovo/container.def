@@ -1,0 +1,52 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+
+%files
+    # Copy necessary algorithm files
+    algorithms/pi-PrimeNovo /algo
+    algorithms/base /algo/base
+
+%post
+    # Initialize conda
+    conda init
+    . /opt/conda/etc/profile.d/conda.sh
+
+    # Create conda environment
+    cd /algo
+    # going inside pi-PrimeNovo dir
+    cd pi-PrimeNovo
+    conda create -n PrimeNovo python=3.10 -y
+    conda activate PrimeNovo
+
+    # Install Python dependencies
+    pip install --upgrade pip
+    pip install -r requirements.txt
+
+    # Install gcc and g++ compilers
+    conda install -c conda-forge gcc cxx-compiler -y
+
+    
+
+    # Clone and install ctcdecode
+    git clone --recursive https://github.com/WayenVan/ctcdecode.git
+    cd ctcdecode
+    pip install .
+    cd ..
+    rm -rf ctcdecode
+
+    # Install CuPy (adapt CUDA version accordingly)
+    pip install cupy-cuda12x
+
+
+    pip install gdown
+
+    gdown "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
+    # Make prediction script executable (assuming you have a prediction script)
+    chmod +x /algo/make_predictions.sh
+
+%runscript
+    # Activate environment and run predictions
+    #. /opt/conda/etc/profile.d/conda.sh
+    #conda activate PrimeNovo
+    cd /algo && ./make_predictions.sh data
+    # Output results expected in /algo/outputs.csv
