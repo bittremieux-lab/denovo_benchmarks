@@ -1,0 +1,47 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+# From: python:3.10
+
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
+    algorithms/pairwise /algo
+    algorithms/base /algo/base
+
+%post
+    # Download algorithm source code
+    cd /algo
+    git clone https://github.com/statisticalbiotechnology/pairwise.git
+    cd pairwise
+    # Replace SSH URLs with HTTPS in .gitmodules.
+    sed -i 's/git@github.com:/https:\/\/github.com\//g' .gitmodules
+    git submodule update --init --recursive
+
+    # install conda environment
+    conda env create -f environment.yml
+
+    # source the conda initialization script before activating an environment
+    conda init
+    . /opt/conda/etc/profile.d/conda.sh
+
+    conda activate pairwise_env
+
+    # install our fork of depthcharge
+    cd depthcharge
+    python -m pip install .
+    
+    cd /algo
+    wget https://huggingface.co/alfred-n/PA-transformer/resolve/main/pairwise_mskb.ckpt
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
+    # De novo peptide results are generated as /algo/outputs.csv
