@@ -23,6 +23,7 @@ class DatasetTag(str, enum.Enum):
     formaldehyde = "formaldehyde"
     ammonia_loss = "ammonia_loss"
     sodium_adduct = "sodium_adduct"
+    diethyl = "diethyl"
     silac = "silac"
     tmt = "tmt"
     # TODO: other modifications?
@@ -87,7 +88,11 @@ class RescoringConfig(BaseModel):
     # Can be an empty dict.
     feat_pred_params: tp.Dict[str, tp.Any]
     # Max q-value threshold for rescored DB search results
-    q_val_threshold: float = 0.01
+    q_val_threshold: tp.Optional[float] = 0.01
+    # If specified, filter only peptides from the pools in the list.
+    # Only relevant for searches with a single protein database file.
+    # For searches with pools from pool_proteomes_dir, always filter by the corresponding pool.
+    filter_pools: tp.Optional[tp.List[str]] = None
 
 
 class Config(BaseModel):

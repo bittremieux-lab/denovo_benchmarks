@@ -96,8 +96,6 @@ from dataset_config import get_config, DatasetTag
 # And only for MSFragger we will keep the option to use deep learning-based features
 # by running MSBooster on the original .pin files (optionally)
 
-Q_VAL_THRESHOLD = 0.01
-Q_VAL_THRESHOLD_SYNTHETIC = 0.001
 MAX_SPECTRA_PER_FILE = 20000
 
 def check_mzml_files_exist(files_list, mzml_files_dir):
@@ -143,7 +141,8 @@ def prepare_mzml_files(dset_id, files_list, raw_files_dir, mzml_files_dir, downl
 def check_db_search_results_exist(search_tool, files_list, mzml_files_dir):
     """Check if database search results already exist."""
     if search_tool == "msfragger":
-        expected_files = [os.path.join(mzml_files_dir, f"{fname}.pin") for fname in files_list]
+        # expected_files = [os.path.join(mzml_files_dir, f"{fname}.pin") for fname in files_list]
+        expected_files = [os.path.join(mzml_files_dir, f"{fname}_rescore.pin") for fname in files_list]
     elif search_tool == "msgf":
         expected_files = [os.path.join(mzml_files_dir, "msgf_features", f"{fname}.pin") for fname in files_list]
     elif search_tool == "comet":
@@ -204,6 +203,17 @@ def map_psm_id_index_to_scan_id(results_df):
     results_df = results_df.drop("filename", axis=1)
     return results_df
 
+def fix_msgf_timstof_psm_id(results_df):
+
+    def fix_timstof_psm_id(psm_id):
+        psm_id = psm_id.split("_")
+        psm_id[-5] = psm_id[-3]
+        psm_id = "_".join(psm_id)
+        return psm_id
+
+    results_df["PSMId"] = results_df["PSMId"].apply(fix_timstof_psm_id)
+    return results_df
+
 def check_chunked_mgf_files_exist(files_list, mgf_files_dir):
     """Check if chunked MGF files exist."""
     chunked_mgf_files = [fname.lower() + "_0.mgf" for fname in files_list]
@@ -247,9 +257,11 @@ def get_mgf_files_spectra_idxs(files_list, mgf_files_dir, raw_files_dir, dset_id
     # If chunked MGF files already exist, just read them & extract spectra idxs
     spectra_idxs_0 = []
     for fname in tqdm(files_list):
+        print(fname)
         chunk_files = [f for f in os.listdir(mgf_files_dir) if re.fullmatch(fr"{fname}_[\d]+.mgf", f)]
         # chunk_files = [f for f in os.listdir(mgf_files_dir) if f.startswith(fname + "_") and f.endswith(".mgf")]
         for chunk_file in chunk_files:
+            print("Reading chunk file:", chunk_file)
             chunk_path = os.path.join(mgf_files_dir, chunk_file)
             spectra = mgf.read(chunk_path)
             idxs_0 = {idx: spectrum["params"]["title"] for idx, spectrum in enumerate(spectra)}
@@ -313,6 +325,22 @@ def run_rescoring(search_tool, dset_name, rescoring_config, files_list, rescored
     # Run rescoring
     run_psm_rescoring(dset_name, rescoring_config, rescored_files_dir, rescore_file_prefix)
 
+def get_filename(psm_id, search_tool="msfragger"):
+    if search_tool == "comet":
+        title = psm_id.split("/")[-1]
+        title = title.split("_")
+        filename = "_".join(title[:-3])
+        return filename
+    
+    elif search_tool == "msgf":
+        title = psm_id.split("_")
+        filename = "_".join(title[:-6])
+        return filename
+    
+    # else (msfragger, msgf):
+    filename = psm_id.split(".")[0]
+    return filename
+
 def get_spectrum_title(psm_id, search_tool="msfragger"):
     if search_tool == "comet":
         title = psm_id.split("/")[-1]
@@ -334,21 +362,67 @@ def get_spectrum_title(psm_id, search_tool="msfragger"):
     title = "_".join(psm_id.split("_")[:-1])
     return title
 
+def check_psm_in_sample_pool(sample_pool, psm_pools): # TODO: should be psm_proteins    
+    if isinstance(sample_pool, list):
+        return len(set(sample_pool) & set(psm_pools)) > 0
+    
+    if sample_pool in psm_pools:
+        return True
+    
+    if "QC_JPT_QC_Peptide" in psm_pools or "QC_JPT_RT_Peptide" in psm_pools:
+        return True
+    return False
+
 def collect_labels(
-    search_tool, rescored_files_dir, rescore_file_prefix, spectra_idxs_0, labels_path, 
-    q_val_threshold=Q_VAL_THRESHOLD,
-    ):
+    search_tool, rescored_files_dir, rescore_file_prefix, spectra_idxs_0, labels_path, config,
+):
     """Collect PSM labels from Percolator results and save them."""
     results_path = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.psms.txt")
     # results_df = pd.read_csv(results_path, sep="\t")
     results_df = pd.read_csv(
         results_path, sep="\t", 
         usecols=['PSMId', 'score', 'q-value', 'posterior_error_prob', 'peptide', 'proteinIds']
-    )
-    results_df = results_df[results_df["q-value"] < q_val_threshold][["PSMId", "peptide", "q-value"]]
+    ) 
 
+    # filter by q-value
+    q_val_threshold = config.rescoring.q_val_threshold
+    print("Filtering PSMs by q-value threshold:", q_val_threshold)
+    print("Before filtering:", results_df.shape)
+    results_df = results_df[results_df["q-value"] < q_val_threshold]
+    print("After filtering:", results_df.shape)
+
+    # filter by PSM beloging to the corresponding pool
+    if config.db_search.pool_proteomes_dir is not None: # TODO: mb use a different check for peptides that need to be filtered?
+        # For synthetic peptides, generate separate databased for each file
+        pool_proteomes_dir = os.path.join(PROTEOMES_DIR, config.db_search.pool_proteomes_dir)
+        PT_pools_name = f"{config.name}.csv"
+        PT_pools_path = os.path.join(PROTEOMES_DIR, PT_pools_name)
+        PT_pools_df = pd.read_csv(PT_pools_path)
+        sample_pools = PT_pools_df.set_index("sample")["pool"].to_dict()
+
+        results_df["filename"] = results_df["PSMId"].apply(lambda x: get_filename(x, search_tool=search_tool))
+        results_df["pools"] = results_df["proteinIds"].str.strip(";").str.split(";")
+        results_df["psm_in_pool"] = results_df.apply(
+            lambda row: check_psm_in_sample_pool(sample_pools[row.filename], row.pools), 
+            axis=1
+        )
+        results_df = results_df[results_df["psm_in_pool"]].reset_index(drop=True)
+        print("After filtering by sample pool:", results_df.shape)
+    elif config.rescoring.filter_pools:
+        results_df["filename"] = results_df["PSMId"].apply(lambda x: get_filename(x, search_tool=search_tool))
+        results_df["pools"] = results_df["proteinIds"].str.strip(";").str.split(";")
+        results_df["psm_in_pool"] = results_df.apply(
+            lambda row: check_psm_in_sample_pool(config.rescoring.filter_pools, row.pools), 
+            axis=1
+        )
+        results_df = results_df[results_df["psm_in_pool"]].reset_index(drop=True)
+        print("After filtering by sample pool:", results_df.shape)
+
+    results_df = results_df[["PSMId", "peptide", "q-value"]]
     if search_tool == "msgf" and DatasetTag.agilent in config.tags:
         results_df = map_psm_id_index_to_scan_id(results_df)
+    elif search_tool == "msgf" and DatasetTag.timstof in config.tags:
+        results_df = fix_msgf_timstof_psm_id(results_df)
     results_df["title"] = results_df["PSMId"].apply(lambda x: get_spectrum_title(x, search_tool=search_tool))
     results_df = pd.merge(results_df, spectra_idxs_0, on="title")
 
@@ -385,7 +459,7 @@ if __name__ == "__main__":
         os.makedirs(data_dir, exist_ok=True)
 
     print("Creating dataset at:", mgf_files_dir)
-    files_list = get_files_list(dset_name, config.download)
+    files_list = get_files_list(dset_name, config)
     print("Processing files:\n", files_list)#list(files_list.keys()))
 
     # Prepare mzML files
@@ -403,10 +477,9 @@ if __name__ == "__main__":
     spectra_idxs_0 = get_mgf_files_spectra_idxs(files_list, mgf_files_dir, raw_files_dir, dset_id, config.download)
 
     # Collect labels
-    q_val_threshold = Q_VAL_THRESHOLD_SYNTHETIC if (DatasetTag.synthetic in config.tags) else Q_VAL_THRESHOLD
     labels_fname = "labels.csv" if search_tool == "msfragger" else f"{search_tool}_labels.csv"
     labels_path = os.path.join(DATASET_STORAGE_DIR, dset_name, labels_fname)
-    collect_labels(search_tool, rescored_files_dir, rescore_file_prefix, spectra_idxs_0, labels_path, q_val_threshold)
+    collect_labels(search_tool, rescored_files_dir, rescore_file_prefix, spectra_idxs_0, labels_path, config)
 
     # Add dataset tags
     collect_dataset_tags(config)

@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 from pyteomics import fasta, mgf
 
-from dataset_config import DataDownloadConfig
+from dataset_config import Config, DataDownloadConfig
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -51,7 +51,7 @@ RESCORED_DATA_DIR = os.path.join(ROOT, "rescored")
 DATASET_STORAGE_DIR = os.path.join(DATA_DIR, "benchmarking", "datasets")
 
 
-def get_files_list(dset_name: str, download_config: DataDownloadConfig):
+def get_files_list(dset_name: str, config: Config):
     """
     Select raw spectra files for the dataset based on 
     selection rules defined in the download_config such as:
@@ -61,9 +61,10 @@ def get_files_list(dset_name: str, download_config: DataDownloadConfig):
 
     Args:
         dset_name (str): Dataset name.
-        download_config (DataDownloadConfig): Config with dataset 
+        config (Config): Config with dataset 
             selection criteria, including spectral dataset ID,
-            file extension, and inclusion/exclusion keywords, 
+            file extension for download and for DB search, 
+            the inclusion/exclusion keywords, 
             or file download links, and the maximum number of files.
 
     Returns:
@@ -72,46 +73,56 @@ def get_files_list(dset_name: str, download_config: DataDownloadConfig):
             to the raw or mzML spectra file within the dataset folder.
     """
 
-    def check_file(file_path, ext):
+    def check_file(file_path, ext, links=None):
         """Check if file matches criteria."""
-        if not file_path.lower().endswith(ext):
+        if links is not None:
+            # If downloading links provided, check if filename is in the list
+            if file_path not in links:
+                return False
+        if not file_path.lower().endswith(ext.lower()):
             return False
-        if any(keyword not in file_path for keyword in download_config.keywords):
+        if any(keyword not in file_path for keyword in config.download.keywords):
             return False
-        if any(keyword in file_path for keyword in download_config.exclude_keywords):
+        if any(keyword in file_path for keyword in config.download.exclude_keywords):
             return False
         return True
 
-    dset_id = download_config.dset_id
+    dset_id = config.download.dset_id
     mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     raw_files_dir = os.path.join(RAW_DATA_DIR, dset_id)
-    ext = download_config.ext
+    download_ext = config.download.ext
+    db_search_ext = config.db_search.ext
 
     # Step 1: Check for existing mzML files
     if os.path.exists(mzml_files_dir):
+        links = config.download.links
+        links = [os.path.basename(link) for link in links] if links else None
+        links = [link[:-len(download_ext)] + db_search_ext for link in links] if links else None
         mzml_files = [
             os.path.join(mzml_files_dir, f)
             for f in os.listdir(mzml_files_dir)
-            if check_file(f, ext=".mzml")
+            if check_file(f, ext=db_search_ext)
         ]
-        if len(mzml_files) >= download_config.n_files:
+        if len(mzml_files) >= config.download.n_files:
             files_list = {
-                os.path.basename(file_path)[:-len(".mzML")]: file_path  # Remove ".mzML"
-                for file_path in mzml_files[:download_config.n_files]
+                os.path.basename(file_path)[:-len(db_search_ext)]: file_path  # Remove ".mzML"
+                for file_path in mzml_files[:config.download.n_files]
             }
             return files_list
 
     # Step 2: Check for existing raw files
     if os.path.exists(raw_files_dir):
+        links = config.download.links
+        links = [os.path.basename(link) for link in links] if links else None
         raw_files = [
             os.path.join(raw_files_dir, f)
             for f in os.listdir(raw_files_dir)
-            if check_file(f, ext=ext)
+            if check_file(f, ext=download_ext, links=links)
         ]
-        if len(raw_files) >= download_config.n_files:
+        if len(raw_files) >= config.download.n_files:
             files_list = {
-                os.path.basename(file_path)[:-len(ext)]: file_path
-                for file_path in raw_files[:download_config.n_files]
+                os.path.basename(file_path)[:-len(download_ext)]: file_path
+                for file_path in raw_files[:config.download.n_files]
             }
             return files_list
 
@@ -125,20 +136,19 @@ def get_files_list(dset_name: str, download_config: DataDownloadConfig):
             file_path
             for file_path 
             in proj.remote_files() 
-            if check_file(file_path, ext=ext)
+            if check_file(file_path, ext=download_ext)
         ]
     else:
         # If load via wget, file_path is just fname.ext
         files_list = [
             os.path.basename(file_link) 
             for file_link 
-            in download_config.links
-            # if check_file(file_link,  ext=ext)
+            in config.download.links
+            # if check_file(file_link,  ext=download_ext)
         ]
-
-    files_list = files_list[:download_config.n_files]
+    files_list = files_list[:config.download.n_files]
     files_list = {
-        os.path.basename(file_path)[:-len(ext)]: file_path
+        os.path.basename(file_path)[:-len(download_ext)]: file_path
         for file_path
         in files_list
     }
@@ -304,17 +314,10 @@ def generate_decoys_fasta(dset_name, db_file, contam_only=False):
     return db_w_decoys_path
 
 
-def get_extended_db_w_decoys_path(db_w_decoys_path):
-    db_w_decoys_path = db_w_decoys_path.split("/")
-    mzml_files_dir = db_w_decoys_path[:-1]
-    
-    db_w_decoys = db_w_decoys_path[-1]
-    db_w_decoys = db_w_decoys.split("-")    
-    db_w_decoys.insert(3, "extended")
-    db_w_decoys = "-".join(db_w_decoys)
-    
-    db_w_decoys_path = mzml_files_dir + [db_w_decoys]
-    return "/".join(db_w_decoys_path)
+def get_extended_db_path(db_path):
+    db_path = db_path.split("/")
+    db_path[-1] = "extended-" + db_path[-1]
+    return "/".join(db_path)
 
 
 def get_extended_db_w_decoys_path(db_w_decoys_path):
@@ -328,40 +331,63 @@ def get_extended_db_w_decoys_path(db_w_decoys_path):
     
     db_w_decoys_path = mzml_files_dir + [db_w_decoys]
     return "/".join(db_w_decoys_path)
+
+
+def append_pool_peptides(add_pool_path, db_path):
+    with open(add_pool_path, 'r') as f_in, open(db_path, 'a') as f_out:
+        skip = True
+        for line in f_in:    
+            if line.startswith('>'): # a header
+                skip = line.startswith('>QC')
+                if not skip: # write the header
+                    f_out.write(line)   
+            elif not skip: # write the following sequence
+                f_out.write(line)
+    print(f"Pool peptides from '{add_pool_path}' appended to '{db_path}'.")
 
 
 def prepare_synthetic_fasta(dset_name, files_list, pool_proteomes_dir, PT_pools_df):
     files_db_w_decoys = {}
     for fname in files_list:
         print("File:", fname)
-        idx = PT_pools_df[PT_pools_df["sample"] == fname].index[0]
-        print(idx, PT_pools_df.loc[idx, "fasta"])
+        sample_idx = PT_pools_df[PT_pools_df["sample"] == fname].index[0]
+        pool_fasta = PT_pools_df.loc[sample_idx, "fasta"]
+        print(sample_idx, pool_fasta)
 
-        # Generate decoys database
-        database_path = os.path.join(pool_proteomes_dir, PT_pools_df.loc[idx, "fasta"])
-        db_w_decoys_path = generate_decoys_fasta(
-            dset_name=dset_name, db_file=database_path, contam_only=False
-        )
-        print("DB with decoys and contaminants:", db_w_decoys_path)
-
-        db_w_decoys_extended_path = get_extended_db_w_decoys_path(db_w_decoys_path)
-        if os.path.exists(db_w_decoys_extended_path):
-            print("Already exists:", db_w_decoys_extended_path)
+        mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
+        db_path = os.path.join(mzml_files_dir, pool_fasta)
+        if os.path.exists(db_path):
+            print("Original DB already exists:", db_path)
         else:
-            cmd = f"cat {db_w_decoys_path} >> {db_w_decoys_extended_path}"
-            print(f"Create extended decoys database: {db_w_decoys_extended_path}.")
+            # if DB doesn't exist yet, copy pool database to the mzml_files_dir
+            source_db_path = os.path.join(pool_proteomes_dir, pool_fasta)
+            cmd = f"cp {source_db_path} {db_path}"
+            subprocess.run(cmd, shell=True, check=True)
+            print("Original DB", db_path)
+        
+        # Generate extended database and extended decoy database
+        db_extended_path = get_extended_db_path(db_path)
+        if os.path.exists(db_extended_path):
+            print("Extended DB already exists:", db_extended_path)
+        else:
+            # if extentded DB doesn't exist yet, create it (add 10 pools to DB)
+            cmd = f"cat {db_path} >> {db_extended_path}"
+            print(f"Extended DB: {db_extended_path}.")
             subprocess.run(cmd, shell=True, check=True)
             
-            add_pool_idxs = slice((idx + 1) % len(PT_pools_df), (idx + 10) % len(PT_pools_df))
-            add_pool_fastas = PT_pools_df["fasta"].iloc[add_pool_idxs].values.tolist()
+            pool_fastas_df = PT_pools_df["fasta"].drop_duplicates().reset_index(drop=True).to_frame()
+            idx = pool_fastas_df[pool_fastas_df["fasta"] == pool_fasta].index[0]
+            add_pool_idxs = slice((idx + 1) % len(pool_fastas_df), (idx + 11) % len(pool_fastas_df))
+            add_pool_fastas = pool_fastas_df["fasta"].iloc[add_pool_idxs].values.tolist()
             for add_pool_fasta in add_pool_fastas:
-                add_pool_df_path = os.path.join(pool_proteomes_dir, add_pool_fasta)
-                
-                # s/SEARCH_PATTERN/REPLACEMENT/
-                cmd = f"sed 's/^>/\>rev_/' {add_pool_df_path} >> {db_w_decoys_extended_path}"
-                print(f"Add pool {add_pool_fasta}.")
-                subprocess.run(cmd, shell=True, check=True)
+                add_pool_path = os.path.join(pool_proteomes_dir, add_pool_fasta)
+                append_pool_peptides(add_pool_path, db_extended_path)
             
+        # Add decoys to extended database
+        db_w_decoys_extended_path = generate_decoys_fasta(
+            dset_name=dset_name, db_file=db_extended_path, contam_only=False
+        )
+        print("Extended DB with decoys and contaminants:", db_w_decoys_extended_path)   
         files_db_w_decoys[fname] = db_w_decoys_extended_path
     return files_db_w_decoys
 
@@ -690,12 +716,15 @@ def write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.tx
         21.9819: "Cation:Na", # Sodium adduct
         26.0156: "Delta:H(2)C(2)", # Acetaldehyde +26
         27.9949: "Formyl",
+        28.0313: "Dimethyl",
         42.0106: "Acetyl",
+        42.0470: "Trimethyl",
         44.9851: "Nitro", # Oxidation to nitro
         52.9115: "Cation:Fe[III]", # not PSI-MS, Replacement of 3 protons by iron
         53.9193: "Cation:Fe[II]", # not PSI-MS, Replacement of 2 protons by iron
         55.9197: "Cation:Ni[II]", # not PSI-MS, Replacement of 2 protons by nickel
         56.0262: "Propionyl", # Propionate labeling reagent light form (N-term & K)
+        56.0626: "Diethyl",
         57.0215: "Carbamidomethyl",
         68.0262: "Crotonyl", # not PSI-MS, Crotonylation
         70.0419: "Crotonaldehyde", # Butyryl
@@ -736,7 +765,7 @@ def write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.tx
 
     config_ptm_strs = []
     for k in search_params:
-        if "variable_mod" in k:
+        if "variable_mod_" in k:
             config_ptm_str = search_params[k]
             config_ptm_strs.append(config_ptm_str)
 
@@ -903,10 +932,8 @@ def run_msgf_search(dset_name, db_search_config):
 
         print("Run MSGF+ for target database:")
         for fname in mzml_files:
+            res_fname =  os.path.splitext(fname)[0] + ".mzid"
             cmd = [
-                "cd",
-                target_res_dir,
-                "&&",
                 "java",
                 "-Xmx160G",
                 "-jar",
@@ -914,6 +941,8 @@ def run_msgf_search(dset_name, db_search_config):
                 *options,
                 "-d", target_db_file, # DatabaseFile
                 "-s", fname,
+                "&&",
+                "mv", res_fname, target_res_dir,
             ]
             subprocess.run(" ".join(cmd), shell=True, check=True)
             # TODO: add mv result mzid to target_res_dir
@@ -921,10 +950,8 @@ def run_msgf_search(dset_name, db_search_config):
 
         print("Run MSGF+ for decoys database:")
         for fname in mzml_files:
+            res_fname =  os.path.splitext(fname)[0] + ".mzid"
             cmd = [
-                "cd",
-                decoys_res_dir,
-                "&&",
                 "java",
                 "-Xmx160G",
                 "-jar",
@@ -932,6 +959,8 @@ def run_msgf_search(dset_name, db_search_config):
                 *options,
                 "-d", decoys_db_file, # DatabaseFile
                 "-s", fname,
+                "&&",
+                "mv", res_fname, decoys_res_dir,
             ]
             subprocess.run(" ".join(cmd), shell=True, check=True)
             # TODO: add mv result mzid to target_res_dir
@@ -964,7 +993,7 @@ def run_msgf_search(dset_name, db_search_config):
             subprocess.run(" ".join(cmd), shell=True, check=True)
 
     # Cleanup temporary files created by MSGF+
-    tmp_file_patterns = ["*.canno", "*.cnlcp", "*.csarr", "*.cseq"]
+    tmp_file_patterns = [".canno", ".cnlcp", ".csarr", ".cseq"]
     for pattern in tmp_file_patterns:
         for tmp_file in tqdm([f for f in os.listdir(mzml_files_dir) if f.endswith(pattern)]):
             os.remove(os.path.join(mzml_files_dir, tmp_file))
@@ -1000,6 +1029,13 @@ msfragger2comet_param_mapper = {
     "variable_mod_13": "variable_mod13",
     "variable_mod_14": "variable_mod14",
     "variable_mod_15": "variable_mod15",
+    # fragment ions
+    "use_A_ions": "use_A_ions",
+    "use_B_ions": "use_B_ions", 
+    "use_C_ions": "use_C_ions",
+    "use_X_ions": "use_X_ions",
+    "use_Y_ions": "use_Y_ions",
+    "use_Z_ions": "use_Z_ions",
 }
 # dict to map search_enzyme_name_1/2 to comet_enzyme_id
 msfragger2comet_enzymes = {
@@ -1082,6 +1118,16 @@ def generate_comet_params(db_path, config, template_path, output_path):
 
     # Extract search params from db_search_config
     search_params = {k.lstrip('-'): v for k, v in config.search_params.items()}
+
+    # Map fragment_ion_series param to Comet format
+    if "fragment_ion_series" in search_params:
+        fragment_ions = search_params["fragment_ion_series"].upper().split(",")
+        # Reset default ion settings
+        search_params[f"use_B_ions"] = 0
+        search_params[f"use_Y_ions"] = 0
+        # Update with specified ions
+        for fragment_ion in fragment_ions:
+            search_params[f"use_{fragment_ion}_ions"] = 1
     
     # Map search params from MSFragger to Comet format
     search_params = {
@@ -1163,41 +1209,57 @@ def run_comet_search(dset_name, db_search_config):
         dset_name (str): Dataset name.
         db_search_config (object): Configuration object for database search.
     """
-    # Generate database. Only add contaminants since Comet adds decoys automatically. 
-    db_wo_decoys_path = generate_decoys_fasta(dset_name, db_search_config.database_path, contam_only=True)
-
-    # now this is a problem, because we already have a prepared database with 
-    # 1) contaminants and decoys
-    # 2) "extension" with additional "pseudo-decoys" -- sequences from other pools, 
-    # that are known to be absent in the target proteome
-    # by the way, how do we treat them later? Should we just filter only PSMs from the original pool?
-    # how will we use this DB for Comet? If Comet wants to create it's own DB with decoys INSIDE?  
-    
+    # Search for mzml files in the directory
     search_ext = db_search_config.ext
     mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     mzml_files = [f for f in os.listdir(mzml_files_dir) if os.path.splitext(f)[1].lower() == search_ext]
-
-    # Generate Comet params file
-    params_path = os.path.join(mzml_files_dir, "comet_search.params")
-    generate_comet_params(db_wo_decoys_path, db_search_config, COMET_BASE_PARAMS, params_path)
-
-    # Run Comet search
-    cmd = [
-        COMET_PATH,
-        f"-P{params_path}",
-        mzml_files_dir + "/*.mzML"
-    ]
-    subprocess.run(" ".join(cmd), shell=True, check=True)
-
-    # Organize results
+    mzml_files = {os.path.splitext(f)[0]: os.path.join(mzml_files_dir, f) for f in mzml_files}
     features_dir = os.path.join(mzml_files_dir, "comet_features")
     os.makedirs(features_dir, exist_ok=True)
 
-    for fname in mzml_files:
-        output_fname = os.path.splitext(fname)[0] + ".pin"
-        if os.path.exists(os.path.join(mzml_files_dir, output_fname)):
-            cmd = ["mv", os.path.join(mzml_files_dir, output_fname), features_dir]
-            subprocess.run(" ".join(cmd), shell=True, check=True)
+    # Generate decoys database
+    if db_search_config.pool_proteomes_dir is not None: # TODO: mb use a different check for synthetic peptides?
+        # For synthetic peptides, generate separate databased for each file
+        pool_proteomes_dir = os.path.join(PROTEOMES_DIR, db_search_config.pool_proteomes_dir)
+        PT_pools_name = f"{dset_name}.csv"
+        PT_pools_path = os.path.join(PROTEOMES_DIR, PT_pools_name)
+        PT_pools_df = pd.read_csv(PT_pools_path)
+        files_db_w_decoys = prepare_synthetic_fasta(dset_name, mzml_files, pool_proteomes_dir, PT_pools_df)
+    else:
+        db_w_decoys_path = generate_decoys_fasta(dset_name, db_search_config.database_path)
+        files_db_w_decoys = {fname: db_w_decoys_path for fname in mzml_files}
+
+    # Combine mzml_files with the same database
+    db_w_decoys_files = {}
+    for fname, db_w_decoys_path in files_db_w_decoys.items():
+        if db_w_decoys_path not in db_w_decoys_files:
+            db_w_decoys_files[db_w_decoys_path] = []
+        db_w_decoys_files[db_w_decoys_path].append(mzml_files[fname])
+
+    # Iterate over each database and run Comet search
+    for db_w_decoys_path, mzml_files in db_w_decoys_files.items():
+        print("\nDB with decoys:\n", db_w_decoys_path)
+        print("Files:\n", mzml_files)
+
+        # Generate Comet params file
+        params_path = os.path.join(mzml_files_dir, "comet_search.params")
+        generate_comet_params(db_w_decoys_path, db_search_config, COMET_BASE_PARAMS, params_path)
+
+        # Run Comet search
+        cmd = [
+            COMET_PATH,
+            f"-P{params_path}",
+            *mzml_files
+            # mzml_files_dir + "/*.mzML"
+        ]
+        subprocess.run(" ".join(cmd), shell=True, check=True)
+
+        # Organize results
+        for fname in mzml_files:
+            output_fname = os.path.splitext(fname)[0] + ".pin"
+            if os.path.exists(os.path.join(mzml_files_dir, output_fname)):
+                cmd = ["mv", os.path.join(mzml_files_dir, output_fname), features_dir]
+                subprocess.run(" ".join(cmd), shell=True, check=True)
 
     # Post-process Comet output files (.pin)
     # Comet does not annotate static modifications in the peptide sequences within its output files. 
