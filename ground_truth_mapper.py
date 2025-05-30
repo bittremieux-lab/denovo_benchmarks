@@ -5,7 +5,9 @@ import re
 
 REPLACEMENTS = []
 PTM_PATTERN = r"([A-Z])\[([0-9.+-]+)\]" # find AAs with PTMs 
-N_TERM_MOD_PATTERN = r"^n\[([0-9.+-]+)\]" # find N-term modifications
+# N_TERM_MOD_PATTERN = r"^n\[([0-9.+-]+)\]" # find N-term modifications
+# TODO: check: Notation of ground truth sequences is fixed from n[mod]PEP to [mod]PEP
+N_TERM_MOD_PATTERN = r"^\[([0-9.+-]+)\]" # find N-term modifications
 
 def _transform_match_ptm(match: re.Match) -> str:
     """
