@@ -14,21 +14,36 @@ class OutputMapper:
     REPLACEMENTS = [
         ("C(Cam)", "C[UNIMOD:4]"),
         ("K(Carbamyl)", "K[UNIMOD:5]"),
+        ("(N-term|Carbamyl)", "[UNIMOD:5]-"),
+        ("(N-term|Acetyl)", "[UNIMOD:1]-"),
+        ("K(Acetyl)", "K[UNIMOD:1]"),
         ("M(O)", "M[UNIMOD:35]"),
         ("Q(Pyro-Glu)", "Q[UNIMOD:28]"),
         ("E(Pyro-Glu)", "E[UNIMOD:27]"),
+        ("K(Frm)", "K[UNIMOD:122]"),
+        ("K(Frm)", "K[UNIMOD:122]"),
+        ("S(Frm)", "S[UNIMOD:122]"),
+        ("(N-term|Frm)", "[UNIMOD:122]-"),
+        ("D(Methyl)", "D[UNIMOD:34]"),
+        ("E(Methyl)", "E[UNIMOD:34]"),
         ("S(Phospho)", "S[UNIMOD:21]"),
         ("T(Phospho)", "T[UNIMOD:21]"),
         ("Y(Phospho)", "Y[UNIMOD:21]"),
-        ("(N-term|Acetyl)", "[UNIMOD:1]-"),
-        ("(N-term|Carbamyl)", "[UNIMOD:5]-")
+        ("K(TMT6)", "K[UNIMOD:737]"),
+        ("K(TMT10plex)", "K[UNIMOD:737]"),
+        ("(N-term|TMT6)", "[UNIMOD:737]-"),
+        ("(N-term|TMT10plex)", "[UNIMOD:737]-"),
+        ("K(Lys4)", "K[UNIMOD:481]"),
+        ("R(Arg6)", "R[UNIMOD:188]"),
+        ("K(Lys8)", "K[UNIMOD:259]"),
+        ("R(Arg10)", "R[UNIMOD:267]")
     ]
 
     def __init__(self, output_dir: str) -> None:
         output_frame = None
         for fname in os.listdir(output_dir):
-            if fname.endswith(".novorpt.csv"):
-                mgf_file = fname.replace(".novorpt.csv", "")
+            if fname.endswith(".novorai.csv"):
+                mgf_file = fname.replace(".novorai.csv", "")
                 output_path = os.path.join(output_dir, fname)
                 output_data = self.read_csv(output_path)
                 output_data = output_data.rename(columns=lambda x: x.strip())
@@ -43,10 +58,22 @@ class OutputMapper:
                     axis=1,
                 )
                 output_data = output_data[["spectrum_id", "sequence", "score", "aa_scores"]]
-                output_data["spectrum_id"] = output_data.spectrum_id.apply(lambda x: f"{mgf_file}:{x}")
-                output_data["sequence"] = output_data.sequence.apply(lambda x: self.format_sequence(x))
-                output_data["aa_scores"] = output_data.aa_scores.apply(lambda x: x.replace("-", ","))
                 output_data = output_data.apply(lambda e: e.map(lambda x: x.strip() if isinstance(x, str) else x))
+                output_data['spectrum_id'] = output_data['spectrum_id'].astype(str)
+                for index, row in output_data.iterrows():
+                    spectrum_id = "%s:%s" % (mgf_file, row["spectrum_id"])
+
+                    aa_scores = row["aa_scores"].strip().split("-")
+                    if row['sequence'].startswith("(N-term"):
+                        aa_scores.insert(0, aa_scores[0])
+                    aa_scores = ",".join(aa_scores)
+
+                    sequence = self.format_sequence(row["sequence"])
+
+                    output_data.at[index, "spectrum_id"] = spectrum_id
+                    output_data.at[index, "sequence"] = sequence
+                    output_data.at[index, "aa_scores"] = aa_scores
+
                 if output_frame is None:
                     output_frame = output_data
                 else:
