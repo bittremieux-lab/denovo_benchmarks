@@ -93,6 +93,7 @@ args = parser.parse_args()
 
 # Read predictions from output file
 output_data = pd.read_csv(args.output_path, sep=",")
+output_data = output_data[output_data["sequence"].notnull()].reset_index(drop=True)
 
 # Transform data to the common output format
 # Modify OutputMapper to customize arguments and transformation.

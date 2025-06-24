@@ -150,9 +150,11 @@ def _vectorlize(mz, it, mass, c, precision, dim, low, mode, v, kth, th, de, dn, 
 
     flat(v, mz, it, precision, low, use_max)
 
-    if de == 1: _remove_precursor(v, mass, c, precision, low, r=1) #inplace, before scale
+    if (mass > 0) and (c > 0) and (de == 1): 
+        _remove_precursor(v, mass, c, precision, low, r=1) #inplace, before scale
 
-    v /= np.max(v) # final scale, de can change max
+    if np.max(v) > 0:
+        v /= np.max(v) # final scale, de can change max
 
     return v
 

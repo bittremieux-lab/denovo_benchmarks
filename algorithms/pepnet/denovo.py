@@ -35,6 +35,10 @@ def read_mgf(data, default_charge=-1, maxc=7):
                 print(f"Charge {c} exceed maximum support charge ({maxc}), ignore spectrum id {idx}")
                 continue
 
+            if c == 0:
+                print(f"Charge {c} is not supported, ignore spectrum id {idx}")
+                continue
+
         if 'seq' in param:
             pep = param['seq'].strip()
         elif 'title' in param:
