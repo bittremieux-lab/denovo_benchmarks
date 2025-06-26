@@ -13,6 +13,8 @@ From: python:3.8
     git clone https://github.com/PHOENIXcenter/pi-HelixNovo.git -b pi-HelixNovo-for-DenovoBenchmarks
     rm pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
     curl -L -o pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/refs/heads/pi-HelixNovo-for-DenovoBenchmarks/MSV000081142-epoch-5-step-800000.ckpt?download=true
+    mv /algo/hdf5.py /algo/pi-HelixNovo/depthcharge/data/
+
     pip install \
     absl-py==1.4.0 \
     aiohttp==3.8.4 \

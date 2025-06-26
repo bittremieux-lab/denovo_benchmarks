@@ -60,7 +60,7 @@ class OutputMapper(OutputMapperBase):
         )
         if len(aa_scores) != n_tokens:
             print(
-                f"For sequence {sequence} expected {n_tokens} per-token scores, but got {len(aa_scores)} scores."
+                f"CORRECTED: For sequence {sequence} expected {n_tokens} per-token scores, but got {len(aa_scores)} scores."
             )
             aa_scores = aa_scores[::-1][:n_tokens]
             aa_scores = aa_scores[::-1]
@@ -79,6 +79,7 @@ args = parser.parse_args()
 
 # Read predictions from output file
 output_data = pd.read_csv(args.output_path, sep=",")
+output_data = output_data[output_data["sequence"].notnull()].reset_index(drop=True)
 
 # Transform data to the common output format
 # Modify OutputMapper to customize arguments and transformation.
