@@ -25,7 +25,8 @@ n_layers: 9
 dropout: 0.18
 dim_intensity:
 custom_encoder:
-max_length: 100
+# max_length: 100
+max_length: 50 # DEBUG
 residues:
   "G": 57.021464
   "A": 71.037114
@@ -86,7 +87,7 @@ SWA: False #
 train_batch_size: 64
 predict_batch_size: 512
 # n_beams: 5
-n_beams: 5 # No beam search
+n_beams: 1 # No beam search # DEBUG
 
 logger:
 
