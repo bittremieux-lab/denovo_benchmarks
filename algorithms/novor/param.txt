@@ -1,0 +1,7 @@
+enzyme = Trypsin
+fragmentation = HCD
+massAnalyzer = FT
+fragmentIonErrorTol = 0.025Da
+precursorErrorTol = 30ppm
+fixedModifications = 
+forbiddenResidues = I,O,U
