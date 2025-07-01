@@ -16,6 +16,9 @@ done <<< "$DSET_TAGS"
 # Iterate through files in the dataset
 for input_file in "$@"/*.mgf; do
 
+    # Clean previous input files
+    rm -rf ./input_data.mgf
+
     echo "Processing file: $input_file"
 
     # Convert input data to model format
