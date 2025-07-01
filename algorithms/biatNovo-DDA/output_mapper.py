@@ -32,7 +32,7 @@ args = parser.parse_args()
 
 # read the algorithm predictions
 output_data = pd.read_csv(args.output_path, sep="\t")
-# print(output_data.dtypes)
+
 # convert the algorithm predictions to the common output format
 output_mapper = OutputMapper()
 output_data = output_data[(output_data != output_data.columns).all(axis=1)]

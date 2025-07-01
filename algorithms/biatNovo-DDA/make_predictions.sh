@@ -19,6 +19,9 @@ export DENOVO_OUTPUT_FILE=outputs.tab
 # Iterate through files in the dataset
 for input_file in "$@"/*.mgf; do
 
+    # Clean input dir (previous input files)
+    rm -rf /algo/input_data/*
+
     echo "Processing file: $input_file"
 
     # Convert input data to model format
@@ -33,9 +36,7 @@ for input_file in "$@"/*.mgf; do
     # Run de novo algorithm on the input data
     python biatNovo-DDA/v2/main.py  --search_denovo --train_dir /algo/
 
-    # Collect predictions
-    cat /algo/outputs/outputs.tab >> outputs.tab
 done
 
 # Convert predictions to the general output format
-python output_mapper.py --output_path=outputs.tab
+python output_mapper.py --output_path=/algo/outputs/outputs.tab
