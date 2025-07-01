@@ -33,10 +33,9 @@ class OutputMapper(OutputMapperBase):
     MOD_PATTERN = r"\[UNIMOD:[0-9]+\]"
     N_TERM_MOD_PATTERN = r"^((\[UNIMOD:[0-9]+\])+)" # find N-term modifications
 
-    def __init__(self, input_dir: str) -> None:
+    def __init__(self, input_path: str) -> None:
         """TODO."""
-        fnames = [fname for fname in os.listdir(input_dir) if fname.endswith(".mgf")]
-        self.file_names = [fname.split(".")[0] for fname in sorted(fnames)]
+        self.file_name = input_path.split("/")[-1].split(".")[0]
         return
     
     def _transform_match_n_term_mod(self, match: re.Match) -> str:
@@ -62,7 +61,7 @@ class OutputMapper(OutputMapperBase):
         file_idx, spectrum_idx = spectrum_id.split(":")
         
         file_idx = int(file_idx) - 1
-        filename = self.file_names[file_idx]        
+        filename = self.file_name       
         return filename, spectrum_idx
     
     def _parse_scores(self, scores: str) -> list[float]:
@@ -147,7 +146,7 @@ parser.add_argument(
     "--output_path", required=True, help="The path to the algorithm predictions file."
 )
 parser.add_argument(
-    "--input_dir", required=True, help="The dir with the input dataset .mgf files.",
+    "--input_path", required=True, help="The path to the input .mgf file.",
 )
 args = parser.parse_args()
 
@@ -166,7 +165,7 @@ output_data = output_data.rename(
 )
 
 # Transform data to the common output format
-output_mapper = OutputMapper(input_dir=args.input_dir)
+output_mapper = OutputMapper(input_path=args.input_path)
 output_data = output_mapper.format_output(output_data)
 
 # Save processed predictions to outputs.csv
