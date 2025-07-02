@@ -25,28 +25,6 @@ PROTEOMES_DIR = os.environ['PROTEOMES_DIR']
 UNIMOD_DB = Unimod()
 ptm_masses = {}
 
-def _transform_match_ptm(match: re.Match) -> str:
-    """
-    TODO
-    """
-    ptm_idx = int(match.group(1))
-    
-    if ptm_idx not in ptm_masses:
-        ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
-        print(ptm_masses)
-    
-    ptm_mass = str(ptm_masses[ptm_idx])
-    if not ptm_mass.startswith("-"):
-        ptm_mass = "+" + ptm_mass
-    return f"[{ptm_mass}]"
-
-def ptms_to_delta_mass(sequence):
-    """Convert PTM representation from Unimod notation to delta mass notation."""
-    
-    PTM_PATTERN = r"\[UNIMOD:([0-9]+)\]" # find ptms
-    sequence = re.sub(PTM_PATTERN, _transform_match_ptm, sequence)
-    return sequence
-
 
 def parse_scores(aa_scores: str) -> list[float]:
     """
@@ -59,6 +37,67 @@ def parse_scores(aa_scores: str) -> list[float]:
     aa_scores = aa_scores.split(",")
     aa_scores = list(map(float, aa_scores))
     return aa_scores
+
+
+def format_scores(aa_scores: list[float]) -> str:
+    """
+    Write a list of float per-token scores
+    into a string of float scores separated by ','.
+    """
+    return ",".join(map(str, aa_scores))
+
+
+def merge_n_term_score(aa_scores: str) -> str:
+    aa_scores = parse_scores(aa_scores)
+    aa_scores[0:2] = [np.mean(aa_scores[0:2])]
+    return format_scores(aa_scores)
+
+
+def _transform_match_ptm(match: re.Match) -> str:
+    """
+    TODO
+    """
+    ptm_idx = int(match.group(1))
+    
+    if ptm_idx not in ptm_masses:
+        ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
+        print(ptm_masses)
+    
+    ptm_mass = ptm_masses[ptm_idx]
+    return f"[{ptm_mass:+}]"
+
+def _transform_match_n_term(match: re.Match) -> str:
+    """
+    TODO
+    """
+    n_term_mod = match.group(1)
+    first_aa = match.group(2)
+    
+    if match.group(3) is not None:
+        first_aa_ptm = match.group(3)
+        first_aa_ptm_mass = float(first_aa_ptm) # convert from str to float
+        n_term_mod_mass = float(n_term_mod) # convert n_term_mod_mass from str to float
+        first_aa_ptm_mass += n_term_mod_mass # sum up
+        first_aa_ptm = f"{first_aa_ptm_mass:+}" # convert back to string
+    else:
+        first_aa_ptm = n_term_mod
+    return f"{first_aa}[{first_aa_ptm}]"
+
+def ptms_to_delta_mass(sequence, aa_scores):
+    """Convert PTM representation from Unimod notation to delta mass notation."""
+    
+    PTM_PATTERN = r"\[UNIMOD:([0-9]+)\]" # find ptms
+    N_TERM_PATTERN = r"^\[([0-9+-.]+)\]-([A-Z])(?:\[([0-9+-.]+)\])?" # find n-term modifications in ProForma notation
+    
+    merged_n_term_mod = False
+    
+    sequence = re.sub(PTM_PATTERN, _transform_match_ptm, sequence)
+    sequence, merged_n_term_mod = re.subn(N_TERM_PATTERN, _transform_match_n_term, sequence)
+    
+    if merged_n_term_mod == 1:
+        aa_scores = merge_n_term_score(aa_scores)
+    
+    return sequence, aa_scores
 
 
 def remove_ptms(sequence, ptm_pattern="[^A-Z]"):
@@ -360,7 +399,8 @@ MMSEQS2_ARGS = [
 ]
 output_metrics = {}
 for output_file in os.listdir(args.output_dir):
-    algo_name = output_file.split("_")[0]
+    # algo_name = output_file.split("_")[0]
+    algo_name = "_".join(output_file.split("_")[:-1])
     print("EVALUATE", algo_name)
 
     # Load tool predictions, match with ground truth
@@ -377,9 +417,15 @@ for output_file in os.listdir(args.output_dir):
     # Prepare output sequences for metrics calculation
     output_data.loc[~sequenced_idx, "sequence"] = ""
     output_data.loc[~sequenced_idx, "aa_scores"] = ""
-    output_data.loc[sequenced_idx, "sequence"] = output_data.loc[sequenced_idx, "sequence"].apply(
-        ptms_to_delta_mass
-    )
+#     output_data.loc[sequenced_idx, "sequence"] = output_data.loc[sequenced_idx, "sequence"].apply(
+#         ptms_to_delta_mass
+#     )
+    output_data.loc[sequenced_idx, ["sequence", "aa_scores"]] = output_data.loc[sequenced_idx].apply(
+        lambda row: ptms_to_delta_mass(row["sequence"], row["aa_scores"]),
+        axis=1,
+        result_type="expand",
+    ).values
+
     # Calculate metrics (aa precision, recall, peptide precision)
     aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
         output_data["sequence"][labeled_idx],
