@@ -16,7 +16,12 @@ mkdir -p /algo/outputs
 # Output file header
 echo -e "spectrum_id,feature_area,sequence,score,predicted_position_score,precursor_mz,precursor_charge,protein_access_id,scan_list_middle,scan_list_original,predicted_score_max,aa_scores" > /algo/outputs.csv
 
+# Iterate through files in the dataset
 for input_file in "$@"/*.mgf; do
+
+    # Clean previous input files
+    rm -rf ./input_data.mgf
+
     echo "Processing file: $input_file"
 
     # cp $input_file /algo/input_data/input_data.mgf
