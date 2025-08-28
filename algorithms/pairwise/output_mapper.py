@@ -40,18 +40,15 @@ class OutputMapper(OutputMapperBase):
         self.file_names = [fname.split(".")[0] for fname in sorted(fnames)]
         self.fn_dict = {j:i+1 for i,j in enumerate(self.file_names)}
 
-        self.title2spec_idx = {fname: [] for fname in self.file_names}
-
+        self.title2spec_idx = {}
         for fname in self.file_names:
             print(fname, ": get spectrum indices.")
-
             filename = os.path.join(input_dir, fname + ".mgf")
             spectra = mgf.read(filename)
-
-            self.title2spec_idx[fname] = {
-                spectra[i]["params"]["title"]: i
-                for i in tqdm(range(len(spectra)))
-            }
+            for i in tqdm(range(len(spectra))):
+                spectrum_title = spectra[i]["params"]["title"]
+                self.title2spec_idx[spectrum_title] =  f"{fname}:{i}"
+            spectra.close()
         return
     
     def _transform_match_n_term_mod(self, match: re.Match) -> str:
@@ -90,10 +87,7 @@ class OutputMapper(OutputMapperBase):
         """
 
         spectrum_title = spectrum_id
-        filename = spectrum_id.split(".")[0]
-        spectrum_idx = self.title2spec_idx[filename][spectrum_title]
-
-        spectrum_id = filename + ":" + str(spectrum_idx)
+        spectrum_id = self.title2spec_idx[spectrum_title]
         return spectrum_id
     
     def format_sequence_and_scores(self, sequence, aa_scores):
