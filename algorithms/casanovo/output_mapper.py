@@ -16,15 +16,15 @@ from base import OutputMapperBase
 
 class OutputMapper(OutputMapperBase):
     REPLACEMENTS = [
-        ("C+57.021", "C[UNIMOD:4]"),
+        ("C[Carbamidomethyl]", "C[UNIMOD:4]"),
         # Amino acid modifications.
-        ("M+15.995", "M[UNIMOD:35]"),    # Met oxidation
-        ("N+0.984", "N[UNIMOD:7]"),     # Asn deamidation
-        ("Q+0.984", "Q[UNIMOD:7]"),     # Gln deamidation
+        ("M[Oxidation]", "M[UNIMOD:35]"),    # Met oxidation
+        ("N[Deamidated]", "N[UNIMOD:7]"),     # Asn deamidation
+        ("Q[Deamidated]", "Q[UNIMOD:7]"),     # Gln deamidation
         # N-terminal modifications.
-        ("+42.011", "[UNIMOD:1]"),      # Acetylation
-        ("+43.006", "[UNIMOD:5]"),      # Carbamylation
-        ("-17.027", "[UNIMOD:385]"),     # NH3 loss
+        ("[Acetyl]", "[UNIMOD:1]"),      # Acetylation
+        ("[Carbamyl]", "[UNIMOD:5]"),      # Carbamylation
+        ("[Ammonia-loss]", "[UNIMOD:385]"),     # NH3 loss
         # ("+43.006-17.027", "[UNIMOD:5][UNIMOD:385]"),   # Carbamylation and NH3 loss
     ]
     PEP_SPLIT_PATTERN = r"(?<=.)(?=[A-Z])"
