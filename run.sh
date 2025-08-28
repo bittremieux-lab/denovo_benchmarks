@@ -4,7 +4,7 @@ algorithm="$2"
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
 time_log_root_dir="./times"
-overlay_size=2048
+overlay_size=4096
 
 dset_name=$(basename "$dset_dir")
 output_dir="$output_root_dir/$dset_name"
