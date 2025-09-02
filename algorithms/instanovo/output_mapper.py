@@ -142,11 +142,13 @@ args = parser.parse_args()
 output_data = pd.read_csv(args.output_path)
 
 # convert log probabilities to confidence score
-output_data['score'] = output_data['log_probs'].apply(np.exp)
+output_data['score'] = output_data['log_probabilities'].apply(np.exp)
 
 # Rename columns to the expected column names
-output_data = output_data.rename(columns={'preds': 'sequence', 
-                        'token_log_probs': 'aa_scores'})
+output_data = output_data.rename(columns={
+    'predictions': 'sequence', 
+    'token_log_probabilities': 'aa_scores',
+})
 
 # Select only the necessary columns
 output_data = output_data[['sequence', 'score', 'aa_scores', 'spectrum_id']]
