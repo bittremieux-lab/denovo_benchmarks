@@ -22,8 +22,40 @@ fi
 # Use tag variables to specify de novo algorithm
 # for the particular dataset properties
 cd /algo
-echo "Processing mgf files:"
-python pi-HelixNovo/main.py --mode=denovo --config=pi-HelixNovo/config.yaml --gpu=$device --output=denovo_outputs.csv --peak_path="$@"/*.mgf --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+mkdir -p /algo/input_data
+
+# Initialize output file to collect per-file outputs and add output file header
+echo -e "sequence,score,aa_scores,spectrum_id" > /algo/denovo_outputs.csv
+
+# Iterate through files in the dataset
+for input_file in "$@"/*.mgf; do
+
+    # Clean input dir (previous input files)
+    rm -rf /algo/input_data/*
+
+    # Extract just the filename without the path
+    filename=$(basename "$input_file")
+    echo "Processing file: $input_file"
+
+    # Convert input data to model format
+    python input_mapper.py \
+        --input_path "$input_file" \
+        --output_path "/algo/input_data/$filename" \
+        --config_path "pi-HelixNovo/config.yaml"
+
+    # Run de novo algorithm on the input data
+    python pi-HelixNovo/main.py \
+        --mode=denovo \
+        --config=pi-HelixNovo/config.yaml \
+        --gpu=$device \
+        --output=denovo_output.csv \
+        --peak_path="/algo/input_data/$filename" \
+        --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+
+    # Collect predictions (from algorithm output file denovo_output.csv)
+    tail -n+2 denovo_output.csv >> /algo/denovo_outputs.csv
+    cd /algo
+done
 
 # Convert predictions to the general output format
 echo "Converting outputs:"
