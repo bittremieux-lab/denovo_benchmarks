@@ -20,7 +20,7 @@ echo -e "spectrum_id,feature_area,sequence,score,predicted_position_score,precur
 for input_file in "$@"/*.mgf; do
 
     # Clean previous input files
-    rm -rf ./input_data.mgf
+    rm -rf /algo/input_data/*
 
     echo "Processing file: $input_file"
 
