@@ -28,7 +28,6 @@ class OutputMapper(OutputMapperBase):
         # ("+43.006-17.027", "[UNIMOD:5][UNIMOD:385]"),   # Carbamylation and NH3 loss
     ]
     PEP_SPLIT_PATTERN = r"(?<=.)(?=[A-Z])"
-    MOD_PATTERN = r"\[UNIMOD:[0-9]+\]"
     N_TERM_MOD_PATTERN = r"^((\[UNIMOD:[0-9]+\])+)" # find N-term modifications
 
     def __init__(self, metadata: OrderedDict) -> None:
@@ -40,25 +39,6 @@ class OutputMapper(OutputMapperBase):
                 filename = v.split("/")[-1].split(".")[0]
                 self.filename_mapping[ms_run_key] = filename
         return
-    
-    def _transform_match_n_term_mod(self, match: re.Match) -> str:
-        """
-        Transform representation of peptide substring matching
-        the N-term modification pattern.
-        `[n_mod]PEP` -> `[n_mod]-PEP`
-        
-        Parameters
-        ----------
-        match : re.Match
-            Substring matching the N-term modification pattern.
-
-        Returns
-        -------
-        transformed_match : str
-            Transformed N-term modification pattern representation.
-        """
-        ptm = match.group(1)
-        return f"{ptm}-"
 
     def _spectrum_id_to_filename_idx(self, spectrum_id: str) -> str:
         filename, spectrum_idx = spectrum_id.split(":")
@@ -74,6 +54,11 @@ class OutputMapper(OutputMapperBase):
         """
         scores = scores.split(",")
         scores = list(map(float, scores))
+        return scores
+
+    def _add_n_term_token_score(self, scores: str) -> str:
+        first_token_score = scores.split(",", 1)[0]
+        scores = first_token_score + "," + scores
         return scores
 
     def format_spectrum_id(self, spectrum_id: str) -> str:
@@ -115,30 +100,11 @@ class OutputMapper(OutputMapperBase):
         # direct (token-to-token) replacements
         for repl_args in self.REPLACEMENTS:
             sequence = sequence.replace(*repl_args)
-
+        
         # format sequence and scores for n-term modifications
         if re.search(self.N_TERM_MOD_PATTERN, sequence):
-            # transform n-term modification notation
-            # represent in ProForma delta mass notation [+n_term_mod]-PEP
-            sequence = re.sub(self.N_TERM_MOD_PATTERN, self._transform_match_n_term_mod, sequence)
-            
-            # count non-terminal tokens
-            # assume modification is always attached a token or is terminal;
-            # then any non-terminal modification does not increase number of tokens
-            n_non_term_tokens = len(re.split(
-                self.PEP_SPLIT_PATTERN,
-                re.sub(self.MOD_PATTERN, "", sequence).strip("-")
-            ))
-            # number of scores should match number of tokens (+1 for n-term mods token, if any).
-            # merge together all scores for n-term modification tokens
-            aa_scores = self._parse_scores(aa_scores)
-            
-            n_term_scores, non_term_scores = aa_scores[:-n_non_term_tokens], aa_scores[-n_non_term_tokens:]
-            term_score = np.mean(n_term_scores)
+            aa_scores = self._add_n_term_token_score(aa_scores)
 
-            aa_scores = [term_score] + non_term_scores
-            aa_scores = self._format_scores(aa_scores)
-        
         return sequence, aa_scores
 
 
