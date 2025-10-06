@@ -76,14 +76,17 @@ class OutputMapperBase:
         """
         try:
             seq = proforma.parse(sequence)
-        except:
-            print(sequence)
-        n_tokens = len(seq[0])
-        if seq[1]["n_term"]:
-            n_tokens += len(seq[1]["n_term"])
-        if seq[1]["c_term"]:
-            n_tokens += len(seq[1]["c_term"])
+            n_tokens = len(seq[0])
+            if seq[1]["n_term"]:
+                n_tokens += len(seq[1]["n_term"])
+            if seq[1]["c_term"]:
+                n_tokens += len(seq[1]["c_term"])
+            scores = [str(pep_score),] * n_tokens
             
+        except:
+            print("ProForma failed on:", sequence)
+            scores = []
+
         scores = [str(pep_score),] * n_tokens
         return self._format_scores(scores)
 
