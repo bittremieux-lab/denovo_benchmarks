@@ -11,6 +11,7 @@ from collections import namedtuple
 from base import InputMapperBase
 
 
+KEYS = ["title", "pepmass", "charge", "scans", "rtinseconds"]
 PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_unimod_id", "representation"])
 
 class InputMapper(InputMapperBase):
@@ -39,6 +40,9 @@ class InputMapper(InputMapperBase):
 
         # create "scans" based on filename and spectrum index (0-based)
         spectrum["params"]["scans"] = filename + ":" + str(spectrum_idx)
+
+        # keep only the relevant keys in params (others may cause issues)
+        spectrum["params"] = {k: v for k, v in spectrum["params"].items() if k in KEYS}
         return spectrum
 
 
@@ -66,7 +70,7 @@ mapped_spectra = [
 mgf.write(
     mapped_spectra,
     args.output_path,
-    key_order=["title", "pepmass", "charge", "scans", "rtinseconds"],
+    key_order=KEYS,
     file_mode="w",
 )
 print(
