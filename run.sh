@@ -43,6 +43,7 @@ mkdir -p "$time_log_dir"
 echo "Processing dataset: $dset_name ($dset_dir)"
 ls "$spectra_dir"/*.mgf
 
+# 1. Run algorithms & get predictions
 # Loop through each algorithm in the algorithms directory
 for algorithm_dir in algorithms/*; do
 
@@ -84,7 +85,7 @@ for algorithm_dir in algorithms/*; do
                     bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
 
             else
-                echo "Skipping algorithm: $algorithm_name. Output file already exists."
+                echo "Skipping running algorithm: $algorithm_name. Output file already exists."
 
                 # Remove an existing container overlay, if any
                 # FIXME: mb put this part outside if-else statement? 
@@ -98,9 +99,31 @@ for algorithm_dir in algorithms/*; do
     fi
 done
 
-# Evaluate predictions
+# 2. Augment predictions with predicted RT and SA between predictied and experimental spectra
+# Loop through each algorithm in the algorithms directory
+for algorithm_dir in algorithms/*; do
+
+    if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
+        algorithm_name=$(basename "$algorithm_dir")
+
+        # If an algorithm is specified, only continue if algorithm_name matches
+        if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
+
+            output_file="$output_dir/${algorithm_name}_output.csv"
+            echo "Output file: $output_file"
+
+            # Augment algorithm predictions with RT and SA (if not already present)
+            echo "AUGMENT PREDICTIONS"
+            apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+                bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+
+        fi
+
+    fi
+done
+
+# 3. Evaluate predictions
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python evaluate.py ${output_dir}/ ${dset_dir}"
-# TODO change to dset_dir/labels? 
+    bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
