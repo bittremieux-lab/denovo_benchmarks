@@ -6,6 +6,7 @@ datasets/*
 !datasets/sample_data/
 
 # Outputs
+outputs/*
 metrics.csv
 
 # Containers
