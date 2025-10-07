@@ -14,6 +14,8 @@ From: python:3.10
     pip install --no-cache-dir SQLAlchemy==2.0.30
     pip install --no-cache-dir lxml==4.9.1
     pip install --no-cache-dir spectrum-utils==0.4.2
+    pip install --no-cache-dir 'tritonclient[grpc]==2.60.0'
+    pip install --no-cache-dir koinapy==0.0.1
 
     # Install MMseqs2
     wget https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz

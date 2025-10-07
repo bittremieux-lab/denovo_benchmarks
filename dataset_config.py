@@ -10,8 +10,8 @@ class DatasetTag(str, enum.Enum):
     nontryptic = "nontryptic"
     timstof = "timstof"
     waters = "waters"
-    sciex = "sciex"
-    agilent = "agilent"
+    sciex = "sciex" # TODO: shouldn't be TOF?
+    agilent = "agilent" # TODO: shouldn't be TOF?
     astral = "astral"
     deamidation = "deamidation"
     phosphorylation = "phosphorylation"

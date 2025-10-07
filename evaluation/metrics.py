@@ -3,6 +3,7 @@ Casanovo https://github.com/Noble-Lab/casanovo"""
 
 import re
 import numpy as np
+from numpy.linalg import norm
 from typing import Dict, Iterable, List, Tuple
 
 
@@ -382,3 +383,61 @@ def aa_precision_recall(
     n_aa_correct = sum([score > threshold for score in aa_scores_correct])
     n_aa_predicted = sum([score > threshold for score in aa_scores_all])
     return n_aa_correct / n_aa_predicted, n_aa_correct / n_aa_total
+
+
+# Methods calculate spectral angle between two spectra
+
+def cosine_similarity(a, b):
+    denom = norm(a) * norm(b)
+    if denom == 0:
+        return 0.0
+    return (a @ b) / denom
+
+
+def spectral_angle(mz_pred, I_pred, mz_true, I_true, tol=0.02, eps=1e-8):
+    # Sort experimental m/z for binary search
+    sort_idx = np.argsort(mz_true)
+    mz_true_sorted = mz_true[sort_idx]
+    I_true_sorted = I_true[sort_idx]
+
+    # Find matching m/z in both spectra
+    matched_pred = []
+    matched_true = []
+    matched_true_idxs = []
+    
+    pred_mask = (I_pred >= 0)
+    for mz_p, I_p in zip(mz_pred[pred_mask], I_pred[pred_mask]):
+        # Find position where this m/z would be inserted
+        idx = np.searchsorted(mz_true_sorted, mz_p)
+    
+        candidates = []
+        for offset in [-1, 0, 1]: # a[i] is (always?) closer to b than a[i + 1] -- ? TODO: do we need to check offset = 1 at all?
+            i = idx + offset
+            if 0 <= i < len(mz_true_sorted):
+                delta = abs(mz_p - mz_true_sorted[i])
+                if delta <= tol: # Da? 
+                    candidates.append((i, delta, mz_true_sorted[i], I_true_sorted[i], offset))
+    
+        if candidates: # if any matches found
+            # Pick the closest match
+            best_match = min(candidates, key=lambda x: x[1])
+            matched_pred.append(I_p)
+            
+            match_true_idx = best_match[0]
+            match_I = best_match[3]
+            matched_true.append(match_I) # add matching true peak intensity
+            matched_true_idxs.append(match_true_idx)
+            
+        else: # add as unmached predicted (mz, I) pair
+            matched_pred.append(I_p)
+            matched_true.append(0) # add 0 as there is no matching true peak
+
+    unmatched_true_idxs = list(set(list(range(len(I_true_sorted)))) - set(matched_true_idxs))
+    unmatched_true = list(I_true_sorted[unmatched_true_idxs])
+    unmatched_pred = [0] * len(unmatched_true_idxs)
+    cossim = cosine_similarity(np.array(matched_pred + unmatched_pred), np.array(matched_true + unmatched_true))
+    # transform cossim to SA
+    cossim = np.clip(cossim, -1 + eps, 1 - eps)
+    SA = np.acos(cossim)
+    SA = 1 - 2 * SA / np.pi
+    return SA
