@@ -11,6 +11,7 @@ from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
     FRAGMENT_MASS_TOL,
     supported_mods_I,
+    supported_mods_rt,
     check_supported_by_model,
     predict_intensities,
     predict_RT,
@@ -67,24 +68,29 @@ output_data = output_data[use_cols]
 dataset_path = os.path.join(args.data_dir, "mgf")
 spectra_params = utils.extract_spectra_params(dataset_path)
 output_data = output_data.join(spectra_params.set_index("spectrum_id"), on="spectrum_id")
-# Find predicted sequences supported by the model (Prosit or other)
-supported_idx = output_data.apply(
+# Find predicted sequences supported by the intensity prediction model
+supported_I_idx = output_data.apply(
     lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_I),
     axis=1,
 )
+# Find predicted sequences supported by the RT prediction model
+supported_rt_idx = output_data.apply(
+    lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_rt),
+    axis=1,
+)
 print("DEBUG: de novo peptides supported by intensity prediction model")
-print(supported_idx.value_counts(), "\n")
+print(supported_I_idx.value_counts(), "\n")
+print("DEBUG: de novo peptides supported by RT prediction model")
+print(supported_rt_idx.value_counts(), "\n")
 
-if any(supported_idx):
+output_data["SA"] = np.nan
+if any(supported_I_idx):
     # Get intensity predictions for de novo peptides
-    predictions_mz, predictions_I = predict_intensities(output_data[supported_idx], dataset_tags)
-    # Get RT predictions for de novo peptides and store them in output_data
-    output_data.loc[supported_idx, "pred_RT"] = predict_RT(output_data[supported_idx])
+    predictions_mz, predictions_I = predict_intensities(output_data[supported_I_idx], dataset_tags)
     # Calculate spectral angles with experimental spectra
-    output_data["SA"] = 0.
     for filename in output_data["filename"].value_counts().index:
         print(filename)
-        file_mask = (output_data["filename"] == filename) & supported_idx
+        file_mask = (output_data["filename"] == filename) & supported_I_idx
         # spec_idx: index - psm idx in dataframe, value - 0-based spectrum idx in mgf file
         spec_idxs = output_data[file_mask]["idx"].astype(np.int64)
 
@@ -93,9 +99,13 @@ if any(supported_idx):
         output_data.loc[file_mask, "SA"] = calculate_SA(spec_idxs, predictions_mz, predictions_I, mgf_path)
 else:
     print("No de novo peptides supported by intensity prediction model. Skipping intensity and SA prediction.")
-    output_data["pred_RT"] = 0.
-    output_data["SA"] = 0.
-# TODO: replace 0 by NaN?
+
+output_data["pred_RT"] = np.nan
+if any(supported_rt_idx):
+    # Get RT predictions for de novo peptides and store them in output_data
+    output_data.loc[supported_rt_idx, "pred_RT"] = predict_RT(output_data[supported_rt_idx])
+else:
+    print("No de novo peptides supported by RT prediction model. Skipping RT prediction.")
 
 # Save updated output data with pred_RT and SA
 output_data.to_csv(output_path, index=False)

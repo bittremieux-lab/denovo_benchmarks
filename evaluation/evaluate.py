@@ -23,6 +23,7 @@ from .spectrum_prediction import (
     FRAGMENT_MASS_TOL,
     WINDOW_SIZE,
     supported_mods_I,
+    supported_mods_rt,
     map_mods_delta_mass_to_unimod,
     check_supported_by_model,
     predict_intensities,
@@ -98,46 +99,53 @@ spectra_params = utils.extract_spectra_params(dataset_path)
 # Predict intensities and RT for GT peptides
 true_psms = sequences_true.join(spectra_params[["spectrum_id", "charge", "precursor_mass", "true_RT"]].set_index("spectrum_id"), on="spectrum_id")
 true_psms[["filename", "idx"]] = true_psms.spectrum_id.str.split(":", expand=True)
-# true_psms["seq_unimod"] = true_psms["seq"].apply(map_mods_delta_mass_to_unimod) # only for Prosit models
-true_psms["seq_unimod"] = true_psms["seq"].copy() # for other models, keep original format
-true_psms_supported_idx = true_psms.apply(
+true_psms["seq_unimod"] = true_psms["seq"].apply(map_mods_delta_mass_to_unimod) # only for Prosit models(? for MS2PIP too?)
+# true_psms["seq_unimod"] = true_psms["seq"].copy() # for other models, keep original format
+
+# Find predicted sequences supported by the intensity prediction model
+true_psms_supported_I_idx = true_psms.apply(
     lambda row: check_supported_by_model(row["seq_unimod"], row["charge"], supported_mods_I),
     axis=1,
 )
-print("DEBUG: GT peptides supported by prediction model")
-print(true_psms_supported_idx.value_counts(), "\n")
+# Find predicted sequences supported by the RT prediction model
+true_psms_supported_rt_idx = true_psms.apply(
+    lambda row: check_supported_by_model(row["seq_unimod"], row["charge"], supported_mods_rt),
+    axis=1,
+)
+print("DEBUG: GT peptides supported by intensity prediction model")
+print(true_psms_supported_I_idx.value_counts(), "\n")
+print("DEBUG: GT peptides supported by RT prediction model")
+print(true_psms_supported_rt_idx.value_counts(), "\n")
 
-# if any(true_psms_supported_idx): TODO: handle this case
+# if any(true_psms_supported_I_idx): TODO: handle this case
+# TODO: can we go without supported_idx at all, move it to the predict_I/rt function?
 
 # Get intensity predictions for de novo peptides
 gt_predictions_mz, gt_predictions_I = predict_intensities(
-    true_psms[true_psms_supported_idx].rename({"seq_unimod": "sequence"}, axis=1),
+    true_psms[true_psms_supported_I_idx].rename({"seq_unimod": "sequence"}, axis=1),
     dataset_tags,
 )
 # Get RT predictions for de novo peptides and store them in the dataframe
-true_psms.loc[true_psms_supported_idx, "pred_RT"] = predict_RT(
-    true_psms[true_psms_supported_idx].rename({"seq_unimod": "sequence"}, axis=1)
+true_psms.loc[true_psms_supported_rt_idx, "pred_RT"] = predict_RT(
+    true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1)
 )
 # Calculate spectral angles and RT differences (on calibrated RT)
-true_psms["SA"] = 0.
-true_psms["true_RT_calib"] = 0.
-spectra_params["true_RT_calib"] = 0.
+true_psms["SA"] = np.nan
+true_psms["true_RT_calib"] = np.nan
+spectra_params["true_RT_calib"] = np.nan
 for filename in true_psms["filename"].value_counts().index:
     print(filename)
     # Select calibration PSMs (from GT PSMs)
-    true_psms_file_mask = (true_psms["filename"] == filename) & true_psms_supported_idx
-    # spec_idx: index - psm idx in dataframe, value - 0-based spectrum idx in mgf file
-    spec_idxs = true_psms[true_psms_file_mask]["idx"].astype(np.int64)
-
-    calib_psms = true_psms[true_psms_file_mask]
+    true_psms_file_mask_rt = (true_psms["filename"] == filename) & true_psms_supported_rt_idx
+    calib_psms = true_psms[true_psms_file_mask_rt]
     calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
     # Get predictions for calibration PSMs
     calib_psms["pred_RT"] = predict_RT(calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1))
     # Train calibration model (for this particular file)
     rt_calib_reg = get_calibration_model(calib_psms)
     # Calibrate true_RT to iRT
-    true_psms.loc[true_psms_file_mask, "true_RT_calib"] = rt_calib_reg.predict(
-        true_psms.loc[true_psms_file_mask, "true_RT"].values[:, None]
+    true_psms.loc[true_psms_file_mask_rt, "true_RT_calib"] = rt_calib_reg.predict(
+        true_psms.loc[true_psms_file_mask_rt, "true_RT"].values[:, None]
     )[:, 0]
     # Calibrate true_RT for all spectra in the file
     all_spectra_file_mask = (spectra_params["filename"] == filename)
@@ -145,9 +153,12 @@ for filename in true_psms["filename"].value_counts().index:
         spectra_params.loc[all_spectra_file_mask, "true_RT"].values[:, None]
     )[:, 0]
 
+    true_psms_file_mask_I = (true_psms["filename"] == filename) & true_psms_supported_I_idx
+    # spec_idx: index - psm idx in dataframe, value - 0-based spectrum idx in mgf file
+    spec_idxs = true_psms[true_psms_file_mask_I]["idx"].astype(np.int64)
     # Load mgf file, iterate through experimental spectra, calculate SA
     mgf_path = os.path.join(dataset_path, filename + ".mgf")
-    true_psms.loc[true_psms_file_mask, "SA"] = calculate_SA(spec_idxs, gt_predictions_mz, gt_predictions_I, mgf_path)
+    true_psms.loc[true_psms_file_mask_I, "SA"] = calculate_SA(spec_idxs, gt_predictions_mz, gt_predictions_I, mgf_path)
 
 # Calculate RT differences (on calibrated RT)
 max_true_irt = true_psms["true_RT_calib"].max()
@@ -224,11 +235,9 @@ for output_file in os.listdir(args.output_dir):
     # Add experimental spectra data
     output_data = output_data.join(spectra_params.set_index("spectrum_id"), on="spectrum_id")
     # Find predicted sequences supported by the model (Prosit or other)
-    # MB no need to recalculate supported_idx, derive it from augment_predictions.py?
-    supported_idx = output_data.apply(
-        lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_I),
-        axis=1,
-    )
+    # (No need to recalculate, derive from augment_predictions.py)
+    supported_I_idx = output_data["SA"].notnull()
+    supported_rt_idx = output_data["pred_RT"].notnull()
 
     # (true_RT_calib is already in spectrum_params (after step for the true_psms above))
     # Calculate RT differences (on calibrated RT) and normalize by max iRT
@@ -236,8 +245,8 @@ for output_file in os.listdir(args.output_dir):
 
     # TODO: this is incorrect, should be done on true_psms? (once for all files)
     ## Calculate RT differences for shuffled sequences (supported by the model)
-    # true_RT_shuffled = np.random.permutation(output_data.loc[supported_idx, "true_RT_calib"])
-    # rt_shuffled_diff = (output_data.loc[supported_idx, "true_RT_calib"] - true_RT_shuffled).abs() / max_true_irt
+    # true_RT_shuffled = np.random.permutation(output_data.loc[supported_rt_idx, "true_RT_calib"])
+    # rt_shuffled_diff = (output_data.loc[supported_rt_idx, "true_RT_calib"] - true_RT_shuffled).abs() / max_true_irt
     # rt_shuffled_diff_wma = np.convolve(
     #     rt_shuffled_diff, 
     #     np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
@@ -264,7 +273,7 @@ for output_file in os.listdir(args.output_dir):
     # output_data["sequence_no_ptm"] = np.nan
     query_fasta_path = os.path.join(search_tmp_dir, "denovo_predicted_peptides.fasta")
     output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
-        partial(remove_ptms, ptm_pattern='[^A-Z]')
+        partial(utils.remove_ptms, ptm_pattern='[^A-Z]')
     )
     mmseqs.create_query_fasta(output_data.loc[sequenced_idx], query_fasta_path)
     # Run mmseqs search
@@ -304,7 +313,7 @@ for output_file in os.listdir(args.output_dir):
     # (can we store them in output_data and save to csv?)
 
     # Plot the RT difference curve
-    rt_diff = output_data[supported_idx].sort_values("score", ascending=False)["RT_diff"]
+    rt_diff = output_data[supported_rt_idx].sort_values("score", ascending=False)["RT_diff"]
     rt_diff_wma = np.convolve(
         rt_diff, 
         np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
@@ -322,7 +331,7 @@ for output_file in os.listdir(args.output_dir):
     )
 
     # Plot the SA curve
-    SA = output_data[supported_idx].sort_values("score", ascending=False)["SA"]
+    SA = output_data[supported_I_idx].sort_values("score", ascending=False)["SA"]
     SA_wma = np.convolve(
         SA, 
         np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
@@ -371,7 +380,7 @@ for output_file in os.listdir(args.output_dir):
     aa_scores = np.concatenate(
         list(
             map(
-                parse_scores,
+                utils.parse_scores,
                 output_data["aa_scores"][labeled_idx].values.tolist(),
             )
         )
