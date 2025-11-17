@@ -377,7 +377,10 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
                 #print("aminos: ", seq)
                     # pred_mass = 0.0
                     assert self.mass_control_tol > 0
-                    if abs(mass_true - pred_mass) < self.mass_control_tol: #if beam decoded peptide already less than tol, it's optimal path then, no need to call PMC
+
+                    # if beam decoded peptide already less than tol, it's optimal path then, no need to call PMC
+                    # FIX: skip PMC when mass_true <= 0 (unknown true mass)
+                    if (mass_true <= 0) or abs(mass_true - pred_mass) < self.mass_control_tol: 
                         top_tokens[i] = top_tokens_beam[i]
                         # if beamscores[i] < 0.0:
                         #     print(beamscores[i])
@@ -388,10 +391,11 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
                         
                         # print("beamscore:",beamscores[i])
                         #print("skip CTC length control")
-                        
+
+                    # PMC is only applied for peptides that don't match precursor mass!
                     else:
                         #ctc_customized_mass_control = CTCMassControl(self.decoder )
-                        print("I am CUDA program")
+                        print("run PMC for: mass true =", mass_true, " mass pred =", pred_mass)
                         temp = mass_con.knapDecode(logits, mass, self.mass_control_tol)
                         # knapscores = torch.exp(_)
                         # indTemp = torch.tensor(temp)
@@ -766,13 +770,16 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
         peptides_pred , peptides_score = self.forward(batch[0], batch[1], batch[2])
         import os
         
-        file_path = "denovo_outputs.csv"
+        file_path = "denovo_outputs.tsv"
         
 
         # Append data
-        with open(file_path,'a') as f:
+        with open(file_path, 'a') as f:
+            if f.tell() == 0:  # Check if file is empty to write header
+                f.write(f'sequence\trounded_score\tscore\tspectrum_id\n')
             for i in range(len(peptides_pred)):
-                f.write(f'{peptides_pred[i]},{round(peptides_score[i],2)},{peptides_score[i]},{titles[i]}\n')
+                # f.write(f'{peptides_pred[i]},{round(peptides_score[i],2)},{peptides_score[i]},{titles[i]}\n')
+                f.write(f'{peptides_pred[i]}\t{round(peptides_score[i].item(),2)}\t{peptides_score[i]}\t{titles[i]}\n')
 
 
     def on_validation_epoch_end(self) -> None:

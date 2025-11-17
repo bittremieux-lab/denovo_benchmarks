@@ -1,12 +1,17 @@
 Bootstrap: docker
 From: continuumio/miniconda3:latest
 
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    # Do not force host CUDA here; let CuPy wheel supply libs or the conda env itself.
+    # export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
 %files
     # Copy necessary algorithm files
     algorithms/pi-PrimeNovo /algo
     algorithms/base /algo/base
 
-%post
+%post -c /bin/bash
     # Initialize conda
     conda init
     . /opt/conda/etc/profile.d/conda.sh
@@ -15,7 +20,7 @@ From: continuumio/miniconda3:latest
     cd /algo
     # going inside pi-PrimeNovo dir
     cd pi-PrimeNovo
-    conda create -n PrimeNovo python=3.10 -y
+    conda create -y -n PrimeNovo python=3.10
     conda activate PrimeNovo
 
     # Install Python dependencies
@@ -24,7 +29,6 @@ From: continuumio/miniconda3:latest
 
     # Install gcc and g++ compilers
     conda install -c conda-forge gcc cxx-compiler -y
-
     
 
     # Clone and install ctcdecode
@@ -35,12 +39,13 @@ From: continuumio/miniconda3:latest
     rm -rf ctcdecode
 
     # Install CuPy (adapt CUDA version accordingly)
+    conda install -y -c nvidia cuda-toolkit=12.4.*
     pip install cupy-cuda12x
-
+    # pip install cupy-cuda13x
 
     pip install gdown
 
-    gdown "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
+    gdown --fuzzy "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
     # Make prediction script executable (assuming you have a prediction script)
     chmod +x /algo/make_predictions.sh
 

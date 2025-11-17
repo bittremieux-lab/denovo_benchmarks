@@ -92,7 +92,7 @@ SWA: False # StochasticWeightAveraging
 train_batch_size: 2800
 predict_batch_size: 64
 # n_beams: 5
-n_beams: 5 # No beam search
+n_beams: 1 # No beam search
 
 logger:
 

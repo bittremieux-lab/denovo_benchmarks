@@ -33,6 +33,6 @@ python -m PrimeNovo.PrimeNovo --mode=denovo --peak_path="/algo/$@"/*.mgf --model
 
 # Convert predictions to the general output format
 cd /algo
-mv ./pi-PrimeNovo/denovo_outputs.csv ./
+mv ./pi-PrimeNovo/denovo_outputs.tsv ./
 echo "Converting outputs:"
-python ./output_mapper.py --output_path=denovo_outputs.csv
+python ./output_mapper.py --output_path=denovo_outputs.tsv --input_dir="$@"
