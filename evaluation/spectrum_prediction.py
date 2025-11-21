@@ -9,10 +9,8 @@ from tqdm import tqdm
 
 from . import utils
 from .metrics import spectral_angle
-from token_masses import AA_MASSES
+from .token_masses import AA_MASSES
  
-
-# import spectrum_utils.spectrum as sus
 from koinapy import Koina
 from sklearn.linear_model import LinearRegression
 
@@ -45,20 +43,75 @@ FRAGMENT_MASS_TOL = 0.02 # Da
 # compatible, unmodified, peptides.
 
 
-model_rt = Koina("Deeplc_hela_hf", "koina.wilhelmlab.org:443")
-supported_mods_rt = ["[UNIMOD:4]", "[UNIMOD:35]", "[UNIMOD:1]"] # deeplc_hela_hf
+# RT prediction model
+# - modifications that the model was trained on: Carbamidomethyl, Oxidation, Acetyl
+# - it says to support all the modifications but they must be converted to PSI-MS names
+# (for GT: delta_mass -> UNIMOD -> PSI-MS)
+# (delta_mass -> UNIMOD we also do for I)
+# (UNIMOD -> PSI-MS we anyway do for de novo peptides)
+# - [?? always assumes C to have [Carbamidomethyl]? So no support for immunopeptides?]
 
-models_I = {
-    # TMT data
-    "TMT": Koina("ms2pip_CID_TMT", "koina.wilhelmlab.org:443"),
-    # TimsTOF data
-    "TimsTOF": Koina("ms2pip_timsTOF2024", "koina.wilhelmlab.org:443"),
-    # TOF data
-    "TOF": Koina("ms2pip_TTOF5600", "koina.wilhelmlab.org:443"),
-    # others (Orbitrap HCD data)
-    "default": Koina("ms2pip_HCD2021", "koina.wilhelmlab.org:443"),
-}
-supported_mods_I = ["[UNIMOD:4]", "[UNIMOD:35]"] # ms2pip (train)
+
+def get_RT_model_mods(
+    dataset_tags: tuple[str] = (), 
+    # TODO: should be of type DatasetTag, but we have a relative import problem!
+) -> tuple[str, list]:
+    """
+    Get name of the RT model and its supported modifications
+    according to dataset_tags.
+    """
+    model_names_rt = {
+        # single model for everything
+        "default": "Deeplc_hela_hf",
+    }
+    supported_mods_rt = ["[UNIMOD:4]", "[UNIMOD:35]", "[UNIMOD:1]"] # deeplc_hela_hf
+
+    if "tmt" in dataset_tags:
+        supported_mods_rt += ["[UNIMOD:737]"]
+        return model_names_rt["default"], supported_mods_rt
+
+    return model_names_rt["default"], supported_mods_rt
+
+# Intensity prediction model
+# - modifications that the model supports: [UNIMOD:35] and [UNIMOD:4]
+# - for TMT probably also [UNIMOD:737] (one or two) ?
+# - immunopeptides (C without [UNIMOD:4]) are ok
+# - peptides with other modifications are not supported!
+# - do we need to map delta_mass modifications to UNIMOD? 
+# probably yes, at least to check whether they are supported 
+
+def get_intensity_model_mods(
+    dataset_tags: tuple[str] = (), 
+    # TODO: should be of type DatasetTag, but we have a relative import problem!
+) -> tuple[str, list]:
+    """
+    Get name of the intensity model and its supported modifications
+    according to dataset_tags.
+    """
+    model_names_I = {
+        # TMT data
+        "TMT": "ms2pip_CID_TMT",
+        # TimsTOF data
+        "TimsTOF": "ms2pip_timsTOF2024",
+        # TOF data
+        "TOF": "ms2pip_TTOF5600",
+        # others (Orbitrap HCD data)
+        "default": "ms2pip_HCD2021",
+    }
+    supported_mods_I = ["[UNIMOD:4]", "[UNIMOD:35]"] # all ms2pip models (train)
+
+    if "tmt" in dataset_tags:
+        supported_mods_I += ["[UNIMOD:737]"]
+        return model_names_I["TMT"], supported_mods_I
+
+    if "timstof" in dataset_tags:
+        return model_names_I["TimsTOF"], supported_mods_I
+
+    if "sciex" in dataset_tags or "agilent" in dataset_tags:
+        return model_names_I["TOF"], supported_mods_I
+
+    return model_names_I["default"], supported_mods_I
+
 
 def map_mods_delta_mass_to_unimod(sequence, supported_mods=None):
     """
@@ -134,6 +187,8 @@ def check_supported_by_model(peptide, charge, supported_mods=None, min_seq_len=6
         mod_replacements = {mod: mod.strip("[]").split(":")[-1] for mod in supported_mods}
         for mod, replacement in mod_replacements.items():
             peptide = peptide.replace(mod, replacement)
+        # check for presence of any unsupported mods
+        # (that were not mapped to numerical codes at the previous step)
         if "UNIMOD:" in peptide:
             return False
 
@@ -148,61 +203,22 @@ def check_supported_by_model(peptide, charge, supported_mods=None, min_seq_len=6
     return True
 
 
-# Intensity prediction model
-# - modifications that the model supports: [UNIMOD:35] and [UNIMOD:4]
-# - for TMT probably also [UNIMOD:737] (one or two) ?
-# - immunopeptides (C without [UNIMOD:4]) are ok
-# - peptides with other modifications are not supported!
-# - do we need to map delta_mass modifications to UNIMOD? 
-# probably yes, at least to check whether they are supported 
-# (for GT peptides)
-# + map delta_mass -> UNIMOD
-# (get supported)
-# + check_supported_by_intensity_model (only with supported mods)
-# (in predict_intensities)
-# + just choose the model based on the dataset tags and predict
+def predict_intensities(model_name_I: str, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # initialize model
+    model_I = Koina(model_name_I, "koina.wilhelmlab.org:443")
 
-def predict_intensities(
-    data: pd.DataFrame, 
-    # TODO: should be of type DatasetTag, but we have a relative import problem!
-    dataset_tags: tuple[str] = (), 
-) -> tuple[pd.DataFrame, pd.DataFrame]:
     inputs = data[["sequence", "charge"]]
     inputs.columns = ["peptide_sequences", "precursor_charges"]
-
-    # get model according to dataset_tags
-    if "tmt" in dataset_tags:
-        model_I = models_I["TMT"]
-        # TODO: this is the reason why it's better to get supported_idx here
-        # they must also depend in tmt tag in dataset_tags
-    elif "timstof" in dataset_tags:
-        model_I = models_I["TimsTOF"]
-    elif "sciex" in dataset_tags or "agilent" in dataset_tags:
-        model_I = models_I["TOF"]
-    else:
-        model_I = models_I["default"]
-
+    
     predictions = model_I.predict({col: inputs[col].values for col in inputs})
     predictions_I = pd.DataFrame(predictions["intensities"], index=inputs.index)
     predictions_mz = pd.DataFrame(predictions["mz"], index=inputs.index)
     return predictions_mz, predictions_I
 
+def predict_RT(model_name_rt: str, data: pd.DataFrame) -> np.array:
+    # initialize model
+    model_rt = Koina(model_name_rt, "koina.wilhelmlab.org:443")
 
-# RT prediction model
-# - modifications that the model was trained on: Carbamidomethyl, Oxidation, Acetyl
-# - it says to support all the modifications but they must be converted to PSI-MS names
-# (for GT: delta_mass -> UNIMOD -> PSI-MS)
-# (delta_mass -> UNIMOD we also do for I)
-# (UNIMOD -> PSI-MS we anyway do for de novo peptides)
-# - [?? always assumes C to have [Carbamidomethyl]? So no support for immunopeptides?]
-# (for GT peptides)
-# + map delta_mass -> UNIMOD (for every known modification? or only for mod in train for now?)
-# (get supported)
-# + check_supported_by_RT_model ([?? no C without [UNIMOD:4]], only supported mods? (for now))
-# + map UNIMOD -> PSI-MS
-# - predict
-
-def predict_RT(data: pd.DataFrame) -> np.array:
     inputs = data[["sequence"]]
     inputs.columns = ["peptide_sequences"]
 

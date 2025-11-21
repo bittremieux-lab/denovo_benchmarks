@@ -8,16 +8,13 @@ import pandas as pd
 from . import utils
 # TODO: move to a separate file?
 from .spectrum_prediction import (
-    N_CALIBRATION_PSMS,
-    FRAGMENT_MASS_TOL,
-    supported_mods_I,
-    supported_mods_rt,
+    get_intensity_model_mods,
+    get_RT_model_mods,
     check_supported_by_model,
     predict_intensities,
     predict_RT,
     calculate_SA,
 )
-
 
 DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
 
@@ -46,11 +43,17 @@ args = parser.parse_args()
 # output_dir="$output_root_dir/$dset_name" always contains dataset_name as the last part
 dataset_name = os.path.basename(os.path.normpath(args.output_dir))
 
-# Get database_path from dataset tags (proteome column, by dataset_name)
+# Get dataset tags (by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
 tags_df = tags_df.set_index("dataset")
 dataset_tags = tags_df.loc[dataset_name]
 dataset_tags = tuple(dataset_tags.index[dataset_tags == 1])
+# Get corresponding spectrum prediction models and supported modifications
+model_name_I, supported_mods_I = get_intensity_model_mods(dataset_tags)
+model_name_rt, supported_mods_rt = get_RT_model_mods(dataset_tags)
+print("Use prediction models:")
+print(f"- Intensity: {model_name_I}, supported PTMs: {supported_mods_I}")
+print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 
 output_file = f"{args.algo_name}_output.csv"
 output_path = os.path.join(args.output_dir, output_file)
@@ -86,7 +89,7 @@ print(supported_rt_idx.value_counts(), "\n")
 output_data["SA"] = np.nan
 if any(supported_I_idx):
     # Get intensity predictions for de novo peptides
-    predictions_mz, predictions_I = predict_intensities(output_data[supported_I_idx], dataset_tags)
+    predictions_mz, predictions_I = predict_intensities(model_name_I, output_data[supported_I_idx])
     # Calculate spectral angles with experimental spectra
     for filename in output_data["filename"].value_counts().index:
         print(filename)
@@ -103,7 +106,7 @@ else:
 output_data["pred_RT"] = np.nan
 if any(supported_rt_idx):
     # Get RT predictions for de novo peptides and store them in output_data
-    output_data.loc[supported_rt_idx, "pred_RT"] = predict_RT(output_data[supported_rt_idx])
+    output_data.loc[supported_rt_idx, "pred_RT"] = predict_RT(model_name_rt, output_data[supported_rt_idx])
 else:
     print("No de novo peptides supported by RT prediction model. Skipping RT prediction.")
 

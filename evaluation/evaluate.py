@@ -22,8 +22,8 @@ from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
     FRAGMENT_MASS_TOL,
     WINDOW_SIZE,
-    supported_mods_I,
-    supported_mods_rt,
+    get_intensity_model_mods,
+    get_RT_model_mods,
     map_mods_delta_mass_to_unimod,
     check_supported_by_model,
     predict_intensities,
@@ -32,7 +32,7 @@ from .spectrum_prediction import (
     calculate_SA,
 )
 from .metrics import aa_match_metrics, aa_match_batch
-from token_masses import AA_MASSES
+from .token_masses import AA_MASSES
 
 
 DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
@@ -68,12 +68,18 @@ args = parser.parse_args()
 dataset_name = os.path.basename(os.path.normpath(args.output_dir))
 print(f"Evaluating results for {dataset_name}.")
 
-# Get database_path from dataset tags (proteome column, by dataset_name)
+# Get dataset tags and database_path (proteome column, by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
 tags_df = tags_df.set_index("dataset")
 database_path = tags_df.loc[dataset_name, "proteome"]
 dataset_tags = tags_df.loc[dataset_name]
 dataset_tags = tuple(dataset_tags.index[dataset_tags == 1])
+# Get corresponding spectrum prediction models and supported modifications
+model_name_I, supported_mods_I = get_intensity_model_mods(dataset_tags)
+model_name_rt, supported_mods_rt = get_RT_model_mods(dataset_tags)
+print("Use prediction models:")
+print(f"- Intensity: {model_name_I}, supported PTMs: {supported_mods_I}")
+print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 
 # Create directories for MMseqs2 proteome matches search
 (
@@ -122,12 +128,13 @@ print(true_psms_supported_rt_idx.value_counts(), "\n")
 
 # Get intensity predictions for de novo peptides
 gt_predictions_mz, gt_predictions_I = predict_intensities(
+    model_name_I,
     true_psms[true_psms_supported_I_idx].rename({"seq_unimod": "sequence"}, axis=1),
-    dataset_tags,
 )
 # Get RT predictions for de novo peptides and store them in the dataframe
 true_psms.loc[true_psms_supported_rt_idx, "pred_RT"] = predict_RT(
-    true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1)
+    model_name_rt,
+    true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1),
 )
 # Calculate spectral angles and RT differences (on calibrated RT)
 true_psms["SA"] = np.nan
@@ -140,7 +147,10 @@ for filename in true_psms["filename"].value_counts().index:
     calib_psms = true_psms[true_psms_file_mask_rt]
     calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
     # Get predictions for calibration PSMs
-    calib_psms["pred_RT"] = predict_RT(calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1))
+    calib_psms["pred_RT"] = predict_RT(
+        model_name_rt,
+        calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1),
+    )
     # Train calibration model (for this particular file)
     rt_calib_reg = get_calibration_model(calib_psms)
     # Calibrate true_RT to iRT

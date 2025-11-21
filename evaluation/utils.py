@@ -3,12 +3,16 @@ import re
 import numpy as np
 import pandas as pd
 from pyteomics import mgf, proforma
-from pyteomics.mass.unimod import Unimod
 from tqdm import tqdm
 
 
 # Instance of Unimod database to look up PTM masses
-UNIMOD_DB = Unimod()
+try:
+    from pyteomics.mass.unimod import Unimod
+    UNIMOD_DB = Unimod()
+except:
+    from pyteomics.mass import Unimod
+    UNIMOD_DB = Unimod()
 # Cache of PTM masses to avoid repeated lookups in the Unimod database
 ptm_masses = {}
 
@@ -47,7 +51,10 @@ def _transform_match_ptm(match: re.Match) -> str:
     ptm_idx = int(match.group(1))
     
     if ptm_idx not in ptm_masses:
-        ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
+        try:
+            ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
+        except:
+            ptm_masses[ptm_idx] = UNIMOD_DB.by_id(ptm_idx)["mono_mass"]
         print(ptm_masses)
     
     ptm_mass = ptm_masses[ptm_idx]
@@ -133,7 +140,7 @@ def validate_token_scores(scores: str, sequence: str) -> bool:
 
 def load_predictions(output_path, sequences_true):
     """Load de novo predictions and combine them with ground truth sequences."""
-    use_cols = ["sequence", "score", "aa_scores", "spectrum_id"]
+    use_cols = ["sequence", "score", "aa_scores", "spectrum_id", "pred_RT", "SA"]
     
     output_data = pd.read_csv(output_path)
     output_data = pd.merge(
@@ -187,7 +194,8 @@ def get_precursor_mass(spectrum):
 def get_mz_I(spectrum):
     mz = spectrum['m/z array']
     I = spectrum["intensity array"]
-    I = I / I.max()
+    if I.size > 0:
+        I = I / I.max()
     return mz, I
 
 def extract_spectra_params(dataset_path):

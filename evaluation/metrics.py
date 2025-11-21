@@ -395,6 +395,9 @@ def cosine_similarity(a, b):
 
 
 def spectral_angle(mz_pred, I_pred, mz_true, I_true, tol=0.02, eps=1e-8):
+    if I_pred.size == 0 or I_true.size == 0:
+        return 0.0
+    
     # Sort experimental m/z for binary search
     sort_idx = np.argsort(mz_true)
     mz_true_sorted = mz_true[sort_idx]
