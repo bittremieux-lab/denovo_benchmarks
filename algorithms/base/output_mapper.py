@@ -87,7 +87,6 @@ class OutputMapperBase:
             print("ProForma failed on:", sequence)
             scores = []
 
-        scores = [str(pep_score),] * n_tokens
         return self._format_scores(scores)
 
     def format_output(self, output_data):
