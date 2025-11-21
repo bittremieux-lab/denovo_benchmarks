@@ -20,15 +20,15 @@ args = parser.parse_args()
 
 class OutputMapper(OutputMapperBase):
     REPLACEMENTS = [
-        ("C+57.021", "C[UNIMOD:4]"),
+        ("C[Carbamidomethyl]", "C[UNIMOD:4]"),
         # Amino acid modifications.
-        ("M+15.995", "M[UNIMOD:35]"),    # Met oxidation
-        ("N+0.984", "N[UNIMOD:7]"),     # Asn deamidation
-        ("Q+0.984", "Q[UNIMOD:7]"),     # Gln deamidation
+        ("M[Oxidation]", "M[UNIMOD:35]"),    # Met oxidation
+        ("N[Deamidated]", "N[UNIMOD:7]"),     # Asn deamidation
+        ("Q[Deamidated]", "Q[UNIMOD:7]"),     # Gln deamidation
         # N-terminal modifications.
-        ("+42.011", "[UNIMOD:1]"),      # Acetylation
-        ("+43.006", "[UNIMOD:5]"),      # Carbamylation
-        ("-17.027", "[UNIMOD:385]"),     # NH3 loss
+        ("[Acetyl]", "[UNIMOD:1]"),      # Acetylation
+        ("[Carbamyl]", "[UNIMOD:5]"),      # Carbamylation
+        ("[Ammonia-loss]", "[UNIMOD:385]"),     # NH3 loss
         # "+43.006-17.027": 25.980265      # Carbamylation and NH3 loss
     ]
     N_TERM_MOD_PATTERN = r"^(\[UNIMOD:[0-9]+\])" # find N-term modifications
@@ -36,6 +36,12 @@ class OutputMapper(OutputMapperBase):
     def __init__(self, spectralis_output_dir: str, input_dir: str, casanovo_output: str):
         output_MzTab = MzTab(casanovo_output)
         self.output_data = output_MzTab.spectrum_match_table[["spectra_ref", "sequence", "search_engine_score[1]"]]
+
+        # DEBUG:
+        print("BEFORE:\n", self.output_data.columns.values)
+        for i, row in self.output_data.head().iterrows():
+            print(row.values)
+
         self.output_data['file_ref'] = self.output_data['spectra_ref'].apply(lambda x: x.split(":")[0])
         self.output_data['spectrum_idx'] = self.output_data['spectra_ref'].apply(lambda x: x.split(":index=")[1])
 
@@ -61,6 +67,11 @@ class OutputMapper(OutputMapperBase):
 
         self.output_data.rename(columns={'Spectralis_score': 'score'}, inplace=True)
         self.output_data = self.output_data[['sequence', 'score', 'spectrum_id']]
+
+        # DEBUG:
+        print("BEFORE:\n", self.output_data.columns.values)
+        for i, row in self.output_data.head().iterrows():
+            print(row.values)
 
     def _transform_match_n_term_mod(self, match: re.Match) -> str:
         """

@@ -62,7 +62,7 @@ From: ubuntu:20.04
 
     pyenv activate casanovo
     pip install --upgrade pip
-    pip install casanovo --no-cache-dir --prefer-binary
+    pip install casanovo==5.0.0 --no-cache-dir --prefer-binary
 
     pyenv activate spectralis
     pip install --upgrade pip
@@ -73,7 +73,8 @@ From: ubuntu:20.04
 %post
 	# Download weigths for both Casanovo and Spectralis
     cd /algo
-    curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt
+    # curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt # old version
+    curl -O https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt
 
     curl -O https://zenodo.org/records/8393846/files/spectralis_bin_reclass.pt
     # curl -O https://zenodo.org/records/8393846/files/spectralis_score.pkl # <-- old model

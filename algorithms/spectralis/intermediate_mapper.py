@@ -17,12 +17,12 @@ parser.add_argument(
 args = parser.parse_args()
 
 MSV_TO_UNIMOD = {
-    "+57.021": "[UNIMOD:4]",
-    "+42.011": "[UNIMOD:1]",
-    "-17.027": "[UNIMOD:28]",
-    "+0.984": "[UNIMOD:7]",
-    "+15.995": "[UNIMOD:35]",
-    "+43.006": "[UNIMOD:5]",
+    "[Carbamidomethyl]": "[UNIMOD:4]",
+    "[Acetyl]": "[UNIMOD:1]",
+    "[Ammonia-loss]": "[UNIMOD:28]",
+    "[Deamidated]": "[UNIMOD:7]",
+    "[Oxidation]": "[UNIMOD:35]",
+    "[Carbamyl]": "[UNIMOD:5]",
     # "+43.006-17.027": "[UNIMOD:5][UNIMOD:28]"?, TODO
 }
 
