@@ -1,17 +1,19 @@
 name: AIchor Benchmark
 
+# Only runs on manual trigger (workflow_dispatch)
+# Does NOT run on push events - must be triggered manually via UI or CLI
 on:
   workflow_dispatch:
     inputs:
       algorithms:
-        description: 'Algorithms to benchmark (comma-separated or "all" or "test")'
+        description: 'Algorithms to benchmark (comma-separated or "all")'
         required: true
-        default: 'test'
+        default: 'instanovo'
         type: string
       dataset:
-        description: 'Dataset path (use sample_data/9_species_human for testing)'
-        required: true
-        default: 'sample_data/9_species_human'
+        description: 'Dataset path'
+        required: false
+        default: '/mnt/denovo_benchmarks/peak/mgf'
         type: string
       dataset_name:
         description: 'Dataset name for results'
@@ -33,12 +35,17 @@ on:
         required: false
         default: false
         type: boolean
+      gather_results_only:
+        description: 'Only gather results (skip submission and monitoring)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   submit_benchmark:
     runs-on: ${{ github.event.repository.private && 'instadeep-ci-4' || 'ubuntu-latest' }}
     container: ${{ github.event.repository.private && fromJSON('{"image":"ubuntu:22.04"}') || fromJSON('null') }}
-    if: ${{ !github.event.inputs.monitor_only || github.event.inputs.monitor_only == 'false' || github.event.inputs.monitor_only == false }}
+    if: ${{ github.event.inputs.monitor_only != 'true' && github.event.inputs.gather_results_only != 'true' }}
     permissions:
       contents: write
       id-token: write
@@ -90,16 +97,43 @@ jobs:
         id: submit
         run: |
           FORCE_FLAG=""
-          if [ "${{ github.event.inputs.force }}" == "true" ]; then
+          if [ "${{ github.event.inputs.force }}" = "true" ] || [ "${{ github.event.inputs.force }}" = true ]; then
             FORCE_FLAG="--force"
           fi
-          OUTPUT=$(uv run python scripts/submit_benchmark_aichor.py \
-            --algorithms "${{ github.event.inputs.algorithms }}" \
-            --dataset-name "${{ github.event.inputs.dataset_name }}" \
-            --dataset-path "${{ github.event.inputs.dataset }}" \
-            --output experiment_ids.json \
-            $FORCE_FLAG 2>&1)
+          
+          echo "Submitting experiments with flags:"
+          echo "  Algorithms: ${{ github.event.inputs.algorithms }}"
+          echo "  Dataset name: ${{ github.event.inputs.dataset_name }}"
+          echo "  Dataset path: ${{ github.event.inputs.dataset }}"
+          echo "  Force flag: ${FORCE_FLAG:-none}"
+          
+          set +e  # Don't exit on error, we'll handle it
+          if [ -n "$FORCE_FLAG" ]; then
+            OUTPUT=$(uv run python scripts/submit_benchmark_aichor.py \
+              --algorithms "${{ github.event.inputs.algorithms }}" \
+              --dataset-name "${{ github.event.inputs.dataset_name }}" \
+              --dataset-path "${{ github.event.inputs.dataset }}" \
+              --output experiment_ids.json \
+              $FORCE_FLAG 2>&1)
+          else
+            OUTPUT=$(uv run python scripts/submit_benchmark_aichor.py \
+              --algorithms "${{ github.event.inputs.algorithms }}" \
+              --dataset-name "${{ github.event.inputs.dataset_name }}" \
+              --dataset-path "${{ github.event.inputs.dataset }}" \
+              --output experiment_ids.json 2>&1)
+          fi
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
           echo "$OUTPUT"
+          
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ Error: submit_benchmark_aichor.py failed with exit code $EXIT_CODE"
+            echo "Output was:"
+            echo "$OUTPUT"
+            exit $EXIT_CODE
+          fi
+          
           # Extract experiment IDs from output
           EXPERIMENT_IDS=$(echo "$OUTPUT" | grep "^EXPERIMENT_IDS=" | cut -d'=' -f2 || echo "")
           if [ -n "$EXPERIMENT_IDS" ]; then
@@ -130,7 +164,8 @@ jobs:
             if git diff --cached --quiet; then
               echo "No changes to experiment_ids.json"
             else
-              git commit -m "Update experiment_ids.json [skip ci]"
+              COMMIT_MSG="Update experiment_ids.json: ${{ github.event.inputs.algorithms }} on ${{ github.event.inputs.dataset_name }} [skip ci]"
+              git commit -m "$COMMIT_MSG"
               git push origin HEAD:${{ github.ref }} || echo "Failed to push (may need manual push or permissions)"
             fi
           else
@@ -152,7 +187,7 @@ jobs:
     runs-on: ${{ github.event.repository.private && 'instadeep-ci-4' || 'ubuntu-latest' }}
     container: ${{ github.event.repository.private && fromJSON('{"image":"ubuntu:22.04"}') || fromJSON('null') }}
     needs: submit_benchmark
-    if: ${{ github.event.inputs.monitor_only || (needs.submit_benchmark.result != 'skipped' && (needs.submit_benchmark.result == 'success' || needs.submit_benchmark.result == 'failure')) }}
+    if: ${{ github.event.inputs.gather_results_only != 'true' && (github.event.inputs.monitor_only == 'true' || (needs.submit_benchmark.result != 'skipped' && (needs.submit_benchmark.result == 'success' || needs.submit_benchmark.result == 'failure'))) }}
     permissions:
       contents: read
       id-token: write
@@ -187,18 +222,41 @@ jobs:
       - name: Determine experiment IDs to monitor
         id: determine_ids
         run: |
+          echo "Debug: Checking experiment ID sources..."
+          echo "  Manual input (experiment_ids): '${{ github.event.inputs.experiment_ids }}'"
+          echo "  Monitor only: '${{ github.event.inputs.monitor_only }}'"
+          echo "  Submit benchmark result: '${{ needs.submit_benchmark.result }}'"
+          echo "  Submit benchmark outputs.experiment_ids: '${{ needs.submit_benchmark.outputs.experiment_ids }}'"
+          
           # Use manual input if provided
-          if [ -n "${{ github.event.inputs.experiment_ids }}" ]; then
-            EXPERIMENT_IDS="${{ github.event.inputs.experiment_ids }}"
-            echo "Using manually provided experiment IDs: $EXPERIMENT_IDS"
+          MANUAL_IDS="${{ github.event.inputs.experiment_ids }}"
+          if [ -n "$MANUAL_IDS" ]; then
+            EXPERIMENT_IDS="$MANUAL_IDS"
+            echo "✅ Using manually provided experiment IDs: $EXPERIMENT_IDS"
           # Use from submit_benchmark job if available (and not skipped)
-          elif [ "${{ github.event.inputs.monitor_only }}" != "true" ] && [ "${{ needs.submit_benchmark.result }}" != "skipped" ] && [ -n "${{ needs.submit_benchmark.outputs.experiment_ids }}" ]; then
-            EXPERIMENT_IDS="${{ needs.submit_benchmark.outputs.experiment_ids }}"
-            echo "Using experiment IDs from submit_benchmark job: $EXPERIMENT_IDS"
+          elif [ "${{ github.event.inputs.monitor_only }}" != "true" ] && [ "${{ needs.submit_benchmark.result }}" != "skipped" ]; then
+            # Check if the output exists (even if empty, it means the step ran)
+            SUBMIT_EXP_IDS="${{ needs.submit_benchmark.outputs.experiment_ids }}"
+            # Check if output was actually set (not just empty string from default)
+            # We need to check if the job output exists, which we can infer from the result
+            if [ "${{ needs.submit_benchmark.result }}" = "success" ] || [ "${{ needs.submit_benchmark.result }}" = "failure" ]; then
+              if [ -n "$SUBMIT_EXP_IDS" ]; then
+                EXPERIMENT_IDS="$SUBMIT_EXP_IDS"
+                echo "✅ Using experiment IDs from submit_benchmark job: $EXPERIMENT_IDS"
+              else
+                echo "⚠️  submit_benchmark completed but no experiment IDs in output"
+                echo "   This means no new experiments were submitted (all were skipped)"
+                echo "   Will monitor all experiments from experiment_ids.json"
+                EXPERIMENT_IDS=""
+              fi
+            else
+              echo "⚠️  submit_benchmark result is '${{ needs.submit_benchmark.result }}', will monitor all"
+              EXPERIMENT_IDS=""
+            fi
           else
             # Fallback: read from experiment_ids.json if it exists
             if [ -f experiment_ids.json ]; then
-              echo "No specific experiment IDs provided, will monitor all experiments in experiment_ids.json"
+              echo "⚠️  No specific experiment IDs provided, will monitor all experiments in experiment_ids.json"
               EXPERIMENT_IDS=""
             else
               echo "⚠️  Warning: No experiment IDs found and experiment_ids.json does not exist"
@@ -207,6 +265,7 @@ jobs:
               EXPERIMENT_IDS=""
             fi
           fi
+          echo "Final EXPERIMENT_IDS: '$EXPERIMENT_IDS'"
           echo "experiment_ids=$EXPERIMENT_IDS" >> $GITHUB_OUTPUT
       
       - name: Monitor experiments
@@ -225,4 +284,105 @@ jobs:
           fi
         env:
           AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+  
+  gather_results:
+    runs-on: ${{ github.event.repository.private && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    container: ${{ github.event.repository.private && fromJSON('{"image":"ubuntu:22.04"}') || fromJSON('null') }}
+    needs: monitor_experiments
+    if: ${{ github.event.inputs.gather_results_only == 'true' || needs.monitor_experiments.result == 'success' || needs.monitor_experiments.result == 'failure' || needs.monitor_experiments.result == 'skipped' }}
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Install system dependencies
+        if: github.event.repository.private
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates git
+      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Install Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+      
+      - name: Inspect results directory (debug)
+        run: |
+          RESULTS_DIR="/mnt/denovo_benchmarks/results_aichor"
+          echo "📂 Inspecting results directory: $RESULTS_DIR"
+          if [ -d "$RESULTS_DIR" ]; then
+            echo "Directory exists"
+            echo ""
+            echo "Contents:"
+            ls -lah "$RESULTS_DIR" || echo "Could not list directory (may need permissions)"
+            echo ""
+            echo "Subdirectories:"
+            find "$RESULTS_DIR" -maxdepth 2 -type d 2>/dev/null | head -20 || echo "Could not traverse directory"
+            echo ""
+            echo "CSV files:"
+            find "$RESULTS_DIR" -name "*_output.csv" -type f 2>/dev/null | head -20 || echo "No CSV files found or could not access"
+          else
+            echo "⚠️  Directory does not exist yet (will be created by gather_results_aichor.py)"
+            echo "Creating directory structure..."
+            mkdir -p "$RESULTS_DIR" || echo "Could not create directory (may need permissions)"
+          fi
+      
+      - name: Authenticate with AIchor
+        run: uv run aichor auth key --apikey ${{ secrets.AICHOR_API_KEY }}
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+      
+      - name: Gather results from AIchor experiments
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" = "true" ] || [ "${{ github.event.inputs.force }}" = true ]; then
+            FORCE_FLAG="--force"
+          fi
+          
+          echo "Gathering results with parameters:"
+          echo "  Dataset name: ${{ github.event.inputs.dataset_name }}"
+          echo "  Force: ${FORCE_FLAG:-none}"
+          echo "  Output directory: /mnt/denovo_benchmarks/results_aichor"
+          
+          # Run gather_results_aichor.py with --output-dir pointing to the desired location
+          uv run python scripts/gather_results_aichor.py \
+            --experiment-ids experiment_ids.json \
+            --dataset-name "${{ github.event.inputs.dataset_name }}" \
+            --output-dir /mnt/denovo_benchmarks/results_aichor \
+            $FORCE_FLAG
+          
+          echo ""
+          echo "✅ Results gathering completed"
+          echo "Results saved to: /mnt/denovo_benchmarks/results_aichor/${{ github.event.inputs.dataset_name }}/"
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      
+      - name: Verify results were downloaded
+        run: |
+          RESULTS_DIR="/mnt/denovo_benchmarks/results_aichor/${{ github.event.inputs.dataset_name }}"
+          echo "📊 Verifying results in: $RESULTS_DIR"
+          if [ -d "$RESULTS_DIR" ]; then
+            CSV_FILES=$(find "$RESULTS_DIR" -name "*_output.csv" -type f 2>/dev/null | wc -l)
+            echo "Found $CSV_FILES CSV file(s)"
+            if [ "$CSV_FILES" -gt 0 ]; then
+              echo ""
+              echo "Files:"
+              find "$RESULTS_DIR" -name "*_output.csv" -type f 2>/dev/null
+            fi
+          else
+            echo "⚠️  Results directory not found: $RESULTS_DIR"
+          fi
     
