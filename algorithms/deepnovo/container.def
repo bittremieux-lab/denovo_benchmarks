@@ -33,7 +33,7 @@ From: tensorflow/tensorflow:1.2.0-gpu
     cd DeepNovo && python deepnovo_cython_setup.py build_ext --inplace && cd ..
     
     # # Download algorithm weights
-    curl -LRO ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy
+    curl -LRO ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy
     # # Download model checkpoint (change to use other model weights)
     pip install gdown
     gdown --folder -O train.example https://drive.google.com/drive/folders/1pAUISLTeh3HQY8aaqzmpRyBFERxUJ1Lt
