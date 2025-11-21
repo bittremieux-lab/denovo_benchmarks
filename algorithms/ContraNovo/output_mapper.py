@@ -134,17 +134,13 @@ class OutputMapper(OutputMapperBase):
             ))
             # number of scores should match number of tokens (+1 for n-term mods token, if any).
             # merge together all scores for n-term modification tokens
-            
             n_term_scores, non_term_scores = aa_scores[:-n_non_term_tokens], aa_scores[-n_non_term_tokens:]
             term_score = np.mean(n_term_scores)
             aa_scores = [term_score] + non_term_scores
 
-        # Fix: for cases when n-term modifications are predicted in the middle of a sequence,
-        # merge scores for n-term modification token with previous AA token 
-        seq_tokens = re.split(self.PEP_SPLIT_PATTERN, sequence.replace("UNIMOD:", ""))
-        for i, token in enumerate(seq_tokens):
-            if any(token.endswith(n_term_code) for n_term_code in self.N_TERM_MOD_CODES):
-                aa_scores[i:i + 2] = [np.mean(aa_scores[i:i + 2])]
+        # FIXME: N-term mods predicted in the middle of a sequence are currently not supported.
+        # If N-term mod is in the middle of a sequence, it leads to n_tokens != n_scores,
+        # and such sequences are thus always discarded during evaluation
         
         aa_scores = self._format_scores(aa_scores)
         return sequence, aa_scores
