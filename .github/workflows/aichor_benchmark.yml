@@ -1,0 +1,228 @@
+name: AIchor Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      algorithms:
+        description: 'Algorithms to benchmark (comma-separated or "all" or "test")'
+        required: true
+        default: 'test'
+        type: string
+      dataset:
+        description: 'Dataset path (use sample_data/9_species_human for testing)'
+        required: true
+        default: 'sample_data/9_species_human'
+        type: string
+      dataset_name:
+        description: 'Dataset name for results'
+        required: true
+        default: '9_species_human'
+        type: string
+      experiment_ids:
+        description: 'Experiment IDs to monitor (comma-separated, leave empty to monitor from submit_benchmark job)'
+        required: false
+        default: ''
+        type: string
+      monitor_only:
+        description: 'Only monitor experiments (skip submission)'
+        required: false
+        default: false
+        type: boolean
+      force:
+        description: 'Force resubmission: remove existing (algorithm, dataset) entries and resubmit'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  submit_benchmark:
+    runs-on: ${{ github.event.repository.private && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    container: ${{ github.event.repository.private && fromJSON('{"image":"ubuntu:22.04"}') || fromJSON('null') }}
+    if: ${{ !github.event.inputs.monitor_only || github.event.inputs.monitor_only == 'false' || github.event.inputs.monitor_only == false }}
+    permissions:
+      contents: write
+      id-token: write
+    
+    steps:
+      - name: Install system dependencies
+        if: github.event.repository.private
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates git
+      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Print workflow inputs
+        run: |
+          echo "Algorithms: ${{ github.event.inputs.algorithms }}"
+          echo "Dataset: ${{ github.event.inputs.dataset }}"
+          echo "Dataset name: ${{ github.event.inputs.dataset_name }}"
+          echo "Repository private: ${{ github.event.repository.private }}"
+          echo "Runner: ${{ runner.os }}"
+      
+      - name: Test environment
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "User: $(whoami)"
+          echo "OS Info: $(uname -a)"
+          ls -la
+      
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Install Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+      
+      - name: Authenticate with AIchor
+        run: uv run aichor auth key --apikey ${{ secrets.AICHOR_API_KEY }}
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+      
+      - name: Submit AIchor experiments
+        id: submit
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force }}" == "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          OUTPUT=$(uv run python scripts/submit_benchmark_aichor.py \
+            --algorithms "${{ github.event.inputs.algorithms }}" \
+            --dataset-name "${{ github.event.inputs.dataset_name }}" \
+            --dataset-path "${{ github.event.inputs.dataset }}" \
+            --output experiment_ids.json \
+            $FORCE_FLAG 2>&1)
+          echo "$OUTPUT"
+          # Extract experiment IDs from output
+          EXPERIMENT_IDS=$(echo "$OUTPUT" | grep "^EXPERIMENT_IDS=" | cut -d'=' -f2 || echo "")
+          if [ -n "$EXPERIMENT_IDS" ]; then
+            echo "experiment_ids=$EXPERIMENT_IDS" >> $GITHUB_OUTPUT
+            echo "Found experiment IDs: $EXPERIMENT_IDS"
+          else
+            echo "No new experiment IDs found in output"
+            echo "experiment_ids=" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Display experiment IDs
+        run: |
+          echo "Submitted experiments:"
+          cat experiment_ids.json
+          echo ""
+          echo "Experiment IDs to monitor: ${{ steps.submit.outputs.experiment_ids }}"
+      
+      - name: Commit experiment_ids.json
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          
+          if [ -f experiment_ids.json ]; then
+            # Check if there are changes to commit
+            git add experiment_ids.json
+            if git diff --cached --quiet; then
+              echo "No changes to experiment_ids.json"
+            else
+              git commit -m "Update experiment_ids.json [skip ci]"
+              git push origin HEAD:${{ github.ref }} || echo "Failed to push (may need manual push or permissions)"
+            fi
+          else
+            echo "experiment_ids.json not found, skipping commit"
+          fi
+      
+      - name: Output experiment IDs for monitoring
+        if: always()
+        run: |
+          if [ -n "${{ steps.submit.outputs.experiment_ids }}" ]; then
+            echo "experiment_ids=${{ steps.submit.outputs.experiment_ids }}" >> $GITHUB_OUTPUT
+            echo "Job-level output: experiment_ids=${{ steps.submit.outputs.experiment_ids }}"
+          else
+            echo "experiment_ids=" >> $GITHUB_OUTPUT
+            echo "No new experiment IDs to output (may monitor existing from experiment_ids.json)"
+          fi
+  
+  monitor_experiments:
+    runs-on: ${{ github.event.repository.private && 'instadeep-ci-4' || 'ubuntu-latest' }}
+    container: ${{ github.event.repository.private && fromJSON('{"image":"ubuntu:22.04"}') || fromJSON('null') }}
+    needs: submit_benchmark
+    if: ${{ github.event.inputs.monitor_only || (needs.submit_benchmark.result != 'skipped' && (needs.submit_benchmark.result == 'success' || needs.submit_benchmark.result == 'failure')) }}
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Install system dependencies
+        if: github.event.repository.private
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates git
+      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Install Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+      
+      - name: Authenticate with AIchor
+        run: uv run aichor auth key --apikey ${{ secrets.AICHOR_API_KEY }}
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+      
+      - name: Determine experiment IDs to monitor
+        id: determine_ids
+        run: |
+          # Use manual input if provided
+          if [ -n "${{ github.event.inputs.experiment_ids }}" ]; then
+            EXPERIMENT_IDS="${{ github.event.inputs.experiment_ids }}"
+            echo "Using manually provided experiment IDs: $EXPERIMENT_IDS"
+          # Use from submit_benchmark job if available (and not skipped)
+          elif [ "${{ github.event.inputs.monitor_only }}" != "true" ] && [ "${{ needs.submit_benchmark.result }}" != "skipped" ] && [ -n "${{ needs.submit_benchmark.outputs.experiment_ids }}" ]; then
+            EXPERIMENT_IDS="${{ needs.submit_benchmark.outputs.experiment_ids }}"
+            echo "Using experiment IDs from submit_benchmark job: $EXPERIMENT_IDS"
+          else
+            # Fallback: read from experiment_ids.json if it exists
+            if [ -f experiment_ids.json ]; then
+              echo "No specific experiment IDs provided, will monitor all experiments in experiment_ids.json"
+              EXPERIMENT_IDS=""
+            else
+              echo "⚠️  Warning: No experiment IDs found and experiment_ids.json does not exist"
+              echo "This might happen if submit_benchmark was skipped or no experiments were submitted"
+              echo "Will attempt to monitor anyway (monitor script will handle empty file)"
+              EXPERIMENT_IDS=""
+            fi
+          fi
+          echo "experiment_ids=$EXPERIMENT_IDS" >> $GITHUB_OUTPUT
+      
+      - name: Monitor experiments
+        run: |
+          EXPERIMENT_IDS="${{ steps.determine_ids.outputs.experiment_ids }}"
+          if [ -n "$EXPERIMENT_IDS" ]; then
+            echo "Monitoring experiments: $EXPERIMENT_IDS"
+            uv run python scripts/monitor_experiment.py "$EXPERIMENT_IDS" \
+              --experiment-ids-file experiment_ids.json \
+              --poll-interval 32
+          else
+            echo "Monitoring all experiments from experiment_ids.json"
+            uv run python scripts/monitor_experiment.py \
+              --experiment-ids-file experiment_ids.json \
+              --poll-interval 32
+          fi
+        env:
+          AICHOR_API_KEY: ${{ secrets.AICHOR_API_KEY }}
+    
