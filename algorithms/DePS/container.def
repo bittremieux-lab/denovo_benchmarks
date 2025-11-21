@@ -26,7 +26,7 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
 
     # Download additional weights
     cd DePS4DenovoBenchmarks
-    curl -L ftp://massive.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy
+    curl -L ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy
 
 %post
     # Make sure make_predictions.sh file is executable.
