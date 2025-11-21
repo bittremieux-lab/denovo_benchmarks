@@ -12,6 +12,8 @@ from tqdm import tqdm
 from base import InputMapperBase
 
 
+KEYS = ["title", "pepmass", "rtinseconds", "charge"]
+
 class InputMapper(InputMapperBase):
     
     def format_input(self, spectrum, spectrum_idx, filename):
@@ -35,6 +37,9 @@ class InputMapper(InputMapperBase):
 
         # change "title" based on filename and spectrum index (0-based)
         spectrum["params"]["title"] = filename + ":" + str(spectrum_idx)
+
+        # keep only the relevant keys in params (others may cause issues)
+        spectrum["params"] = {k: v for k, v in spectrum["params"].items() if k in KEYS}
         return spectrum
 
 
@@ -62,7 +67,7 @@ mapped_spectra = [
 mgf.write(
     mapped_spectra,
     args.output_path,
-    key_order=["title", "pepmass", "rtinseconds", "charge"],
+    key_order=KEYS,
     file_mode="w",
 )
 print(
