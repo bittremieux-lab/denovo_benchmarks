@@ -8,8 +8,8 @@ From: python:3.10
     algorithms/instanovo/output_mapper.py /algo
     
 %post
-    # Install algorithm
-    pip install --no-cache-dir "instanovo>=1.0.0"
+    # Install algorithm. Pin exact version for reproducibility
+    pip install --no-cache-dir "instanovo==1.1.2"
 
     # Download additional weights
     cd /algo
