@@ -1,0 +1,5 @@
+- container_version: "benchmark-1.0.0"
+  date: "2025-03-26" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation."
+  upstream_ref: "git: https://github.com/Westlake-OmicsAI/adanovo_v1.git@212fbd4" # optional reference

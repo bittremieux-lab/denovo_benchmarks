@@ -1,0 +1,27 @@
+# versions.log — newest first
+# Copy this file to: algorithms/<tool>/versions.log
+
+# ───────────────────────────────────────────────────────────────────────────
+# REQUIRED FIELDS
+# - container_version : Human-facing ID shown in paths & dashboard.
+#                       Recommended formats (pick one):
+#                       * Pip release (if available):  "X.Y.Z"               (e.g., "1.0.0")
+#                       * Tool version for benchmark:  "benchmark-X.Y.Z"     (e.g., "benchmark-1.0.0")
+# - date              : Date of the container update, YYYY-MM-DD.
+# - repo_commit       : Short SHA (7 chars) of THIS benchmarking repo at the time
+#                       of the container update. Obtain via:
+#                         git rev-parse --short=7 HEAD
+# - notes             : One-line human note (what changed / why).
+#
+# Keep it simple. Do not add hashes unless you WANT them.
+# ───────────────────────────────────────────────────────────────────────────
+
+- container_version: "<PUT-ID-HERE>"
+  date: "YYYY-MM-DD"                 # date of container update
+  repo_commit: "<shortsha7>"          # denovo_benchmarks commit with container update
+  notes: "<short note>"              # what changed / why
+  # optional provenance (choose one or omit):
+  # - pip: <package>==<version>
+  # - git: <repo>@<commit>               # or add branch when non-default:
+  #        <repo>@<commit>#branch=<branch>
+  upstream_ref: "<reference>"

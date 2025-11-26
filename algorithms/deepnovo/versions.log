@@ -1,0 +1,5 @@
+- container_version: "benchmark-1.0.0"
+  date: "2025-10-08" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation with TF 1.2."
+  upstream_ref: "git: https://github.com/nh2tran/DeepNovo.git@bb5840f#release.0.0.1" # optional reference

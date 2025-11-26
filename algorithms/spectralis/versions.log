@@ -1,0 +1,5 @@
+- container_version: "benchmark-1.0.0"
+  date: "2025-11-20" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation."
+  upstream_ref: "git: https://github.com/gagneurlab/spectralis.git@bbb1d9d" # optional reference

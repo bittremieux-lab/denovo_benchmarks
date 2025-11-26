@@ -1,0 +1,5 @@
+- container_version: "benchmark-1.0.0"
+  date: "2025-10-06" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation."
+  upstream_ref: "git: https://github.com/yangshu729/biatNovo-DDA.git@887fd04" # optional reference

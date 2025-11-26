@@ -1,0 +1,5 @@
+- container_version: "benchmark-1.0.0"
+  date: "2025-09-01" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation."
+  upstream_ref: "git: https://github.com/PHOENIXcenter/pi-HelixNovo.git@941d754#branch=pi-HelixNovo-for-DenovoBenchmarks" # optional reference

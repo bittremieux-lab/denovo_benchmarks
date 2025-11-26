@@ -1,0 +1,4 @@
+- container_version: "v5.0.6-b293"
+  date: "2025-06-30" # date of container update
+  repo_commit: "5fa09b3" # commit with container update
+  notes: "Original implementation."
