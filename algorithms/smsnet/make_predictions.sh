@@ -10,14 +10,12 @@ while IFS='=' read -r key value; do
 done <<< "$DSET_TAGS"
 
 # Create output folder
-# Should be mounted instead
-#mkdir /algo/data
 mkdir -p /algo/data/smsnet_temp
 mkdir -p /algo/data/smsnet_temp/mgf
 mkdir -p /algo/data/smsnet_temp/mgf_output
 
-rm '/algo/data/smsnet_temp/mgf/*'
-rm '/algo/data/smsnet_temp/mgf_output/*'
+rm /algo/data/smsnet_temp/mgf/*
+rm /algo/data/smsnet_temp/mgf_output/*
 
 # Iterate through files in the dataset
 for input_file in "$@"/*.mgf; do
@@ -28,7 +26,7 @@ for input_file in "$@"/*.mgf; do
     FPREFIX="${FNAME%.*}"
 
     # Convert input data to model format
-    python input_mapper.py \
+    python /algo/input_mapper.py \
         --input_path "$input_file" \
         --output_path /algo/data/smsnet_temp/mgf/$FNAME
 
@@ -46,6 +44,8 @@ for input_file in "$@"/*.mgf; do
         python run.py --model_dir ./model --inference_input_file /algo/data/smsnet_temp/mgf/$FNAME --rescore
         MODE='m-mod'
     fi
+
+    cd /algo
 
 done
 

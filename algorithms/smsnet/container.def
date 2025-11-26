@@ -20,12 +20,12 @@ From: tensorflow/tensorflow:1.11.0-gpu-py3
     
 %post
     # Download standard model (with M-mod)
-    curl -L -o /algo/standard/model.tar https://figshare.com/ndownloader/files/15438275
+    curl -L -o /algo/standard/model.tar https://ndownloader.figshare.com/files/15438275
     cd /algo/standard && tar -zxf model.tar --no-same-owner
     mv smsnet model
-
+    
     # Download phospho model (with M-mod and P-mod)
-    curl -L -o /algo/phospho/model.tar https://figshare.com/ndownloader/files/15438278
+    curl -L -o /algo/phospho/model.tar https://ndownloader.figshare.com/files/15438278
     cd /algo/phospho && tar -zxf model.tar --no-same-owner 
     mv smsnet_phospho model
 
