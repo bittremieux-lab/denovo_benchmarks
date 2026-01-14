@@ -1,4 +1,20 @@
 #!/bin/bash
+
+recalculate=false
+create_symlinks=true
+
+while getopts ":rs" opt; do
+  case $opt in
+    r) recalculate=true
+    ;;
+    s) create_symlinks=false
+    ;;
+    \?) echo "Invalid option -$OPTARG" >&2
+    ;;
+  esac
+done
+shift $((OPTIND-1))
+
 dset_dir="$1"
 algorithm="$2"
 spectra_dir="$dset_dir/mgf"
@@ -7,7 +23,6 @@ time_log_root_dir="./times"
 overlay_size=4096
 
 dset_name=$(basename "$dset_dir")
-output_dir="$output_root_dir/$dset_name"
 time_log_dir="$time_log_root_dir/$dset_name"
 
 # Echo message based on whether an algorithm is provided
@@ -17,26 +32,22 @@ else
     echo "Running benchmark with $algorithm on dataset $dset_name."
 fi
 
-recalculate=false
-
-while getopts ":r" opt; do
-  case $opt in
-    r) recalculate=true
-    ;;
-    \?) echo "Invalid option -$OPTARG" >&2
-    ;;
-  esac
-done
 echo "Recalculate all algorithm outputs: $recalculate"
+echo "Create 'latest' symlinks: $create_symlinks"
 
 if "$recalculate"; then
-    # Clean output dir 
-    rm -rf "$output_dir"
+    # Clean output and time logs for this dataset
+    for algo_dir in algorithms/*; do
+        algo_name=$(basename "$algo_dir")
+        if [ -d "$algo_dir" ] && [ "$algo_name" != "base" ]; then
+            # Remove all versions' outputs for this dataset
+            find "$output_root_dir/$algo_name" -name "${dset_name}_output.csv" -delete 2>/dev/null
+        fi
+    done
     rm -rf "$time_log_dir"
 fi
 
-# Create the output directory if it doesn't exist
-mkdir -p "$output_dir"
+# Create the time log directory if it doesn't exist
 mkdir -p "$time_log_dir"
 
 # List input files
@@ -53,9 +64,28 @@ for algorithm_dir in algorithms/*; do
         # If an algorithm is specified, only continue if algorithm_name matches
         if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
 
+            # Get algorithm version from versions.log
+            if [ -f "$algorithm_dir/versions.log" ]; then
+                algo_version=$(python3 -c "import yaml; data=yaml.safe_load(open('$algorithm_dir/versions.log')); print(data[0]['container_version'])")
+            else
+                algo_version="unknown"
+            fi
+
+            algo_output_dir="$output_root_dir/$algorithm_name/$algo_version"
+            mkdir -p "$algo_output_dir"
+            output_file="$algo_output_dir/${dset_name}_output.csv"
+            
+            # Create/update 'latest' symlink pointing to current version
+            if [ "$create_symlinks" = true ]; then
+                latest_link="$output_root_dir/$algorithm_name/latest"
+                if [ -L "$latest_link" ]; then
+                    rm "$latest_link"
+                fi
+                ln -s "$algo_version" "$latest_link"
+            fi
+            
             time_log_file="$time_log_dir/${algorithm_name}_time.log"
-            output_file="$output_dir/${algorithm_name}_output.csv"
-            echo "Output file: $output_file"
+            echo "Output file: $output_file (version: $algo_version)"
             
             # Check if the output file does not exist
             if [ ! -e "$output_file" ]; then
@@ -79,10 +109,10 @@ for algorithm_dir in algorithms/*; do
                 echo "EXPORT PREDICTIONS"
                 apptainer exec --fakeroot \
                     --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
-                    -B "${output_dir}":/algo/outputs \
+                    -B "${algo_output_dir}":/algo/outputs \
                     --env-file .env \
                     "algorithms/${algorithm_name}/container.sif" \
-                    bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
+                    bash -c "cp /algo/outputs.csv /algo/outputs/${dset_name}_output.csv"
 
             else
                 echo "Skipping running algorithm: $algorithm_name. Output file already exists."
@@ -109,13 +139,21 @@ for algorithm_dir in algorithms/*; do
         # If an algorithm is specified, only continue if algorithm_name matches
         if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
 
-            output_file="$output_dir/${algorithm_name}_output.csv"
+            # Get algorithm version
+            if [ -f "$algorithm_dir/versions.log" ]; then
+                algo_version=$(python3 -c "import yaml; data=yaml.safe_load(open('$algorithm_dir/versions.log')); print(data[0]['container_version'])")
+            else
+                algo_version="unknown"
+            fi
+            
+            algo_output_dir="$output_root_dir/$algorithm_name/$algo_version"
+            output_file="$algo_output_dir/${dset_name}_output.csv"
             echo "Output file: $output_file"
 
             # Augment algorithm predictions with RT and SA (if not already present)
             echo "AUGMENT PREDICTIONS"
             apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-                bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+                bash -c "python -m evaluation.augment_predictions --output_dir ${algo_output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name} --dataset_name ${dset_name}"
 
         fi
 
@@ -126,4 +164,4 @@ done
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
+    bash -c "python -m evaluation.evaluate ${output_root_dir} ${dset_dir} --dataset_name ${dset_name}"

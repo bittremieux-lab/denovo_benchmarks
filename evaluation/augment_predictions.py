@@ -34,14 +34,18 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument(
+    "--dataset_name",
+    required=True,
+    help="The name of the dataset.",
+)
+parser.add_argument(
     "--force",
     help="Force re-computation even if pred_RT and SA already exist in the output file.",
     action="store_true",
 )
 args = parser.parse_args()
 
-# output_dir="$output_root_dir/$dset_name" always contains dataset_name as the last part
-dataset_name = os.path.basename(os.path.normpath(args.output_dir))
+dataset_name = args.dataset_name
 
 # Get dataset tags (by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
@@ -55,7 +59,7 @@ print("Use prediction models:")
 print(f"- Intensity: {model_name_I}, supported PTMs: {supported_mods_I}")
 print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 
-output_file = f"{args.algo_name}_output.csv"
+output_file = f"{dataset_name}_output.csv"
 output_path = os.path.join(args.output_dir, output_file)
 output_data = pd.read_csv(output_path)
 
