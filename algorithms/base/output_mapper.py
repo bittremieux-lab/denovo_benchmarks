@@ -75,7 +75,7 @@ class OutputMapperBase:
         the ProForma delta mass notation!
         """
         try:
-            seq = proforma.parse(sequence)
+            seq = proforma.parse(sequence.replace("][", ", "))
             n_tokens = len(seq[0])
             if seq[1]["n_term"]:
                 n_tokens += len(seq[1]["n_term"])
