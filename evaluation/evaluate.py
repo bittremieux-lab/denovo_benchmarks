@@ -10,10 +10,15 @@ import pandas as pd
 import plotly.graph_objects as go
 import subprocess
 from functools import partial
+from pathlib import Path
 from pyteomics import mgf, proforma
 from pyteomics.mass.unimod import Unimod
 from sklearn.metrics import auc
 from tqdm import tqdm
+
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from version_utils import get_latest_version
 
 from . import utils
 from . import mmseqs
@@ -49,12 +54,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "output_dir",
     help="""
-    The path to the directory containing algorithm predictions 
-    stored in `algorithm_outputs.csv` files.
+    The path to the outputs directory (versioned structure).
     """,
 )
 parser.add_argument(
     "data_dir", help="The path to the input data with ground truth labels."
+)
+parser.add_argument(
+    "--dataset_name",
+    required=True,
+    help="The name of the dataset.",
 )
 parser.add_argument(
     "--results_dir",
@@ -63,9 +72,7 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-
-# Define dataset name and path to store evaluation results
-dataset_name = os.path.basename(os.path.normpath(args.output_dir))
+dataset_name = args.dataset_name
 print(f"Evaluating results for {dataset_name}.")
 
 # Get dataset tags and database_path (proteome column, by dataset_name)
@@ -223,17 +230,44 @@ sa_fig.update_layout(
 
 
 output_metrics = {}
-for output_file in os.listdir(args.output_dir):
-    # algo_name = output_file.split("_")[0]
-    algo_name = "_".join(output_file.split("_")[:-1])
-    print("EVALUATE", algo_name)
+# Parse versioned structure: outputs/{algo}/{version}/
+for algo_name in os.listdir(args.output_dir):
+    algo_dir = os.path.join(args.output_dir, algo_name)
+    if not os.path.isdir(algo_dir):
+        continue
+    
+    # Determine which version is 'latest' from versions.log
+    algo_path = Path("algorithms") / algo_name
+    try:
+        latest_version = get_latest_version(algo_path)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Warning: Could not determine latest version for {algo_name}: {e}")
+        latest_version = None
+    
+    # Process each version directory
+    for version in os.listdir(algo_dir):
+        if version == 'latest':  # Skip the symlink itself
+            continue
+        version_dir = os.path.join(algo_dir, version)
+        if not os.path.isdir(version_dir):
+            continue
+        
+        output_file = f"{dataset_name}_output.csv"
+        output_path = os.path.join(version_dir, output_file)
+        if not os.path.isfile(output_path):
+            continue
+        
+        # Determine display name: {algo}_{version} or {algo}_{version}_latest
+        is_latest = (version == latest_version)
+        display_name = f"{algo_name}_{version}_latest" if is_latest else f"{algo_name}_{version}"
+        
+        print(f"EVALUATE {display_name}")
 
-    # Load tool predictions, match with ground truth
-    output_path = os.path.join(args.output_dir, output_file)
-    output_data = utils.load_predictions(output_path, sequences_true)
+        # Load tool predictions, match with ground truth
+        output_data = utils.load_predictions(output_path, sequences_true)
 
     # Get idxs of GT labeled peptides & sequenced peptides (in correct output format)
-    print(algo_name)
+    print(display_name)
     print("NaN sequences:", output_data["score"].isnull().sum())
     output_data = output_data.sort_values("score", ascending=False)
     labeled_idx = output_data["sequence_true"].notnull()  
@@ -309,7 +343,7 @@ for output_file in os.listdir(args.output_dir):
     output_data.loc[labeled_idx, "pep_match"] = pep_matches
     
     # Collect metrics
-    output_metrics[algo_name] = {
+    output_metrics[display_name] = {
         "N sequences": sequenced_idx.size,
         "N predicted": sequenced_idx.sum(),
         "AA precision": aa_precision,
@@ -336,7 +370,7 @@ for output_file in os.listdir(args.output_dir):
             x=coverage[plot_idxs],
             y=rt_diff_wma[plot_idxs],
             mode="lines",
-            name=f"{algo_name}",
+            name=f"{display_name}",
         )
     )
 
@@ -354,7 +388,7 @@ for output_file in os.listdir(args.output_dir):
             x=coverage[plot_idxs],
             y=SA_wma[plot_idxs],
             mode="lines",
-            name=f"{algo_name}",
+            name=f"{display_name}",
         )
     )
 
@@ -368,7 +402,7 @@ for output_file in os.listdir(args.output_dir):
             x=n_sequenced[plot_idxs],
             y=n_matches[plot_idxs],
             mode="lines",
-            name=f"{algo_name}",
+            name=f"{display_name}",
         )
     )
 
@@ -382,7 +416,7 @@ for output_file in os.listdir(args.output_dir):
             x=coverage[plot_idxs],
             y=precision[plot_idxs],
             mode="lines",
-            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+            name=f"{display_name} AUC = {auc(coverage, precision):.3f}",
         )
     )
 
@@ -406,7 +440,7 @@ for output_file in os.listdir(args.output_dir):
             x=coverage[plot_idxs],
             y=precision[plot_idxs],
             mode="lines",
-            name=f"{algo_name} AUC = {auc(coverage, precision):.3f}",
+            name=f"{display_name} AUC = {auc(coverage, precision):.3f}",
         )
     )
     
