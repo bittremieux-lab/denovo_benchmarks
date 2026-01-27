@@ -22,21 +22,16 @@ DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH']
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--output_dir",
-    help="The path to the output directory containing algorithm outputs.",
+    help="The path to the output directory containing algorithm outputs (for all datasets).",
 )
 parser.add_argument(
     "--data_dir", help="The path to the input data directory with spectra in mgf/ subdirectory."
 )
 parser.add_argument(
-    "--algo_name",
-    help="The name of the algorithm (used in the output file name). If not provided, "
+    "--dataset_name",
+    help="The name of the dataset (used in the output file name). If not provided, "
          "all algorithms in output_dir will be processed.",
     default=None,
-)
-parser.add_argument(
-    "--dataset_name",
-    required=True,
-    help="The name of the dataset.",
 )
 parser.add_argument(
     "--force",
