@@ -13,7 +13,7 @@
 #                         git rev-parse --short=7 HEAD
 # - notes             : One-line human note (what changed / why).
 #
-# Keep it simple. Do not add hashes unless you WANT them.
+# Keep it simple. 
 # ───────────────────────────────────────────────────────────────────────────
 
 - container_version: "<PUT-ID-HERE>"

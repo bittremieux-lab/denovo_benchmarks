@@ -15,17 +15,37 @@ shift $((OPTIND-1))
 
 dset_dir="$1"
 algorithm_name="$2"
+dset_name=$(basename "$dset_dir")
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
 time_log_root_dir="./times"
 overlay_size=4096
 
-dset_name=$(basename "$dset_dir")
-output_dir="$output_root_dir/$dset_name"
-time_log_dir="$time_log_root_dir/$dset_name"
+# Check if algorithm exists and is not "base"
+if [ ! -d "algorithms/${algorithm_name}" ]; then
+    echo "Error: Algorithm '${algorithm_name}' not found in algorithms/" >&2
+    exit 1
+fi
+
+if [ "${algorithm_name}" = "base" ]; then
+    echo "Error: 'base' is not an algorithm" >&2
+    exit 1
+fi
+
+# Extract latest container version
+algorithm_version=$(grep -m 1 "container_version:" "algorithms/${algorithm_name}/versions.log" | awk -F'"' '{print $2}')
+# Validate version extraction worked
+if [ -z "$algorithm_version" ]; then
+    echo "Error: Could not extract container_version from algorithms/${algorithm_name}/versions.log" >&2
+    exit 1
+fi
 
 echo "Running benchmark with $algorithm_name on dataset $dset_name."
-echo "Recalculate all algorithm outputs: $recalculate"
+echo "Using algorithm version: $algorithm_version."
+echo "Recalculate the algorithm output: $recalculate."
+
+output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
+time_log_dir="$time_log_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
 if [ "$recalculate" = true ]; then
     # Clean output dir 
@@ -42,19 +62,8 @@ echo "Processing dataset: $dset_name ($dset_dir)"
 ls "$spectra_dir/"*.mgf
 
 # 1. Run algorithm & get predictions
-# Check if algorithm exists and is not "base"
-if [ ! -d "algorithms/${algorithm_name}" ]; then
-    echo "Error: Algorithm '${algorithm_name}' not found in algorithms/" >&2
-    exit 1
-fi
-
-if [ "${algorithm_name}" = "base" ]; then
-    echo "Error: 'base' is not an algorithm" >&2
-    exit 1
-fi
-
-time_log_file="$time_log_dir/${algorithm_name}_time.log"
-output_file="$output_dir/${algorithm_name}_output.csv"
+time_log_file="$time_log_dir/time.log"
+output_file="$output_dir/output.csv"
 echo "Output file: $output_file"
 
 # Check if the output file does not exist
@@ -82,7 +91,7 @@ if [ ! -e "$output_file" ]; then
         -B "${output_dir}":/algo/outputs \
         --env-file .env \
         "algorithms/${algorithm_name}/container.sif" \
-        bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
+        bash -c "cp /algo/outputs.csv /algo/outputs/output.csv"
 
 else
     echo "Skipping running algorithm: $algorithm_name. Output file already exists."
@@ -95,14 +104,16 @@ else
 fi
 
 # 2. Augment predictions with predicted RT and SA between predictied and experimental spectra
-output_file="$output_dir/${algorithm_name}_output.csv"
+output_file="$output_dir/output.csv"
 echo "Output file: $output_file"
 # Augment algorithm predictions with RT and SA (if not already present)
 echo "AUGMENT PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
     bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+# TODO: fix augment_predictions semantics, only pass necessary information
 
 # 3. Evaluate predictions
+# (evaluation will always run on all available algorithm results for the dataset)
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
