@@ -7,13 +7,25 @@ output_root_dir="./outputs"
 time_log_root_dir="./times"
 overlay_size=2048
 
-echo "Running benchmark with $algorithm_name on dataset $dset_name."
-
 # get dataset name
 dset_name=$(basename "$dset_dir")
+
+echo "Running benchmark with $algorithm_name on dataset $dset_name."
+
 # List input files
 echo "Processing dataset: $dset_name ($dset_dir)"
-ls "$spectra_dir"/*.mgf
+ls "$spectra_dir/"*.mgf
+
+# Check if algorithm exists and is not "base"
+if [ ! -d "algorithms/${algorithm_name}" ]; then
+    echo "Error: Algorithm '${algorithm_name}' not found in algorithms/" >&2
+    exit 1
+fi
+
+if [ "${algorithm_name}" = "base" ]; then
+    echo "Error: 'base' is not an algorithm" >&2
+    exit 1
+fi
 
 # Store (sorted) input files in a bash array
 mapfile -t mgf_files < <(find "$spectra_dir" -maxdepth 1 -type f -name '*.mgf' | sort)
@@ -33,20 +45,13 @@ for part_idx in $(seq 0 $((split_n-1))); do
     # Create the output directory if it doesn't exist
     mkdir -p "$part_output_dir" "$part_time_log_dir"
     
-    # get algorithm files path(?), names for output files for this algorithm_name(!)
-    # TODO: need also some check that $algorithm_name argument is a valid algorithm name 
-    # = name of one of the tools in $algorithm_dir
-    # smth like here
-    # if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
-    #     algorithm_name=$(basename "$algorithm_dir")
-    
     time_log_file="$part_time_log_dir/${algorithm_name}_time.log"
     output_file="$part_output_dir/${algorithm_name}_output.csv"
     echo "Output file: $output_file"
     
     # Check if the output file does not exist
     if [ ! -e "$output_file" ]; then
-        echo "Running algorithm ${algorithm_name} for ${dset_name} part ${part}:"
+        echo "Running algorithm ${algorithm_name} for ${dset_name} part ${part_idx}:"
         
         # create a "subset dataset"
 			  # - create a temporary directory that will hold just this slice
@@ -139,4 +144,4 @@ done
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python evaluate.py ${output_dir}/ ${dset_dir}"
+    bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"

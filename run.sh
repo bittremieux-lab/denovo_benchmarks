@@ -1,21 +1,5 @@
 #!/bin/bash
-dset_dir="$1"
-algorithm="$2"
-spectra_dir="$dset_dir/mgf"
-output_root_dir="./outputs"
-time_log_root_dir="./times"
-overlay_size=4096
-
-dset_name=$(basename "$dset_dir")
-output_dir="$output_root_dir/$dset_name"
-time_log_dir="$time_log_root_dir/$dset_name"
-
-# Echo message based on whether an algorithm is provided
-if [ -z "$algorithm" ]; then
-    echo "Running benchmark with all algorithms on dataset $dset_name."
-else
-    echo "Running benchmark with $algorithm on dataset $dset_name."
-fi
+# Run a given algorithm on a given dataset (without splitting)
 
 recalculate=false
 
@@ -27,9 +11,23 @@ while getopts ":r" opt; do
     ;;
   esac
 done
+shift $((OPTIND-1))
+
+dset_dir="$1"
+algorithm_name="$2"
+spectra_dir="$dset_dir/mgf"
+output_root_dir="./outputs"
+time_log_root_dir="./times"
+overlay_size=4096
+
+dset_name=$(basename "$dset_dir")
+output_dir="$output_root_dir/$dset_name"
+time_log_dir="$time_log_root_dir/$dset_name"
+
+echo "Running benchmark with $algorithm_name on dataset $dset_name."
 echo "Recalculate all algorithm outputs: $recalculate"
 
-if "$recalculate"; then
+if [ "$recalculate" = true ]; then
     # Clean output dir 
     rm -rf "$output_dir"
     rm -rf "$time_log_dir"
@@ -41,86 +39,68 @@ mkdir -p "$time_log_dir"
 
 # List input files
 echo "Processing dataset: $dset_name ($dset_dir)"
-ls "$spectra_dir"/*.mgf
+ls "$spectra_dir/"*.mgf
 
-# 1. Run algorithms & get predictions
-# Loop through each algorithm in the algorithms directory
-for algorithm_dir in algorithms/*; do
+# 1. Run algorithm & get predictions
+# Check if algorithm exists and is not "base"
+if [ ! -d "algorithms/${algorithm_name}" ]; then
+    echo "Error: Algorithm '${algorithm_name}' not found in algorithms/" >&2
+    exit 1
+fi
 
-    if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
-        algorithm_name=$(basename "$algorithm_dir")
+if [ "${algorithm_name}" = "base" ]; then
+    echo "Error: 'base' is not an algorithm" >&2
+    exit 1
+fi
 
-        # If an algorithm is specified, only continue if algorithm_name matches
-        if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
+time_log_file="$time_log_dir/${algorithm_name}_time.log"
+output_file="$output_dir/${algorithm_name}_output.csv"
+echo "Output file: $output_file"
 
-            time_log_file="$time_log_dir/${algorithm_name}_time.log"
-            output_file="$output_dir/${algorithm_name}_output.csv"
-            echo "Output file: $output_file"
-            
-            # Check if the output file does not exist
-            if [ ! -e "$output_file" ]; then
-                echo "Processing algorithm: $algorithm_name"
+# Check if the output file does not exist
+if [ ! -e "$output_file" ]; then
+    echo "Processing algorithm: $algorithm_name"
 
-                # Remove an existing container overlay, if any
-                rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
-                # Create writable overlay for the container
-                apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay_${dset_name}.img"
+    # Remove an existing container overlay, if any
+    rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
+    # Create writable overlay for the container
+    apptainer overlay create --fakeroot --size $overlay_size --sparse "algorithms/${algorithm_name}/overlay_${dset_name}.img"
 
-                # Calculate predictions
-                echo "RUN ALGORITHM $algorithm_name"
-                { time ( apptainer exec --fakeroot --nv \
-                    --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
-                    -B "${spectra_dir}":"/algo/${dset_name}" \
-                    --env-file .env \
-                    "algorithms/${algorithm_name}/container.sif" \
-                    bash -c "cd /algo && ./make_predictions.sh ${dset_name}" 2>&1 ); } 2> "$time_log_file"
-                
-                # Collect predictions in output_dir
-                echo "EXPORT PREDICTIONS"
-                apptainer exec --fakeroot \
-                    --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
-                    -B "${output_dir}":/algo/outputs \
-                    --env-file .env \
-                    "algorithms/${algorithm_name}/container.sif" \
-                    bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
+    # Calculate predictions
+    echo "RUN ALGORITHM $algorithm_name"
+    { time ( apptainer exec --fakeroot --nv \
+        --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
+        -B "${spectra_dir}":"/algo/${dset_name}" \
+        --env-file .env \
+        "algorithms/${algorithm_name}/container.sif" \
+        bash -c "cd /algo && ./make_predictions.sh ${dset_name}" 2>&1 ); } 2> "$time_log_file"
+    
+    # Collect predictions in output_dir
+    echo "EXPORT PREDICTIONS"
+    apptainer exec --fakeroot \
+        --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
+        -B "${output_dir}":/algo/outputs \
+        --env-file .env \
+        "algorithms/${algorithm_name}/container.sif" \
+        bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
 
-            else
-                echo "Skipping running algorithm: $algorithm_name. Output file already exists."
+else
+    echo "Skipping running algorithm: $algorithm_name. Output file already exists."
 
-                # Remove an existing container overlay, if any
-                # FIXME: mb put this part outside if-else statement? 
-                # Now when each dataset has separate container overlays,
-                # old dataset overlays must be removed if output file already exists.
-                rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
-            fi
-
-        fi
-
-    fi
-done
+    # Remove an existing container overlay, if any
+    # FIXME: mb put this part outside if-else statement? 
+    # Now when each dataset has separate container overlays,
+    # old dataset overlays must be removed if output file already exists.
+    rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
+fi
 
 # 2. Augment predictions with predicted RT and SA between predictied and experimental spectra
-# Loop through each algorithm in the algorithms directory
-for algorithm_dir in algorithms/*; do
-
-    if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
-        algorithm_name=$(basename "$algorithm_dir")
-
-        # If an algorithm is specified, only continue if algorithm_name matches
-        if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
-
-            output_file="$output_dir/${algorithm_name}_output.csv"
-            echo "Output file: $output_file"
-
-            # Augment algorithm predictions with RT and SA (if not already present)
-            echo "AUGMENT PREDICTIONS"
-            apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-                bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
-
-        fi
-
-    fi
-done
+output_file="$output_dir/${algorithm_name}_output.csv"
+echo "Output file: $output_file"
+# Augment algorithm predictions with RT and SA (if not already present)
+echo "AUGMENT PREDICTIONS"
+apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+    bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
 
 # 3. Evaluate predictions
 # TODO: add results_dir explicit definition
