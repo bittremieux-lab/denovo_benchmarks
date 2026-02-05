@@ -5,7 +5,7 @@ split_n="$3"
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
 time_log_root_dir="./times"
-overlay_size=2048
+overlay_size=4096
 
 echo "Running benchmark with $algorithm_name on dataset $dset_name."
 
@@ -19,6 +19,8 @@ ls "$spectra_dir"/*.mgf
 mapfile -t mgf_files < <(find "$spectra_dir" -maxdepth 1 -type f -name '*.mgf' | sort)
 total_files=${#mgf_files[@]}
 
+# 1. Run algorithms & get predictions
+# Loop through each algorithm in the algorithms directory
 part_size=$(( (total_files + split_n - 1) / split_n ))
 # iterate through parts
 for part_idx in $(seq 0 $((split_n-1))); do
@@ -135,8 +137,32 @@ for part_idx in $(seq 0 $((split_n-1))); do
     rm -f  "algorithms/${algorithm_name}/overlay_${dset_name}_part_${part_idx}.img"
 done
 
-# Evaluate predictions
-# TODO: add results_dir explicit definition
-echo "EVALUATE PREDICTIONS"
-apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python evaluate.py ${output_dir}/ ${dset_dir}"
+
+# 2. Augment predictions with predicted RT and SA between predictied and experimental spectra
+# Loop through each algorithm in the algorithms directory
+for algorithm_dir in algorithms/*; do
+
+    if [ -d "$algorithm_dir" ] && [ $(basename "$algorithm_dir") != "base" ]; then
+        algorithm_name=$(basename "$algorithm_dir")
+
+        # If an algorithm is specified, only continue if algorithm_name matches
+        if [ -z "$algorithm" ] || [ "$algorithm_name" == "$algorithm" ]; then
+
+            output_file="$output_dir/${algorithm_name}_output.csv"
+            echo "Output file: $output_file"
+
+            # Augment algorithm predictions with RT and SA (if not already present)
+            echo "AUGMENT PREDICTIONS"
+            apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+                bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+
+        fi
+
+    fi
+done
+
+# # 3. Evaluate predictions
+# # TODO: add results_dir explicit definition
+# echo "EVALUATE PREDICTIONS"
+# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+#     bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
