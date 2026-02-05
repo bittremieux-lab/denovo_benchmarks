@@ -126,12 +126,12 @@ print(true_psms_supported_rt_idx.value_counts(), "\n")
 # if any(true_psms_supported_I_idx): TODO: handle this case
 # TODO: can we go without supported_idx at all, move it to the predict_I/rt function?
 
-# Get intensity predictions for de novo peptides
+# Get intensity predictions for GT peptides
 gt_predictions_mz, gt_predictions_I = predict_intensities(
     model_name_I,
     true_psms[true_psms_supported_I_idx].rename({"seq_unimod": "sequence"}, axis=1),
 )
-# Get RT predictions for de novo peptides and store them in the dataframe
+# Get RT predictions for GT peptides and store them in the dataframe
 true_psms.loc[true_psms_supported_rt_idx, "pred_RT"] = predict_RT(
     model_name_rt,
     true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1),
@@ -147,10 +147,11 @@ for filename in true_psms["filename"].value_counts().index:
     calib_psms = true_psms[true_psms_file_mask_rt]
     calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
     # Get predictions for calibration PSMs
-    calib_psms["pred_RT"] = predict_RT(
-        model_name_rt,
-        calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1),
-    )
+    # CHECK: already predicted above for all GT PSMs supported by the model
+    # calib_psms["pred_RT"] = predict_RT(
+    #     model_name_rt,
+    #     calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1),
+    # )
     # Train calibration model (for this particular file)
     rt_calib_reg = get_calibration_model(calib_psms)
     # Calibrate true_RT to iRT
@@ -233,7 +234,7 @@ for output_file in os.listdir(args.output_dir):
     output_data = utils.load_predictions(output_path, sequences_true)
 
     # Get idxs of GT labeled peptides & sequenced peptides (in correct output format)
-    print(algo_name)
+    # TODO: these are not really NaN, but sequences that have NaN score AFTER MERGING with GT labels dataframe!
     print("NaN sequences:", output_data["score"].isnull().sum())
     output_data = output_data.sort_values("score", ascending=False)
     labeled_idx = output_data["sequence_true"].notnull()  
@@ -302,11 +303,6 @@ for output_file in os.listdir(args.output_dir):
     output_data["proteome_match"].loc[search_df.index] = True
     output_data = output_data.join(search_df) # ["qaln", "taln", "mismatch", "fident", "evalue"]
     n_proteome_matches = output_data["proteome_match"].sum() # TODO: use number or fraction?
-    
-    # [Debug] Check number of GT peptide matches
-    pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
-    output_data["pep_match"] = False
-    output_data.loc[labeled_idx, "pep_match"] = pep_matches
     
     # Collect metrics
     output_metrics[algo_name] = {
@@ -411,13 +407,13 @@ for output_file in os.listdir(args.output_dir):
     )
     
     # [Debug] display number of peptide matches & proteome matches
-    print("DEBUG: N GT peptide matches:", output_data["pep_match"].sum())
-    print("DEBUG: N proteome matches:", n_proteome_matches)
-    idx = output_data["pep_match"] & ~output_data["proteome_match"]
-    print("DEBUG: GT peptide matches w/o proteome match:", idx.sum())
-    idx = ~output_data["pep_match"] & output_data["proteome_match"]
-    print("DEBUG: Proteome matches w/o GT peptide match:", idx.sum())
-    print("\n", "=" * 100, "\n")
+    # print("DEBUG: N GT peptide matches:", output_data["pep_match"].sum())
+    # print("DEBUG: N proteome matches:", n_proteome_matches)
+    # idx = output_data["pep_match"] & ~output_data["proteome_match"]
+    # print("DEBUG: GT peptide matches w/o proteome match:", idx.sum())
+    # idx = ~output_data["pep_match"] & output_data["proteome_match"]
+    # print("DEBUG: Proteome matches w/o GT peptide match:", idx.sum())
+    # print("\n", "=" * 100, "\n")
 
 
 # Save results
