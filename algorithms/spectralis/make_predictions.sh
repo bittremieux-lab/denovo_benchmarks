@@ -16,7 +16,7 @@ done <<< "$DSET_TAGS"
 
 # Run de novo algorithm on the input data
 echo "Using general model."
-casanovo sequence -c casanovo_config.yml -o "${casanovo_output%.mztab}" "$@"/*.mgf
+casanovo sequence -c casanovo_config.yml -o $casanovo_output "$@"/*.mgf
 
 # Change to spectralis pyenv
 pyenv deactivate
