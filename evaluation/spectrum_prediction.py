@@ -209,8 +209,8 @@ def predict_intensities(model_name_I: str, data: pd.DataFrame) -> tuple[pd.DataF
 
     inputs = data[["sequence", "charge"]]
     inputs.columns = ["peptide_sequences", "precursor_charges"]
-    
-    predictions = model_I.predict({col: inputs[col].values for col in inputs})
+
+    predictions = model_I.predict({col: inputs[col].values[:, None] for col in inputs})
     predictions_I = pd.DataFrame(predictions["intensities"], index=inputs.index)
     predictions_mz = pd.DataFrame(predictions["mz"], index=inputs.index)
     return predictions_mz, predictions_I
@@ -227,7 +227,7 @@ def predict_RT(model_name_rt: str, data: pd.DataFrame) -> np.array:
     # drop "-" from ProForma N-term notation
     inputs["peptide_sequences"] = inputs["peptide_sequences"].str.replace("-", "", regex=False)
 
-    predictions_rt = model_rt.predict({col: inputs[col].values for col in inputs})
+    predictions_rt = model_rt.predict({col: inputs[col].values[:, None] for col in inputs})
     return predictions_rt["irt"][:, 0]
 
 def get_calibration_model(calib_psms):
