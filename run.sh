@@ -18,7 +18,6 @@ algorithm_name="$2"
 dset_name=$(basename "$dset_dir")
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
-time_log_root_dir="./times"
 overlay_size=4096
 
 # Check if algorithm exists and is not "base"
@@ -33,6 +32,8 @@ if [ "${algorithm_name}" = "base" ]; then
 fi
 
 # Extract latest container version
+# (always runs latest container version. 
+# Switch to earlier container state via git history if older version is needed).
 algorithm_version=$(grep -m 1 "container_version:" "algorithms/${algorithm_name}/versions.log" | awk -F'"' '{print $2}')
 # Validate version extraction worked
 if [ -z "$algorithm_version" ]; then
@@ -45,24 +46,21 @@ echo "Using algorithm version: $algorithm_version."
 echo "Recalculate the algorithm output: $recalculate."
 
 output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
-time_log_dir="$time_log_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
 if [ "$recalculate" = true ]; then
     # Clean output dir 
     rm -rf "$output_dir"
-    rm -rf "$time_log_dir"
 fi
 
 # Create the output directory if it doesn't exist
 mkdir -p "$output_dir"
-mkdir -p "$time_log_dir"
 
 # List input files
 echo "Processing dataset: $dset_name ($dset_dir)"
 ls "$spectra_dir/"*.mgf
 
 # 1. Run algorithm & get predictions
-time_log_file="$time_log_dir/time.log"
+time_log_file="$output_dir/time.log"
 output_file="$output_dir/output.csv"
 echo "Output file: $output_file"
 
@@ -104,17 +102,18 @@ else
 fi
 
 # 2. Augment predictions with predicted RT and SA between predictied and experimental spectra
-output_file="$output_dir/output.csv"
 echo "Output file: $output_file"
 # Augment algorithm predictions with RT and SA (if not already present)
 echo "AUGMENT PREDICTIONS"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+    bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir}"
 # TODO: fix augment_predictions semantics, only pass necessary information
 
 # 3. Evaluate predictions
 # (evaluation will always run on all available algorithm results for the dataset)
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
+# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+#     bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
+    bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir}"
