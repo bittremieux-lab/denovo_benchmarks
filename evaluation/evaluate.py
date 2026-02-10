@@ -174,65 +174,6 @@ for filename in true_psms["filename"].value_counts().index:
 max_true_irt = true_psms["true_RT_calib"].max()
 true_psms["RT_diff"] = (true_psms["pred_RT"] - true_psms["true_RT_calib"]).abs() / max_true_irt
 
-# TODO: add database search baselines to RT_diff, SA plots
-# TODO: add shuffled RT baseline to RT_diff plot
-
-# Load predictions data, match to GT by scan id or scan index if available
-PLOT_N_POINTS = 10000
-PLOT_HEIGHT = 440
-PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
-
-layout = go.Layout(
-    height=PLOT_HEIGHT,
-    width=PLOT_WIDTH,
-    title_x=0.5,
-    margin_t=50,
-    xaxis_title="Coverage",
-    yaxis_title="Precision",
-    xaxis_range=[0, 1],
-    yaxis_range=[0, 1],
-    legend=dict(
-        y=0.01,
-        x=0.01,
-        bgcolor="rgba(255,255,255,0.6)",  # translucent legend background
-        font=dict(size=10),
-    ),
-)
-pep_fig = go.Figure(layout=layout)
-pep_fig.update_layout(title_text="<b>Peptide precision & coverage</b>")
-aa_fig = go.Figure(layout=layout)
-aa_fig.update_layout(title_text="<b>AA precision & coverage</b>")
-if not args.skip_proteome_matches:
-    prot_match_fig = go.Figure(layout=layout)
-    prot_match_fig.update_layout(
-        title_text="<b>Number of proteome matches\nvs. number of peptides</b>",
-        xaxis_title="Number of predicted peptides",
-        yaxis_title="Number of matches",
-        xaxis_range=None,
-    yaxis_range=None,
-) # plot number of matches versus number of predictions? (above some score value?)
-rt_diff_fig = go.Figure(layout=layout)
-rt_diff_fig.update_layout(
-    title_text="<b>Absolute difference between\npredicted peptide RT and experimental RT</b>",
-    yaxis_title="RT difference",
-)
-sa_fig = go.Figure(layout=layout)
-sa_fig.update_layout(
-    title_text="<b>SA between predicted peptide spectrum\nand experimental spectrum</b>",
-    yaxis_title="Spectral angle",
-)
-
-# TODO: Calculated RT differences for shuffled sequences on true_psms (once for all files)
-## Calculate RT differences for shuffled sequences (supported by the model)
-# true_RT_shuffled = np.random.permutation(output_data.loc[supported_rt_idx, "true_RT_calib"])
-# rt_shuffled_diff = (output_data.loc[supported_rt_idx, "true_RT_calib"] - true_RT_shuffled).abs() / max_true_irt
-# rt_shuffled_diff_wma = np.convolve(
-#     rt_shuffled_diff, 
-#     np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
-#     mode='valid'
-# )
-
-output_metrics = {}
 # Evaluate every algorithm. 
 # Create plots and metrics for ALL algorithms for a given dataset.
 # - Skip all algorithms that fail the processing - DONE?
@@ -244,6 +185,25 @@ output_metrics = {}
 
 # args.data_dir = path/to/dataset/folder # with labels.csv and mgf/
 # args.output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
+
+output_metrics = {}
+
+# Prepare plotting data
+
+# TODO: add database search baselines to RT_diff, SA plots
+# TODO: add shuffled RT baseline to RT_diff plot
+
+# Number of points to represent the curve (for all algorithms)
+PLOT_N_POINTS = 10000
+
+# for each plot, collect a dataframe containing 
+# dataset, algorithm (algo_name), algo_version, coverage, metric_value (at given coverage)
+# coverage and metric value are stored as lists of values
+aa_precision_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": [], "auc": []}
+pep_precision_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": [], "auc": []}
+n_proteome_matches_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []} # TODO: only if not args.skip_proteome_matches?
+rt_diff_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []}
+sa_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []}
 
 for algo_name in os.listdir(args.output_root_dir):
     algo_dir = os.path.join(args.output_root_dir, algo_name)
@@ -261,10 +221,6 @@ for algo_name in os.listdir(args.output_root_dir):
             print(f"Predictions file not found for {algo_name} {algo_version}, skipping...")
             continue
 
-        # FIXME: somewhere here we need to check that output file contains SA, pred_RT cols 
-        # for SA and RT difference plots, 
-        # if not - skip these plots for this algorithm?
-        # or skip the algorithm entirely? (will be easier to monitor missing algos)
         with open(output_path) as f:
             header = f.readline().strip().split(",")
             print(header)
@@ -274,7 +230,6 @@ for algo_name in os.listdir(args.output_root_dir):
 
         full_algo_name = f"{algo_name}_{algo_version}"
         print("EVALUATE", full_algo_name)
-        algo_label = f"{algo_name} {algo_version}" if algo_version != "latest" else algo_name
 
         # Load tool predictions, match with ground truth
         output_data = utils.load_predictions(output_path, sequences_true)
@@ -356,10 +311,8 @@ for algo_name in os.listdir(args.output_root_dir):
             "N proteome matches": n_proteome_matches if not args.skip_proteome_matches else None,
         }
 
-        # PLOTTING
-        # TODO: store calculated values/metrics in ndarrays for plotting instead of html plots
-
-        # Plot the RT difference curve
+        # Collect plotting data
+        # RT difference curve
         rt_diff = output_data[supported_rt_idx].sort_values("score", ascending=False)["RT_diff"]
         rt_diff_wma = np.convolve(
             rt_diff, 
@@ -368,16 +321,12 @@ for algo_name in os.listdir(args.output_root_dir):
         )
         coverage = np.arange(1, len(rt_diff_wma) + 1) / len(rt_diff_wma)
         plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        rt_diff_fig.add_trace(
-            go.Scatter(
-                x=coverage[plot_idxs],
-                y=rt_diff_wma[plot_idxs],
-                mode="lines",
-                name=f"{algo_label}",
-            )
-        )
+        rt_diff_plot_data["algorithm"].append(algo_name)
+        rt_diff_plot_data["version"].append(algo_version)
+        rt_diff_plot_data["coverage"].append(coverage[plot_idxs].tolist())
+        rt_diff_plot_data["metric"].append(rt_diff_wma[plot_idxs].tolist())
 
-        # Plot the SA curve
+        # SA curve
         SA = output_data[supported_I_idx].sort_values("score", ascending=False)["SA"]
         SA_wma = np.convolve(
             SA, 
@@ -386,43 +335,32 @@ for algo_name in os.listdir(args.output_root_dir):
         )
         coverage = np.arange(1, len(SA_wma) + 1) / len(SA_wma)
         plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        sa_fig.add_trace(
-            go.Scatter(
-                x=coverage[plot_idxs],
-                y=SA_wma[plot_idxs],
-                mode="lines",
-                name=f"{algo_label}",
-            )
-        )
+        sa_plot_data["algorithm"].append(algo_name)
+        sa_plot_data["version"].append(algo_version)
+        sa_plot_data["coverage"].append(coverage[plot_idxs].tolist())
+        sa_plot_data["metric"].append(SA_wma[plot_idxs].tolist())
 
         if not args.skip_proteome_matches:
-            # Plot the proteome matches vs number of predictions curve
+            # Proteome matches vs number of predictions curve
             prot_matches = output_data["proteome_match"][sequenced_idx].values
             n_matches = np.cumsum(prot_matches)
             n_sequenced = np.arange(sequenced_idx.sum())
             plot_idxs = np.linspace(0, len(n_sequenced) - 1, PLOT_N_POINTS).astype(np.int64)
-            prot_match_fig.add_trace(
-                go.Scatter(
-                    x=n_sequenced[plot_idxs],
-                    y=n_matches[plot_idxs],
-                    mode="lines",
-                    name=f"{algo_label}",
-                )
-            )
+            n_proteome_matches_plot_data["algorithm"].append(algo_name)
+            n_proteome_matches_plot_data["version"].append(algo_version)
+            n_proteome_matches_plot_data["coverage"].append(n_sequenced[plot_idxs].tolist())
+            n_proteome_matches_plot_data["metric"].append(n_matches[plot_idxs].tolist())
 
-        # Plot the peptide precision–coverage curve
+        # Plot the peptide precision-coverage curve
         pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
         precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
         coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
         plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        pep_fig.add_trace(
-            go.Scatter(
-                x=coverage[plot_idxs],
-                y=precision[plot_idxs],
-                mode="lines",
-                name=f"{algo_label} AUC = {auc(coverage, precision):.3f}",
-            )
-        )
+        pep_precision_plot_data["algorithm"].append(algo_name)
+        pep_precision_plot_data["version"].append(algo_version)
+        pep_precision_plot_data["coverage"].append(coverage[plot_idxs].tolist())
+        pep_precision_plot_data["metric"].append(precision[plot_idxs].tolist())
+        pep_precision_plot_data["auc"].append(auc(coverage, precision))
 
         # Plot the amino acid precision–coverage curve
         aa_scores = np.concatenate(
@@ -434,19 +372,15 @@ for algo_name in os.listdir(args.output_root_dir):
             )
         )
         sort_idx = np.argsort(aa_scores)[::-1]
-
         aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
         precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
         coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
         plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        aa_fig.add_trace(
-            go.Scatter(
-                x=coverage[plot_idxs],
-                y=precision[plot_idxs],
-                mode="lines",
-                name=f"{algo_label} AUC = {auc(coverage, precision):.3f}",
-            )
-        )
+        aa_precision_plot_data["algorithm"].append(algo_name)
+        aa_precision_plot_data["version"].append(algo_version)
+        aa_precision_plot_data["coverage"].append(coverage[plot_idxs].tolist())
+        aa_precision_plot_data["metric"].append(precision[plot_idxs].tolist())
+        aa_precision_plot_data["auc"].append(auc(coverage, precision))
         
         if not args.skip_proteome_matches:
             # [Debug] display number of peptide matches & proteome matches
@@ -463,22 +397,17 @@ for algo_name in os.listdir(args.output_root_dir):
 dataset_results_dir = os.path.join(args.results_dir, dataset_name)
 os.makedirs(dataset_results_dir, exist_ok=True)
 
-pep_fig.write_html(
-    os.path.join(dataset_results_dir, "peptide_precision_coverage.html")
-)
-aa_fig.write_html(
-    os.path.join(dataset_results_dir, "AA_precision_coverage.html")
-)
+pep_precision_plot_data = pd.DataFrame(pep_precision_plot_data)
+pep_precision_plot_data.to_csv(os.path.join(dataset_results_dir, "peptide_precision_plot_data.csv"), index=False)
+aa_precision_plot_data = pd.DataFrame(aa_precision_plot_data)
+aa_precision_plot_data.to_csv(os.path.join(dataset_results_dir, "AA_precision_plot_data.csv"), index=False)
 if not args.skip_proteome_matches:
-    prot_match_fig.write_html(
-        os.path.join(dataset_results_dir, "number_of_proteome_matches.html")
-    )
-rt_diff_fig.write_html(
-    os.path.join(dataset_results_dir, "RT_difference.html")
-)
-sa_fig.write_html(
-    os.path.join(dataset_results_dir, "SA.html")
-)
+    n_proteome_matches_plot_data = pd.DataFrame(n_proteome_matches_plot_data)
+    n_proteome_matches_plot_data.to_csv(os.path.join(dataset_results_dir, "number_of_proteome_matches_plot_data.csv"), index=False)
+rt_diff_plot_data = pd.DataFrame(rt_diff_plot_data)
+rt_diff_plot_data.to_csv(os.path.join(dataset_results_dir, "RT_difference_plot_data.csv"), index=False)
+sa_plot_data = pd.DataFrame(sa_plot_data)
+sa_plot_data.to_csv(os.path.join(dataset_results_dir, "SA_plot_data.csv"), index=False) 
 
 output_metrics = pd.DataFrame(output_metrics).T
 output_metrics.to_csv(os.path.join(dataset_results_dir, "metrics.csv"))
