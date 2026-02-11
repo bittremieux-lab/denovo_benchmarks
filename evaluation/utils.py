@@ -134,6 +134,9 @@ def validate_sequence(sequence: str) -> bool:
 
 
 def validate_token_scores(scores: str, sequence: str) -> bool:
+    # Sanity check: scores is a string (and not NaN)
+    if not isinstance(scores, str):
+        return False
     n_tokens = get_n_tokens(sequence)
     return get_n_scores(scores) == n_tokens
 
