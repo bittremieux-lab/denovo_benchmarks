@@ -18,20 +18,13 @@ from .spectrum_prediction import (
 
 DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--output_dir",
-    help="The path to the output directory containing algorithm outputs.",
+    help="The path to the output directory containing the algorithm output.",
 )
 parser.add_argument(
     "--data_dir", help="The path to the input data directory with spectra in mgf/ subdirectory."
-)
-parser.add_argument(
-    "--algo_name",
-    help="The name of the algorithm (used in the output file name). If not provided, "
-         "all algorithms in output_dir will be processed.",
-    default=None,
 )
 parser.add_argument(
     "--force",
@@ -40,7 +33,9 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# output_dir="$output_root_dir/$dset_name" always contains dataset_name as the last part
+
+# output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name" 
+# always contains dataset_name as the last part
 dataset_name = os.path.basename(os.path.normpath(args.output_dir))
 
 # Get dataset tags (by dataset_name)
@@ -55,8 +50,7 @@ print("Use prediction models:")
 print(f"- Intensity: {model_name_I}, supported PTMs: {supported_mods_I}")
 print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 
-output_file = f"{args.algo_name}_output.csv"
-output_path = os.path.join(args.output_dir, output_file)
+output_path = os.path.join(args.output_dir, "output.csv")
 output_data = pd.read_csv(output_path)
 
 # Skip if output_data already has pred_RT and SA columns and not args.force

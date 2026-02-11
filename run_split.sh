@@ -166,3 +166,5 @@ done
 # echo "EVALUATE PREDICTIONS"
 # apptainer exec --fakeroot --env-file .env "evaluation.sif" \
 #     bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
+
+# TODO: fix to follow the new layout structure

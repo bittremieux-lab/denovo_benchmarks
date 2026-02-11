@@ -1,0 +1,12 @@
+- container_version: "mock-2.1.0"
+  date: "2026-02-09" # date of container update
+  repo_commit: "1f38642" # commit with container update
+  notes: "Major update."
+- container_version: "mock-1.0.0"
+  date: "2026-01-28" # date of container update
+  repo_commit: "10c6f92" # commit with container update
+  notes: "Original implementation."
+- container_version: "mock-0.0.0"
+  date: "2026-01-28" # date of container update
+  repo_commit: "" # commit with container update
+  notes: "Draft implementation."
