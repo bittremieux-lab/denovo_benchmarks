@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 import numpy as np
 import pandas as pd
 from pyteomics import mgf
@@ -18,6 +19,7 @@ from sklearn.linear_model import LinearRegression
 N_CALIBRATION_PSMS = 2000
 WINDOW_SIZE = 2000
 FRAGMENT_MASS_TOL = 0.02 # Da
+SLEEP = 60 # seconds between Koina requests when chunking
 
 # Methods to predict spectrum intensity and RT with Koina models
 
@@ -203,19 +205,41 @@ def check_supported_by_model(peptide, charge, supported_mods=None, min_seq_len=6
     return True
 
 
-def predict_intensities(model_name_I: str, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def predict_intensities(
+    model_name_I: str, data: pd.DataFrame, chunk_size: int = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     # initialize model
     model_I = Koina(model_name_I, "koina.wilhelmlab.org:443")
 
     inputs = data[["sequence", "charge"]]
     inputs.columns = ["peptide_sequences", "precursor_charges"]
-    
-    predictions = model_I.predict({col: inputs[col].values for col in inputs})
-    predictions_I = pd.DataFrame(predictions["intensities"], index=inputs.index)
-    predictions_mz = pd.DataFrame(predictions["mz"], index=inputs.index)
+
+    if chunk_size is None:
+        predictions = model_I.predict({col: inputs[col].values for col in inputs})
+        predictions_I = pd.DataFrame(predictions["intensities"], index=inputs.index)
+        predictions_mz = pd.DataFrame(predictions["mz"], index=inputs.index)
+        
+    else:
+        predictions = []
+        for i in range(0, len(inputs), chunk_size):
+            predictions.append(
+                model_I.predict({col: inputs.iloc[i:i + chunk_size][col].values for col in inputs})
+            )
+            time.sleep(SLEEP)
+        
+        predictions_I = pd.DataFrame(
+            np.concatenate([predictions_i["intensities"] for predictions_i in predictions]), 
+            index=inputs.index
+        )
+        predictions_mz = pd.DataFrame(
+            np.concatenate([predictions_i["mz"] for predictions_i in predictions]), 
+            index=inputs.index
+        )
     return predictions_mz, predictions_I
 
-def predict_RT(model_name_rt: str, data: pd.DataFrame) -> np.array:
+def predict_RT(
+    model_name_rt: str, data: pd.DataFrame, chunk_size: int = None
+) -> np.array:
     # initialize model
     model_rt = Koina(model_name_rt, "koina.wilhelmlab.org:443")
 
@@ -227,7 +251,20 @@ def predict_RT(model_name_rt: str, data: pd.DataFrame) -> np.array:
     # drop "-" from ProForma N-term notation
     inputs["peptide_sequences"] = inputs["peptide_sequences"].str.replace("-", "", regex=False)
 
-    predictions_rt = model_rt.predict({col: inputs[col].values for col in inputs})
+    if chunk_size is None:
+        predictions_rt = model_rt.predict({col: inputs[col].values for col in inputs})
+    
+    else:
+        predictions = []
+        for i in range(0, len(inputs), chunk_size):
+            predictions.append(
+                model_rt.predict({col: inputs.iloc[i:i + chunk_size][col].values for col in inputs})
+            )
+            time.sleep(SLEEP)
+        
+        predictions_rt = {
+            "irt": np.concatenate([predictions_i["irt"] for predictions_i in predictions])
+        }
     return predictions_rt["irt"][:, 0]
 
 def get_calibration_model(calib_psms):
