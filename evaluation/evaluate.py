@@ -196,6 +196,23 @@ output_metrics = {}
 # Number of points to represent the curve (for all algorithms)
 PLOT_N_POINTS = 10000
 
+def _downsample_curve(coverage, metric):
+    """Downsample coverage and metric arrays to PLOT_N_POINTS."""
+    if len(coverage) == 0:
+        return [], []
+    plot_idxs = np.linspace(0, len(coverage) - 1, min(PLOT_N_POINTS, len(coverage))).astype(np.int64)
+    return coverage[plot_idxs].tolist(), metric[plot_idxs].tolist()
+
+def _append_plot_data(plot_dict, algo_name, algo_version, coverage, metric, **extras):
+    """Append downsampled plot data to a plot dictionary (in-place)."""
+    plot_dict["algorithm"].append(algo_name)
+    plot_dict["version"].append(algo_version)
+    plot_dict["coverage"].append(coverage)
+    plot_dict["metric"].append(metric)
+    for key, value in extras.items():
+        if key in plot_dict:
+            plot_dict[key].append(value)
+
 # for each plot, collect a dataframe containing 
 # dataset, algorithm (algo_name), algo_version, coverage, metric_value (at given coverage)
 # coverage and metric value are stored as lists of values
@@ -314,73 +331,41 @@ for algo_name in os.listdir(args.output_root_dir):
         # Collect plotting data
         # RT difference curve
         rt_diff = output_data[supported_rt_idx].sort_values("score", ascending=False)["RT_diff"]
-        rt_diff_wma = np.convolve(
-            rt_diff, 
-            np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
-            mode='valid'
-        )
+        rt_diff_wma = np.convolve(rt_diff, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
         coverage = np.arange(1, len(rt_diff_wma) + 1) / len(rt_diff_wma)
-        plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        rt_diff_plot_data["algorithm"].append(algo_name)
-        rt_diff_plot_data["version"].append(algo_version)
-        rt_diff_plot_data["coverage"].append(coverage[plot_idxs].tolist())
-        rt_diff_plot_data["metric"].append(rt_diff_wma[plot_idxs].tolist())
+        coverage, rt_diff_wma = _downsample_curve(coverage, rt_diff_wma)
+        _append_plot_data(rt_diff_plot_data, algo_name, algo_version, coverage, rt_diff_wma)
 
         # SA curve
         SA = output_data[supported_I_idx].sort_values("score", ascending=False)["SA"]
-        SA_wma = np.convolve(
-            SA, 
-            np.ones(WINDOW_SIZE) / WINDOW_SIZE, 
-            mode='valid'
-        )
+        SA_wma = np.convolve(SA, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
         coverage = np.arange(1, len(SA_wma) + 1) / len(SA_wma)
-        plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        sa_plot_data["algorithm"].append(algo_name)
-        sa_plot_data["version"].append(algo_version)
-        sa_plot_data["coverage"].append(coverage[plot_idxs].tolist())
-        sa_plot_data["metric"].append(SA_wma[plot_idxs].tolist())
+        coverage, SA_wma = _downsample_curve(coverage, SA_wma)
+        _append_plot_data(sa_plot_data, algo_name, algo_version, coverage, SA_wma)
 
         if not args.skip_proteome_matches:
             # Proteome matches vs number of predictions curve
             prot_matches = output_data["proteome_match"][sequenced_idx].values
             n_matches = np.cumsum(prot_matches)
             n_sequenced = np.arange(sequenced_idx.sum())
-            plot_idxs = np.linspace(0, len(n_sequenced) - 1, PLOT_N_POINTS).astype(np.int64)
-            n_proteome_matches_plot_data["algorithm"].append(algo_name)
-            n_proteome_matches_plot_data["version"].append(algo_version)
-            n_proteome_matches_plot_data["coverage"].append(n_sequenced[plot_idxs].tolist())
-            n_proteome_matches_plot_data["metric"].append(n_matches[plot_idxs].tolist())
+            n_sequenced, n_matches = _downsample_curve(n_sequenced, n_matches)
+            _append_plot_data(n_proteome_matches_plot_data, algo_name, algo_version, n_sequenced, n_matches)
 
-        # Plot the peptide precision-coverage curve
+        # Peptide precision-coverage curve
         pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
         precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
         coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
-        plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        pep_precision_plot_data["algorithm"].append(algo_name)
-        pep_precision_plot_data["version"].append(algo_version)
-        pep_precision_plot_data["coverage"].append(coverage[plot_idxs].tolist())
-        pep_precision_plot_data["metric"].append(precision[plot_idxs].tolist())
-        pep_precision_plot_data["auc"].append(auc(coverage, precision))
+        coverage, precision = _downsample_curve(coverage, precision)
+        _append_plot_data(pep_precision_plot_data, algo_name, algo_version, coverage, precision, auc=auc(coverage, precision))
 
-        # Plot the amino acid precision–coverage curve
-        aa_scores = np.concatenate(
-            list(
-                map(
-                    utils.parse_scores,
-                    output_data["aa_scores"][labeled_idx].values.tolist(),
-                )
-            )
-        )
+        # Amino acid precision-coverage curve
+        aa_scores = np.concatenate(list(map(utils.parse_scores, output_data["aa_scores"][labeled_idx].values.tolist())))
         sort_idx = np.argsort(aa_scores)[::-1]
         aa_matches_pred = np.concatenate([aa_match[2][0] for aa_match in aa_matches_batch])
         precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
         coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
-        plot_idxs = np.linspace(0, len(coverage) - 1, PLOT_N_POINTS).astype(np.int64)
-        aa_precision_plot_data["algorithm"].append(algo_name)
-        aa_precision_plot_data["version"].append(algo_version)
-        aa_precision_plot_data["coverage"].append(coverage[plot_idxs].tolist())
-        aa_precision_plot_data["metric"].append(precision[plot_idxs].tolist())
-        aa_precision_plot_data["auc"].append(auc(coverage, precision))
+        coverage, precision = _downsample_curve(coverage, precision)
+        _append_plot_data(aa_precision_plot_data, algo_name, algo_version, coverage, precision, auc=auc(coverage, precision))
         
         if not args.skip_proteome_matches:
             # [Debug] display number of peptide matches & proteome matches
