@@ -89,3 +89,5 @@ human_herceptin_trypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.
 human_herceptin_chymotrypsin	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	1.0	0.0	0.0	0.0	1.0	0.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	0.0	0.0
 test_dataset_human	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
 test_dataset_multiprotease	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+test_dataset_timstof_tryptic	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	0.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+test_dataset_timstof_nontryptic	human_uniprotkb_proteome_UP000005640_2024_05_16.fasta	1.0	0.0	0.0	0.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
