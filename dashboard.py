@@ -1,20 +1,110 @@
 import os
+import ast
+import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
+import plotly.graph_objects as go
 from datasets_info import DATASETS
 
 
 RESULTS_DIR = "results"
-PLOT_HEIGHT = 440
-PLOT_WIDTH = int(PLOT_HEIGHT * 1.2)
+PLOT_HEIGHT = 500
+# PLOT_WIDTH = 650
 
 st.set_page_config(layout="wide")
 
 tab1, tab2 = st.tabs(["Main", "Adding an algorithm"])
 
+@st.cache_data
+def load_all_datasets():
+    """Load metadata for all available datasets."""
+    datasets = []
+    if not os.path.exists(RESULTS_DIR):
+        return []
+    for dataset_name in os.listdir(RESULTS_DIR):
+        dataset_path = os.path.join(RESULTS_DIR, dataset_name)
+        if os.path.isdir(dataset_path):
+            datasets.append(dataset_name)
+    return sorted(datasets)
+
+
+@st.cache_data
+def load_plot_data(dataset_name, metric_name):
+    """Load plot data CSV for a specific dataset and metric."""
+    csv_path = os.path.join(RESULTS_DIR, dataset_name, f"{metric_name}_plot_data.csv")
+    if not os.path.exists(csv_path):
+        return None
+    
+    df = pd.read_csv(csv_path)
+    # Parse list strings back to actual lists
+    df["coverage"] = df["coverage"].apply(ast.literal_eval)
+    df["metric"] = df["metric"].apply(ast.literal_eval)
+    return df
+
+
+def get_latest_versions(df):
+    """Get the latest version for each algorithm."""
+    latest = {}
+    for algo in df["algorithm"].unique():
+        versions = df[df["algorithm"] == algo]["version"].unique()
+        # Prefer 'latest' if present, otherwise take the last one alphabetically
+        if "latest" in versions:
+            latest[algo] = "latest"
+        else:
+            latest[algo] = sorted(versions)[-1]
+    return latest
+
+
+def create_plot(df, selected_versions, title, xaxis_title="Coverage", yaxis_title="Precision", show_auc=False):
+    """Create a Plotly figure from plot data."""
+    fig = go.Figure()
+    
+    for _, row in df.iterrows():
+        algo_name = row["algorithm"]
+        algo_version = row["version"]
+        
+        # Skip if this version is not selected for this algorithm
+        if algo_name not in selected_versions or algo_version not in selected_versions[algo_name]:
+            continue
+        
+        # Create trace label
+        label = f"{algo_name} {algo_version}" if algo_version != "latest" else algo_name
+        if show_auc and "auc" in row and pd.notna(row["auc"]):
+            label += f" AUC = {row['auc']:.3f}"
+        
+        fig.add_trace(
+            go.Scatter(
+                x=row["coverage"],
+                y=row["metric"],
+                mode="lines",
+                name=label,
+            )
+        )
+    
+    fig.update_layout(
+        title=dict(text=f"<b>{title}</b>", x=0.5),
+        xaxis_title=xaxis_title,
+        yaxis_title=yaxis_title,
+        height=PLOT_HEIGHT,
+        # width=PLOT_WIDTH,
+        legend=dict(
+            y=0.01,
+            x=0.01,
+            bgcolor="rgba(255,255,255,0.6)",
+            font=dict(size=10),
+        ),
+        margin=dict(t=50, b=50, l=50, r=20),
+    )
+    
+    # Set axis ranges for precision/coverage plots
+    if "Precision" in yaxis_title or "Coverage" in xaxis_title:
+        fig.update_xaxes(range=[0, 1])
+        fig.update_yaxes(range=[0, 1])
+    
+    return fig
+
+
 with tab1:
     st.title("*De novo* Benchmarks")
-    # st.divider()
 
     st.header("Info")
     st.markdown(
@@ -38,7 +128,6 @@ with tab1:
         Current benchmarking results are represented below. 
         """
     )
-    # st.divider()
 
     st.header("Benchmarking results")
     st.markdown(
@@ -51,52 +140,108 @@ with tab1:
         Unless otherwise specified, PSMs with estimated FDR (Percolator q-value) **<1%** 
         were selected as ground truth peptides.
 
-        The plots demonstrate performance of *de novo* peptide sequencing algorithms according to **2** metrics:
+        The plots demonstrate performance of *de novo* peptide sequencing algorithms according to **5** metrics:
         - Peptide prediction precision and coverage
-        - Amino acids prediction precision and coverage
+        - Amino acid prediction precision and coverage
+        - Number of proteome matches vs. number of predictions
+        - RT difference between predicted and experimental retention time
+        - Spectral angle between predicted and experimental spectra
 
-        Click on algorithms on the plots to select a subset of algorithms to display. 
+        Click on algorithm names in the legend to hide/show specific algorithms. Use the plot controls to zoom and pan.
         """
     )
-
-    datasets = os.listdir(RESULTS_DIR)
-    for dataset_name in datasets:
-        st.subheader(dataset_name)
-        if dataset_name in DATASETS:
-            dataset_descr = DATASETS[dataset_name]
-            st.text(dataset_descr)
-
-        col1, col2, col3 = st.columns(3, gap="small")
-
-        with col1:
-            path_to_html = os.path.join(
-                RESULTS_DIR, dataset_name, "peptide_precision_coverage.html"
-            )
-            with open(path_to_html, "r") as f:
-                html_data = f.read()
-            components.html(
-                html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
-            )
-
-        with col2:
-            path_to_html = os.path.join(
-                RESULTS_DIR, dataset_name, "AA_precision_coverage.html"
-            )
-            with open(path_to_html, "r") as f:
-                html_data = f.read()
-            components.html(
-                html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
-            )
-
-        with col3:
-            path_to_html = os.path.join(
-                RESULTS_DIR, dataset_name, "number_of_proteome_matches.html"
-            )
-            with open(path_to_html, "r") as f:
-                html_data = f.read()
-            components.html(
-                html_data, width=PLOT_WIDTH, height=PLOT_HEIGHT, scrolling=False
-            )
+    
+    # Load all available datasets
+    all_datasets = load_all_datasets()
+    
+    if not all_datasets:
+        st.warning("No results found in the results directory.")
+    else:
+        # Dataset filter
+        st.subheader("Dataset selection")
+        selected_datasets = st.multiselect(
+            "Select datasets to display:",
+            options=all_datasets,
+            default=all_datasets,
+            help="Choose which datasets to show in the dashboard"
+        )
+        
+        if not selected_datasets:
+            st.info("Please select at least one dataset to display.")
+        
+        # Display each selected dataset
+        for dataset_name in selected_datasets:
+            st.divider()
+            st.subheader(dataset_name)
+            
+            if dataset_name in DATASETS:
+                st.caption(DATASETS[dataset_name])
+            
+            # Load one metric to get algorithm/version info
+            sample_data = load_plot_data(dataset_name, "peptide_precision")
+            
+            if sample_data is None or sample_data.empty:
+                st.warning(f"No plot data found for {dataset_name}")
+                continue
+            
+            # Get available algorithms and their versions
+            algorithms = sorted(sample_data["algorithm"].unique())
+            latest_versions = get_latest_versions(sample_data)
+            
+            # Version selection per dataset (use expander to save space)
+            with st.expander("⚙️ Algorithm version selection", expanded=False):
+                st.caption("Select which versions to display for each algorithm (default: latest)")
+                
+                # Create a grid of version selectors
+                n_cols = 3
+                cols = st.columns(n_cols)
+                
+                selected_versions = {}
+                for idx, algo in enumerate(algorithms):
+                    col_idx = idx % n_cols
+                    with cols[col_idx]:
+                        versions = sorted(sample_data[sample_data["algorithm"] == algo]["version"].unique())
+                        default_version = latest_versions[algo]
+                        selected_versions[algo] = st.multiselect(
+                            f"{algo}",
+                            options=versions,
+                            default=[default_version] if default_version in versions else versions[:1],
+                            key=f"{dataset_name}_{algo}_version"
+                        )
+            
+            # If not using expander, use default latest versions
+            if not selected_versions:
+                selected_versions = {algo: [latest_versions[algo]] for algo in algorithms}
+            
+            # Define metrics to plot
+            metrics = [
+                ("peptide_precision", "Peptide precision & coverage", "Coverage", "Precision", True),
+                ("AA_precision", "AA precision & coverage", "Coverage", "Precision", True),
+                ("number_of_proteome_matches", "Number of proteome matches\nvs. number of peptides", "Number of predicted peptides", "Number of matches", False),
+                ("RT_difference", "Absolute difference between\npredicted and experimental RT", "Coverage", "RT difference", False),
+                ("SA", "Spectral angle between\npredicted and experimental spectra", "Coverage", "Spectral angle", False),
+            ]
+            
+            # Create tabs for each metric to avoid width issues
+            metric_names = [m[1].replace('\n', ' ') for m in metrics]
+            plot_tabs = st.tabs(metric_names)
+            
+            for idx, (metric_name, title, x_label, y_label, show_auc) in enumerate(metrics):
+                plot_data = load_plot_data(dataset_name, metric_name)
+                
+                with plot_tabs[idx]:
+                    if plot_data is not None and not plot_data.empty:
+                        fig = create_plot(
+                            plot_data,
+                            selected_versions,
+                            title,
+                            xaxis_title=x_label,
+                            yaxis_title=y_label,
+                            show_auc=show_auc
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key=f"{dataset_name}_{metric_name}_plot")
+                    else:
+                        st.info(f"No data available for {title}")
 
 
 with tab2:
