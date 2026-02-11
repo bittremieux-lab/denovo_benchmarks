@@ -85,6 +85,9 @@ exit 0
 EOF
     chmod +x "$TEST_DIR/bin/python"
     
+    # Create mock evaluation.sif (run.sh calls this container for augment_predictions and evaluate)
+    touch "$TEST_DIR/evaluation.sif"
+    
     # Copy run.sh to test environment
     cp "$ORIG_DIR/run.sh" "$TEST_DIR/"
     
@@ -123,7 +126,6 @@ teardown() {
     bash run.sh sample_data/test_dataset mock_algo
     
     [ -d "outputs/mock_algo/mock-1.0.0/test_dataset" ]
-    [ -d "times/mock_algo/mock-1.0.0/test_dataset" ]
 }
 
 # Test 3: Script creates expected output files with correct names
@@ -131,7 +133,7 @@ teardown() {
     bash run.sh sample_data/test_dataset mock_algo
     
     [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
-    [ -f "times/mock_algo/mock-1.0.0/test_dataset/time.log" ]
+    [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/time.log" ]
 }
 
 # Test 4: Output file contains expected data
@@ -145,6 +147,17 @@ teardown() {
     
     # Check data rows exist
     [ "$(wc -l < "$output_file")" -gt 1 ]
+}
+
+# Test 4b: Verify run.sh uses correct file paths internally
+@test "integration: run.sh defines correct output_file and time_log_file variables" {
+    # Extract variable definitions from run.sh and verify they match expected paths
+    time_log_def=$(grep '^time_log_file=' run.sh | head -n 1)
+    output_file_def=$(grep '^output_file=' run.sh | head -n 1)
+    
+    # These should match the expected pattern
+    [[ "$time_log_def" == 'time_log_file="$output_dir/time.log"' ]]
+    [[ "$output_file_def" == 'output_file="$output_dir/output.csv"' ]]
 }
 
 # Test 5: Script skips existing outputs without -r flag
@@ -256,21 +269,24 @@ EOF
 }
 
 # Test 13: Script handles -r flag with directory cleanup
-@test "integration: run.sh -r removes old output directories" {
+@test "integration: run.sh -r removes old output directory" {
     # First run
     bash run.sh sample_data/test_dataset mock_algo
     
-    # Create extra file in output directory
+    # Create extra files in output directory
     output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
     touch "$output_dir/extra_file.txt"
+    touch "$output_dir/old_time.log"
     
     # Run with -r
     bash run.sh -r sample_data/test_dataset mock_algo
     
-    # Extra file should be gone
+    # Extra files should be gone
     [ ! -f "$output_dir/extra_file.txt" ]
-    # But output.csv should exist
+    [ ! -f "$output_dir/old_time.log" ]
+    # But new output files should exist
     [ -f "$output_dir/output.csv" ]
+    [ -f "$output_dir/time.log" ]
 }
 
 # Test 14: Script processes MGF files correctly

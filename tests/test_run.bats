@@ -139,10 +139,10 @@ EOF
     algorithm_version="benchmark-1.0.0"
     output_dir="./outputs/$algorithm_name/$algorithm_version/$dset_name"
     output_file="$output_dir/output.csv"
-    time_log_file="./times/$algorithm_name/$algorithm_version/$dset_name/time.log"
+    time_log_file="$output_dir/time.log"
     
     [ "$output_file" = "./outputs/casanovo/benchmark-1.0.0/test_dataset/output.csv" ]
-    [ "$time_log_file" = "./times/casanovo/benchmark-1.0.0/test_dataset/time.log" ]
+    [ "$time_log_file" = "./outputs/casanovo/benchmark-1.0.0/test_dataset/time.log" ]
 }
 
 # Test 9: Script constructs overlay file name with both dataset and algorithm
@@ -156,14 +156,13 @@ EOF
 }
 
 # Test 10: Script handles -r flag with conditional cleanup
-@test "run.sh recalculate flag cleans directories" {
-    # Create pre-existing directories with files
-    mkdir -p outputs/test_dataset
-    mkdir -p times/test_dataset
-    touch outputs/test_dataset/old_file.csv
-    touch times/test_dataset/old_log.log
+@test "run.sh recalculate flag cleans output directory" {
+    # Create pre-existing directory with files
+    mkdir -p outputs/test_algo/benchmark-1.0.0/test_dataset
+    touch outputs/test_algo/benchmark-1.0.0/test_dataset/old_file.csv
+    touch outputs/test_algo/benchmark-1.0.0/test_dataset/time.log
     
-    # Create a test script that implements cleanup logic
+    # Create a test script that implements cleanup logic matching run.sh
     cat > test_cleanup.sh <<'EOF'
 #!/bin/bash
 recalculate=false
@@ -175,47 +174,44 @@ done
 shift $((OPTIND-1))
 
 dset_dir="$1"
+algorithm_name="$2"
+algorithm_version="benchmark-1.0.0"
 dset_name=$(basename "$dset_dir")
-output_dir="./outputs/$dset_name"
-time_log_dir="./times/$dset_name"
+output_dir="./outputs/$algorithm_name/$algorithm_version/$dset_name"
 
 if [ "$recalculate" = true ]; then
     rm -rf "$output_dir"
-    rm -rf "$time_log_dir"
 fi
 mkdir -p "$output_dir"
-mkdir -p "$time_log_dir"
 EOF
     
     chmod +x test_cleanup.sh
-    run ./test_cleanup.sh -r "$TEST_DATASET_DIR"
+    run ./test_cleanup.sh -r "$TEST_DATASET_DIR" test_algo
     
     [ "$status" -eq 0 ]
-    [ ! -f "outputs/test_dataset/old_file.csv" ]
-    [ ! -f "times/test_dataset/old_log.log" ]
+    [ ! -f "outputs/test_algo/benchmark-1.0.0/test_dataset/old_file.csv" ]
+    [ ! -f "outputs/test_algo/benchmark-1.0.0/test_dataset/time.log" ]
 }
 
-# Test 11: Script creates output directories
-@test "run.sh creates output and time log directories" {
-    # Create a minimal script that creates directories
+# Test 11: Script creates output directory with version structure
+@test "run.sh creates output directory" {
+    # Create a minimal script that creates directories matching run.sh
     cat > test_mkdir.sh <<'EOF'
 #!/bin/bash
 dset_dir="$1"
+algorithm_name="$2"
+algorithm_version="benchmark-1.0.0"
 output_root_dir="./outputs"
-time_log_root_dir="./times"
 dset_name=$(basename "$dset_dir")
-output_dir="$output_root_dir/$dset_name"
-time_log_dir="$time_log_root_dir/$dset_name"
+output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 mkdir -p "$output_dir"
-mkdir -p "$time_log_dir"
 EOF
     
     chmod +x test_mkdir.sh
-    run ./test_mkdir.sh "$TEST_DATASET_DIR"
+    run ./test_mkdir.sh "$TEST_DATASET_DIR" test_algo
     
     [ "$status" -eq 0 ]
-    [ -d "outputs/test_dataset" ]
-    [ -d "times/test_dataset" ]
+    [ -d "outputs/test_algo/benchmark-1.0.0/test_dataset" ]
 }
 
 # Test 12: Script handles missing spectra directory gracefully
@@ -325,7 +321,7 @@ EOF
 }
 
 # Test 20: Script creates correct directory structure with version
-@test "run.sh creates output directories with algorithm/version/dataset structure" {
+@test "run.sh creates output directory with algorithm/version/dataset structure" {
     cat > test_mkdir_versioned.sh <<'EOF'
 #!/bin/bash
 dset_dir="$1"
@@ -333,13 +329,10 @@ algorithm_name="$2"
 algorithm_version="benchmark-1.0.0"
 dset_name=$(basename "$dset_dir")
 output_root_dir="./outputs"
-time_log_root_dir="./times"
 
 output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
-time_log_dir="$time_log_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
 mkdir -p "$output_dir"
-mkdir -p "$time_log_dir"
 EOF
     
     chmod +x test_mkdir_versioned.sh
@@ -347,20 +340,25 @@ EOF
     
     [ "$status" -eq 0 ]
     [ -d "outputs/test_algo/benchmark-1.0.0/test_dataset" ]
-    [ -d "times/test_algo/benchmark-1.0.0/test_dataset" ]
 }
 
-# Test 21: Script uses simplified output file names
-@test "run.sh uses output.csv and time.log (not algorithm-prefixed)" {
+# Test 21: Script uses simplified output file names in same directory
+@test "run.sh uses output.csv and time.log in output directory" {
     dset_name="test_dataset"
     algorithm_name="casanovo"
     algorithm_version="benchmark-1.0.0"
     output_dir="./outputs/$algorithm_name/$algorithm_version/$dset_name"
-    time_log_dir="./times/$algorithm_name/$algorithm_version/$dset_name"
     
     output_file="$output_dir/output.csv"
-    time_log_file="$time_log_dir/time.log"
+    time_log_file="$output_dir/time.log"
     
     [ "$output_file" = "./outputs/casanovo/benchmark-1.0.0/test_dataset/output.csv" ]
-    [ "$time_log_file" = "./times/casanovo/benchmark-1.0.0/test_dataset/time.log" ]
+    [ "$time_log_file" = "./outputs/casanovo/benchmark-1.0.0/test_dataset/time.log" ]
+}
+
+# Test 22: Verify run.sh actually defines correct file path variables
+@test "run.sh source code contains correct output_file and time_log_file definitions" {
+    # Check that run.sh defines these variables correctly
+    grep -q '^time_log_file="\$output_dir/time\.log"' run.sh
+    grep -q '^output_file="\$output_dir/output\.csv"' run.sh
 }
