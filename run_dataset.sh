@@ -104,7 +104,7 @@ for algorithm_dir in algorithms/*; do
         # Augment algorithm predictions with RT and SA (if not already present)
         echo "AUGMENT PREDICTIONS"
         apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-            bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} --algo_name ${algorithm_name}"
+            bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir}
 
     fi
 done
