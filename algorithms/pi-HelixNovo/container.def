@@ -11,7 +11,7 @@ From: python:3.8
     # Download algorithm source code & Download algorithm weights
     cd /algo
     git clone https://github.com/PHOENIXcenter/pi-HelixNovo.git -b pi-HelixNovo-for-DenovoBenchmarks
-    rm pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+    # rm pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
     curl -L -o pi-HelixNovo/pi-helixnovo_massivekb.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/refs/heads/pi-HelixNovo-for-DenovoBenchmarks/pi-helixnovo_massivekb.ckpt?download=true
 
     pip install \
