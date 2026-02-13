@@ -6,7 +6,7 @@
 # - container_version : Human-facing ID shown in paths & dashboard.
 #                       Recommended formats (pick one):
 #                       * Pip release (if available):  "X.Y.Z"               (e.g., "1.0.0")
-#                       * Tool version for benchmark:  "benchmark-X.Y.Z"     (e.g., "benchmark-1.0.0")
+#                       * Tool version for benchmark:  "bm-X.Y.Z"     (e.g., "bm-1.0.0")
 # - date              : Date of the container update, YYYY-MM-DD.
 # - repo_commit       : Short SHA (7 chars) of THIS benchmarking repo at the time
 #                       of the container update. Obtain via:
