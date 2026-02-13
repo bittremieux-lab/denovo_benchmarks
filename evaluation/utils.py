@@ -225,6 +225,7 @@ def extract_spectra_params(dataset_path):
     
     spectra_params = pd.DataFrame(spectra_params)
     spectra_params["spectrum_id"] = spectra_params["filename"] + ":" + spectra_params["idx"].astype(str)
+    spectra_params["run"] = spectra_params["filename"].apply(lambda s: s.rsplit("_", 1)[0])
     return spectra_params
 
 

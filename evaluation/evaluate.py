@@ -103,8 +103,11 @@ dataset_path = os.path.join(args.data_dir, "mgf")
 spectra_params = utils.extract_spectra_params(dataset_path)
 
 # Predict intensities and RT for GT peptides
-true_psms = sequences_true.join(spectra_params[["spectrum_id", "charge", "precursor_mass", "true_RT"]].set_index("spectrum_id"), on="spectrum_id")
-true_psms[["filename", "idx"]] = true_psms.spectrum_id.str.split(":", expand=True)
+true_psms = sequences_true.join(spectra_params[
+    ["spectrum_id", "charge", "precursor_mass", "true_RT", "filename", "idx", "run"]
+].set_index("spectrum_id"), on="spectrum_id")
+# true_psms[["filename", "idx"]] = true_psms.spectrum_id.str.split(":", expand=True) # TODO: remove after testing
+# true_psms["run"] = true_psms["filename"].apply(lambda s: s.rsplit("_", 1)[0]) # TODO: remove after testing
 true_psms["seq_unimod"] = true_psms["seq"].apply(map_mods_delta_mass_to_unimod) # only for Prosit models(? for MS2PIP too?)
 # true_psms["seq_unimod"] = true_psms["seq"].copy() # for other models, keep original format
 
@@ -137,14 +140,26 @@ true_psms.loc[true_psms_supported_rt_idx, "pred_RT"] = predict_RT(
     true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1),
 )
 # Calculate spectral angles and RT differences (on calibrated RT)
+print("Calculate spectral angles for GT peptides")
 true_psms["SA"] = np.nan
+for filename in true_psms["filename"].value_counts().index:
+    print("FIle:", filename)
+    # Calculate spectral angles (with original spectra loaded from mgf file)
+    true_psms_file_mask_I = (true_psms["filename"] == filename) & true_psms_supported_I_idx
+    # spec_idx: index - psm idx in dataframe, value - 0-based spectrum idx in mgf file
+    spec_idxs = true_psms[true_psms_file_mask_I]["idx"].astype(np.int64)
+    # Load mgf file, iterate through experimental spectra, calculate SA
+    mgf_path = os.path.join(dataset_path, filename + ".mgf")
+    true_psms.loc[true_psms_file_mask_I, "SA"] = calculate_SA(spec_idxs, gt_predictions_mz, gt_predictions_I, mgf_path)
+
+print("Calculate RT differences for GT peptides")
 true_psms["true_RT_calib"] = np.nan
 spectra_params["true_RT_calib"] = np.nan
-for filename in true_psms["filename"].value_counts().index:
-    print(filename)
+for run in true_psms["run"].value_counts().index:
+    print("Run:", run)
     # Select calibration PSMs (from GT PSMs)
-    true_psms_file_mask_rt = (true_psms["filename"] == filename) & true_psms_supported_rt_idx
-    calib_psms = true_psms[true_psms_file_mask_rt]
+    true_psms_run_mask_rt = (true_psms["run"] == run) & true_psms_supported_rt_idx
+    calib_psms = true_psms[true_psms_run_mask_rt]
     calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
     # Get predictions for calibration PSMs
     calib_psms["pred_RT"] = predict_RT(
@@ -154,22 +169,14 @@ for filename in true_psms["filename"].value_counts().index:
     # Train calibration model (for this particular file)
     rt_calib_reg = get_calibration_model(calib_psms)
     # Calibrate true_RT to iRT
-    true_psms.loc[true_psms_file_mask_rt, "true_RT_calib"] = rt_calib_reg.predict(
-        true_psms.loc[true_psms_file_mask_rt, "true_RT"].values[:, None]
+    true_psms.loc[true_psms_run_mask_rt, "true_RT_calib"] = rt_calib_reg.predict(
+        true_psms.loc[true_psms_run_mask_rt, "true_RT"].values[:, None]
     )[:, 0]
     # Calibrate true_RT for all spectra in the file
-    all_spectra_file_mask = (spectra_params["filename"] == filename)
-    spectra_params.loc[all_spectra_file_mask, "true_RT_calib"] = rt_calib_reg.predict(
-        spectra_params.loc[all_spectra_file_mask, "true_RT"].values[:, None]
+    all_spectra_run_mask = (spectra_params["run"] == run)
+    spectra_params.loc[all_spectra_run_mask, "true_RT_calib"] = rt_calib_reg.predict(
+        spectra_params.loc[all_spectra_run_mask, "true_RT"].values[:, None]
     )[:, 0]
-
-    true_psms_file_mask_I = (true_psms["filename"] == filename) & true_psms_supported_I_idx
-    # spec_idx: index - psm idx in dataframe, value - 0-based spectrum idx in mgf file
-    spec_idxs = true_psms[true_psms_file_mask_I]["idx"].astype(np.int64)
-    # Load mgf file, iterate through experimental spectra, calculate SA
-    mgf_path = os.path.join(dataset_path, filename + ".mgf")
-    true_psms.loc[true_psms_file_mask_I, "SA"] = calculate_SA(spec_idxs, gt_predictions_mz, gt_predictions_I, mgf_path)
-
 # Calculate RT differences (on calibrated RT)
 max_true_irt = true_psms["true_RT_calib"].max()
 true_psms["RT_diff"] = (true_psms["pred_RT"] - true_psms["true_RT_calib"]).abs() / max_true_irt
@@ -266,7 +273,7 @@ for algo_name in os.listdir(args.output_root_dir):
         # Find predicted sequences supported by the model (Prosit or other)
         # (No need to recalculate, derive from augment_predictions.py)
         supported_I_idx = output_data["SA"].notnull()
-        supported_rt_idx = output_data["pred_RT"].notnull()
+        supported_rt_idx = output_data["pred_RT"].notnull() # DEBUG: so pred_RT cannot be NaN?
 
         # (true_RT_calib is already in spectrum_params (after step for the true_psms above))
         # Calculate RT differences (on calibrated RT) and normalize by max iRT
