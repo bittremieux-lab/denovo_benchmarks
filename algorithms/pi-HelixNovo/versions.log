@@ -1,3 +1,8 @@
+- container_version: "bm-1.1.0"
+  date: "2026-02-13" # date of container update
+  repo_commit: "021c324" # commit with container update
+  notes: "Updated pre-trained pi-HelixNovo model (trained on MassIVE-KB dataset)."
+  upstream_ref: "git: https://github.com/PHOENIXcenter/pi-HelixNovo.git@47d7315#branch=pi-HelixNovo-for-DenovoBenchmarks" # optional reference
 - container_version: "bm-1.0.0"
   date: "2025-09-01" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
