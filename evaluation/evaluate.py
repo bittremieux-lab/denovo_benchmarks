@@ -106,8 +106,6 @@ spectra_params = utils.extract_spectra_params(dataset_path)
 true_psms = sequences_true.join(spectra_params[
     ["spectrum_id", "charge", "precursor_mass", "true_RT", "filename", "idx", "run"]
 ].set_index("spectrum_id"), on="spectrum_id")
-# true_psms[["filename", "idx"]] = true_psms.spectrum_id.str.split(":", expand=True) # TODO: remove after testing
-# true_psms["run"] = true_psms["filename"].apply(lambda s: s.rsplit("_", 1)[0]) # TODO: remove after testing
 true_psms["seq_unimod"] = true_psms["seq"].apply(map_mods_delta_mass_to_unimod) # only for Prosit models(? for MS2PIP too?)
 # true_psms["seq_unimod"] = true_psms["seq"].copy() # for other models, keep original format
 
