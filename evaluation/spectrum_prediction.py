@@ -176,12 +176,21 @@ def map_mods_unimod_to_psims(sequence, supported_mods=None):
     return sequence
 
 
-def check_supported_by_model(peptide, charge, supported_mods=None, min_seq_len=6):
+def check_supported_by_model(
+    peptide, charge, supported_mods=None, 
+    min_seq_len=6, max_seq_len=30, max_number_mods=None,
+):
     if not isinstance(peptide, str):
         return False
 
     if not (1 <= charge):
         return False
+
+    # If max_number_mods given, check that peptide contains no more than this number of mods
+    if max_number_mods is not None:
+        n_mods = len(re.findall(r"\[UNIMOD:[0-9]+\]", peptide))
+        if n_mods > max_number_mods:
+            return False
 
     # If supported_mods is given, check that peptide contains only these mods
     if supported_mods is not None:
@@ -199,7 +208,7 @@ def check_supported_by_model(peptide, charge, supported_mods=None, min_seq_len=6
         return False
     
     seq_len = len(re.sub("[^A-Z]", "", peptide))
-    if not (min_seq_len <= seq_len <= 30):
+    if not (min_seq_len <= seq_len <= max_seq_len):
         return False
     
     return True
@@ -258,7 +267,7 @@ def predict_RT(
         predictions = []
         for i in range(0, len(inputs), chunk_size):
             predictions.append(
-                model_rt.predict({col: inputs.iloc[i:i + chunk_size][col].values for col in inputs})
+                model_rt.predict({col: inputs.iloc[i:i + chunk_size][col].values for col in inputs}, debug=True)
             )
             time.sleep(SLEEP)
         

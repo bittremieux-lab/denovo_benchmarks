@@ -233,7 +233,7 @@ for algo_name in os.listdir(args.output_root_dir):
         continue
 
     for algo_version in os.listdir(algo_dir):
-        version_dir =  os.path.join(algo_dir, algo_version)
+        version_dir = os.path.join(algo_dir, algo_version)
         if not os.path.isdir(version_dir):
             continue
 
