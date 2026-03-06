@@ -20,10 +20,6 @@ from .model import Spec2Pep
 
 logger = logging.getLogger("ContraNovo")
 
-print("DEBUG: CUDA available:", torch.cuda.is_available())
-print("DEBUG: Number of GPUs:", torch.cuda.device_count())
-print("DEBUG: Current Device:", torch.cuda.current_device())
-
 def predict(
     peak_path: str,
     model_filename: str,
@@ -130,7 +126,7 @@ def _execute_existing(
     print("is peak not index?, ", peak_is_not_index)
     
     #SpectrumIdx = AnnotatedSpectrumIndex if annotated else SpectrumIndex
-    valid_charge = np.arange(1, config["max_charge"] + 1)
+    valid_charge = np.arange(1, config["max_charge"] + 1) # will skip spectra with charge > max_charge
     dataloader_params = dict(
         batch_size=config["predict_batch_size"],
         n_peaks=config["n_peaks"],
@@ -156,7 +152,6 @@ def _execute_existing(
     test_dataloader = dataModule.test_dataloader()
 
     # Create the Trainer object.
-    print(f"DEBUG: use devices: {_get_devices()}.")
     trainer = pl.Trainer(
         enable_model_summary=True,
         accelerator="auto",
@@ -170,13 +165,11 @@ def _execute_existing(
     # Run the model with/without validation.
     run_trainer = trainer.validate if annotated else trainer.predict
     
-    print("DEBUG: model device before running: ", model.device)
     pytorch_total_params = sum(p.numel() for p in model.parameters())
     print("model size is : ", pytorch_total_params)
 
     run_trainer(model, dataloaders=test_dataloader)
 
-    print("DEBUG: model device after running: ", model.device)
     # Clean up temporary files.
     tmp_dir.cleanup()
 

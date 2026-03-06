@@ -1061,8 +1061,7 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
                         aa_tokens,
                         peptide_score,
                         aa_scores,
-                    ) = self._get_output_peptide_and_scores(
-                        aa_tokens, aa_scores)
+                    ) = self._get_output_peptide_and_scores(aa_tokens, aa_scores)
                     # Compare the experimental vs calculated precursor m/z.
                     _, precursor_charge, precursor_mz = precursor
                     precursor_charge = int(precursor_charge.item())
@@ -1092,7 +1091,7 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
 
                     self.out_writer.psms.append((
                         peptide,
-                        spectrum_i,
+                        spectrum_i, # spectra_ref (=spectrum_title?)
                         peptide_score,
                         precursor_charge,
                         precursor_mz,
