@@ -12,6 +12,9 @@ from tqdm import tqdm
 from collections import namedtuple
 from base import InputMapperBase
 
+
+KEYS = ["title", "rtinseconds", "pepmass", "charge", "scans"]
+
 class InputMapper(InputMapperBase):
     def __init__(self,):
         pass
@@ -32,7 +35,9 @@ class InputMapper(InputMapperBase):
             Peptide sequence in the algorithm input format.
         """
         # No format changes
-        
+
+        # keep only the relevant keys in params (others may cause issues)
+        spectrum["params"] = {k: v for k, v in spectrum["params"].items() if k in KEYS}
         return spectrum
 
 parser = argparse.ArgumentParser()
@@ -61,7 +66,7 @@ mapped_spectra = [
 mgf.write(
     mapped_spectra,
     args.output_path,
-    key_order=["title", "rtinseconds", "pepmass", "charge"],
+    key_order=KEYS,
     file_mode="w",
 )
 print(
