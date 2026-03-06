@@ -15,7 +15,8 @@ class InputMapper:
                 keep = True
                 for line in input_fd:
                     line = line.strip()
-                    spectra_buffer.append(line + "\n")
+                    if not line.startswith("SCANS="):
+                        spectra_buffer.append(line + "\n")
                     if line == "END IONS":
                         scan_idx += 1
                         if keep:
