@@ -66,13 +66,14 @@ dataset_path = os.path.join(args.data_dir, "mgf")
 spectra_params = utils.extract_spectra_params(dataset_path)
 output_data = output_data.join(spectra_params.set_index("spectrum_id"), on="spectrum_id")
 # Find predicted sequences supported by the intensity prediction model
+# (Limit max number of modified residies as models can be unstable on peptides with too many modifications)
 supported_I_idx = output_data.apply(
-    lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_I),
+    lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_I, max_number_mods=10),
     axis=1,
 )
 # Find predicted sequences supported by the RT prediction model
 supported_rt_idx = output_data.apply(
-    lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_rt),
+    lambda row: check_supported_by_model(row["sequence"], row["charge"], supported_mods_rt, max_number_mods=10),
     axis=1,
 )
 print("DEBUG: de novo peptides supported by intensity prediction model")
