@@ -9,7 +9,8 @@ From: python:3.10
     
 %post
     # Install algorithm. Pin exact version for reproducibility
-    pip install --no-cache-dir "instanovo==1.2.2"
+    # temporary fix: pinned torch version <2.6 to avoid issues with weight loading.
+    pip install --no-cache-dir "instanovo==1.2.2" "torch<2.6"
 
     # Download additional weights
     cd /algo
