@@ -199,7 +199,7 @@ output_metrics = {}
 # TODO: add shuffled RT baseline to RT_diff plot
 
 # Number of points to represent the curve (for all algorithms)
-PLOT_N_POINTS = 10000
+PLOT_N_POINTS = 200
 
 def _downsample_curve(coverage, metric):
     """Downsample coverage and metric arrays to PLOT_N_POINTS."""
