@@ -27,6 +27,11 @@ From: continuumio/miniconda3:latest
     pip install --upgrade pip
     pip install -r requirements.txt
 
+    # Create constraints file to prevent numpy/pandas upgrades
+    echo "numpy<2.0" > /tmp/constraints.txt
+    echo "pandas==1.5.2" >> /tmp/constraints.txt
+    export PIP_CONSTRAINT=/tmp/constraints.txt
+
     # Install gcc and g++ compilers
     conda install -c conda-forge gcc cxx-compiler -y
     
