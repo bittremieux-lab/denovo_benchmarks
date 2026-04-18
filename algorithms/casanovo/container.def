@@ -11,7 +11,8 @@ From: python:3.10
     # (pandas is recommended to support parsing dataset tags)
     pip install --no-cache-dir pandas
     # Install algorithm
-    pip install --no-cache-dir casanovo==5.0.0
+    # temporary fix: pinned torch version <2.6 to avoid issues with weight loading.
+    pip install --no-cache-dir "casanovo==5.0.0" "torch<2.6"
 
 %post
     # Make sure make_predictions.sh file is executable.
