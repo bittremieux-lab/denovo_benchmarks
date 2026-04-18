@@ -215,13 +215,14 @@ def extract_spectra_params(dataset_path):
         mgf_path = os.path.join(dataset_path, mgf_file)
         with mgf.IndexedMGF(mgf_path) as spectra:
             filename = os.path.splitext(mgf_file)[0]
-            print(filename, len(spectra))
+            print(f"Extract spectra params: {filename}, ({len(spectra)} spectra)")
             for i, spectrum in tqdm(enumerate(spectra), total=len(spectra)):
                 spectra_params["filename"].append(filename)
                 spectra_params["idx"].append(i)
                 spectra_params["charge"].append(get_charge(spectrum))
                 spectra_params["precursor_mass"].append(get_precursor_mass(spectrum))
                 spectra_params["true_RT"].append(get_RT(spectrum))
+    print()
     
     spectra_params = pd.DataFrame(spectra_params)
     spectra_params["spectrum_id"] = spectra_params["filename"] + ":" + spectra_params["idx"].astype(str)

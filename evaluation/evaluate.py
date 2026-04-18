@@ -103,11 +103,16 @@ dataset_path = os.path.join(args.data_dir, "mgf")
 spectra_params = utils.extract_spectra_params(dataset_path)
 
 # Predict intensities and RT for GT peptides
+# TODO: maybe find a better name for this dataframe (true_psms is misleading?)
 true_psms = sequences_true.join(spectra_params[
     ["spectrum_id", "charge", "precursor_mass", "true_RT", "filename", "idx", "run"]
 ].set_index("spectrum_id"), on="spectrum_id")
 true_psms["seq_unimod"] = true_psms["seq"].apply(map_mods_delta_mass_to_unimod) # only for Prosit models(? for MS2PIP too?)
 # true_psms["seq_unimod"] = true_psms["seq"].copy() # for other models, keep original format
+
+print("DEBUG: all spectra params: spectra_params", spectra_params.shape)
+print("DEBUG: DB annotated GT peptides: sequences_true", sequences_true.shape)
+print("DEBUG: GT peptides with spectra params: true_psms", true_psms.shape, "\n")
 
 # Find predicted sequences supported by the intensity prediction model
 true_psms_supported_I_idx = true_psms.apply(
@@ -124,20 +129,18 @@ print(true_psms_supported_I_idx.value_counts(), "\n")
 print("DEBUG: GT peptides supported by RT prediction model")
 print(true_psms_supported_rt_idx.value_counts(), "\n")
 
-# if any(true_psms_supported_I_idx): TODO: handle this case
-# TODO: can we go without supported_idx at all, move it to the predict_I/rt function?
-
-# Get intensity predictions for de novo peptides
+# Get intensity predictions for GT peptides
 gt_predictions_mz, gt_predictions_I = predict_intensities(
     model_name_I,
     true_psms[true_psms_supported_I_idx].rename({"seq_unimod": "sequence"}, axis=1),
 )
-# Get RT predictions for de novo peptides and store them in the dataframe
+# Get RT predictions for GT peptides and store them in the dataframe
 true_psms.loc[true_psms_supported_rt_idx, "pred_RT"] = predict_RT(
     model_name_rt,
     true_psms[true_psms_supported_rt_idx].rename({"seq_unimod": "sequence"}, axis=1),
 )
-# Calculate spectral angles and RT differences (on calibrated RT)
+
+# Calculate spectral angles
 print("Calculate spectral angles for GT peptides")
 true_psms["SA"] = np.nan
 for filename in true_psms["filename"].value_counts().index:
@@ -149,21 +152,20 @@ for filename in true_psms["filename"].value_counts().index:
     # Load mgf file, iterate through experimental spectra, calculate SA
     mgf_path = os.path.join(dataset_path, filename + ".mgf")
     true_psms.loc[true_psms_file_mask_I, "SA"] = calculate_SA(spec_idxs, gt_predictions_mz, gt_predictions_I, mgf_path)
+print()
 
+# Calculate RT differences (with calibrated RT)
 print("Calculate RT differences for GT peptides")
 true_psms["true_RT_calib"] = np.nan
 spectra_params["true_RT_calib"] = np.nan
+
+# Calibrate true RT to iRT based on GT PSMs from the same run
 for run in true_psms["run"].value_counts().index:
     print("Run:", run)
     # Select calibration PSMs (from GT PSMs)
     true_psms_run_mask_rt = (true_psms["run"] == run) & true_psms_supported_rt_idx
     calib_psms = true_psms[true_psms_run_mask_rt]
     calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
-    # Get predictions for calibration PSMs
-    calib_psms["pred_RT"] = predict_RT(
-        model_name_rt,
-        calib_psms[["seq_unimod"]].rename({"seq_unimod": "sequence"}, axis=1),
-    )
     # Train calibration model (for this particular file)
     rt_calib_reg = get_calibration_model(calib_psms)
     # Calibrate true_RT to iRT
@@ -175,28 +177,34 @@ for run in true_psms["run"].value_counts().index:
     spectra_params.loc[all_spectra_run_mask, "true_RT_calib"] = rt_calib_reg.predict(
         spectra_params.loc[all_spectra_run_mask, "true_RT"].values[:, None]
     )[:, 0]
+
+# Calibrate true_RT for remaining spectra (w/o GT PSMs from the same run)
+# (with our FDR criteria, it can happen that some runs don't have any DB PSMs)
+if spectra_params["true_RT_calib"].isnull().any():
+    print("Spectra with no GT PSMs from the same run:", spectra_params["true_RT_calib"].isnull().sum())
+    # Select calibration PSMs (from GT PSMs in all files)
+    calib_psms = true_psms[true_psms_supported_rt_idx]
+    calib_psms = calib_psms.sample(n=min(N_CALIBRATION_PSMS, len(calib_psms)), replace=False, random_state=0)
+    # Train calibration model (for this particular file)
+    rt_calib_reg = get_calibration_model(calib_psms)
+    # Calibrate true_RT for all spectra (spectra_params)
+    all_spectra_run_mask = (spectra_params["true_RT_calib"].isnull())
+    spectra_params.loc[all_spectra_run_mask, "true_RT_calib"] = rt_calib_reg.predict(
+        spectra_params.loc[all_spectra_run_mask, "true_RT"].values[:, None]
+    )[:, 0]
+
 # Calculate RT differences (on calibrated RT)
 max_true_irt = true_psms["true_RT_calib"].max()
 true_psms["RT_diff"] = (true_psms["pred_RT"] - true_psms["true_RT_calib"]).abs() / max_true_irt
 
-# Evaluate every algorithm. 
+# Evaluate every algorithm & prepare plotting data. 
 # Create plots and metrics for ALL algorithms for a given dataset.
-# - Skip all algorithms that fail the processing - DONE?
-
-# - find output_dir
-# - iterate over all algorithms in it
-# - ? iterate over all versions of the algorithm? (or just take latest?) - TODO
 # - skip algorithm that doesn't have output.csv or SA/pred_RT columns
 
 # args.data_dir = path/to/dataset/folder # with labels.csv and mgf/
 # args.output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
 output_metrics = {}
-
-# Prepare plotting data
-
-# TODO: add database search baselines to RT_diff, SA plots
-# TODO: add shuffled RT baseline to RT_diff plot
 
 # Number of points to represent the curve (for all algorithms)
 PLOT_N_POINTS = 200
@@ -221,11 +229,12 @@ def _append_plot_data(plot_dict, algo_name, algo_version, coverage, metric, **ex
 # for each plot, collect a dataframe containing 
 # dataset, algorithm (algo_name), algo_version, coverage, metric_value (at given coverage)
 # coverage and metric value are stored as lists of values
-aa_precision_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": [], "auc": []}
-pep_precision_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": [], "auc": []}
-n_proteome_matches_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []} # TODO: only if not args.skip_proteome_matches?
-rt_diff_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []}
-sa_plot_data = {"algorithm": [], "version": [],"coverage": [], "metric": []}
+aa_precision_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": [], "auc": []}
+pep_precision_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": [], "auc": []}
+n_proteome_matches_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []} # TODO: only if not args.skip_proteome_matches?
+rt_diff_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []}
+sa_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []}
+# TODO: do we want to add also denovo_rt_diff_plot_data and denovo_SA_plot_data (only denovo peptides without GT)?
 
 for algo_name in os.listdir(args.output_root_dir):
     algo_dir = os.path.join(args.output_root_dir, algo_name)
@@ -237,43 +246,43 @@ for algo_name in os.listdir(args.output_root_dir):
         if not os.path.isdir(version_dir):
             continue
 
+        full_algo_name = f"{algo_name}_{algo_version}"
+        print("EVALUATE", full_algo_name)
+
         output_path = os.path.join(version_dir, dataset_name, "output.csv")
-        print(output_path)
         if not os.path.isfile(output_path):
             print(f"Predictions file not found for {algo_name} {algo_version}, skipping...")
             continue
 
         with open(output_path) as f:
             header = f.readline().strip().split(",")
-            print(header)
         if "SA" not in header or "pred_RT" not in header:
+            print("Output file columns:", header)
             print(f"Predictions do not contain SA and predicted RT, skipping...")
             continue
 
-        full_algo_name = f"{algo_name}_{algo_version}"
-        print("EVALUATE", full_algo_name)
-
         # Load tool predictions, match with ground truth
         output_data = utils.load_predictions(output_path, sequences_true)
+        print("DEBUG: predicted & GT dataframe: output_data", output_data.shape)
+
+        # Add experimental spectra data (covering all spectra in the dataset)
+        output_data = output_data.join(spectra_params.set_index("spectrum_id"), on="spectrum_id", how="outer").reset_index(drop=True) # how="left" is default
+        print("DEBUG: predicted with spectra_params added: output_data", output_data.shape)
 
         # Get idxs of GT labeled peptides & sequenced peptides (in correct output format)
-        print(full_algo_name)
         print("NaN sequences:", output_data["score"].isnull().sum())
         output_data = output_data.sort_values("score", ascending=False)
-        labeled_idx = output_data["sequence_true"].notnull()  
+        n_spectra = len(output_data)
+        labeled_idx = output_data["sequence_true"].notnull()
         sequenced_idx = utils.get_sequenced_idx(output_data)
         output_data.loc[~sequenced_idx, "sequence"] = ""
         output_data.loc[~sequenced_idx, "aa_scores"] = ""
+        print("DEBUG: n_spectra (used as total number of spectra)", n_spectra)
+        print("DEBUG: n_sequenced (number of de novo predicted peptides)", sequenced_idx.sum())
 
-        # Use precalculated pred_RT and SA
-        # Add experimental spectra data
-        output_data = output_data.join(spectra_params.set_index("spectrum_id"), on="spectrum_id")
-        # Find predicted sequences supported by the model (Prosit or other)
-        # (No need to recalculate, derive from augment_predictions.py)
+        # Find predicted sequences supported by the model (Prosit or other), assuming SA and pred_RT precalculated
         supported_I_idx = output_data["SA"].notnull()
-        supported_rt_idx = output_data["pred_RT"].notnull() # DEBUG: so pred_RT cannot be NaN?
-
-        # (true_RT_calib is already in spectrum_params (after step for the true_psms above))
+        supported_rt_idx = output_data["pred_RT"].notnull()
         # Calculate RT differences (on calibrated RT) and normalize by max iRT
         output_data["RT_diff"] = (output_data["pred_RT"] - output_data["true_RT_calib"]).abs() / max_true_irt
 
@@ -326,7 +335,7 @@ for algo_name in os.listdir(args.output_root_dir):
         # Collect metrics
         output_metrics[full_algo_name] = {
             "N sequences": sequenced_idx.size,
-            "N predicted": sequenced_idx.sum(),
+            "N predicted": sequenced_idx.sum(), # how many sequences were predicted by de novo tool
             "AA precision": aa_precision,
             "AA recall": aa_recall,
             "Pep precision": pep_precision,
@@ -337,14 +346,14 @@ for algo_name in os.listdir(args.output_root_dir):
         # RT difference curve
         rt_diff = output_data[supported_rt_idx].sort_values("score", ascending=False)["RT_diff"]
         rt_diff_wma = np.convolve(rt_diff, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
-        coverage = np.arange(1, len(rt_diff_wma) + 1) / len(rt_diff_wma)
+        coverage = np.arange(1, len(rt_diff_wma) + 1) / n_spectra
         coverage, rt_diff_wma = _downsample_curve(coverage, rt_diff_wma)
         _append_plot_data(rt_diff_plot_data, algo_name, algo_version, coverage, rt_diff_wma)
 
         # SA curve
         SA = output_data[supported_I_idx].sort_values("score", ascending=False)["SA"]
         SA_wma = np.convolve(SA, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
-        coverage = np.arange(1, len(SA_wma) + 1) / len(SA_wma)
+        coverage = np.arange(1, len(SA_wma) + 1) / n_spectra
         coverage, SA_wma = _downsample_curve(coverage, SA_wma)
         _append_plot_data(sa_plot_data, algo_name, algo_version, coverage, SA_wma)
 
@@ -352,7 +361,7 @@ for algo_name in os.listdir(args.output_root_dir):
             # Proteome matches vs number of predictions curve
             prot_matches = output_data["proteome_match"][sequenced_idx].values
             n_matches = np.cumsum(prot_matches)
-            n_sequenced = np.arange(sequenced_idx.sum())
+            n_sequenced = np.arange(1, sequenced_idx.sum() + 1)
             n_sequenced, n_matches = _downsample_curve(n_sequenced, n_matches)
             _append_plot_data(n_proteome_matches_plot_data, algo_name, algo_version, n_sequenced, n_matches)
 
@@ -380,8 +389,30 @@ for algo_name in os.listdir(args.output_root_dir):
             print("DEBUG: GT peptide matches w/o proteome match:", idx.sum())
             idx = ~output_data["pep_match"] & output_data["proteome_match"]
             print("DEBUG: Proteome matches w/o GT peptide match:", idx.sum())
-            print("\n", "=" * 100, "\n")
+        
+        print("\n", "=" * 100, "\n")
 
+# TODO: add database search baseline to RT_diff plot
+# gt_rt_diff = true_psms[true_psms_supported_rt_idx]["RT_diff"]
+# gt_rt_diff_wma = np.convolve(gt_rt_diff, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
+# gt_coverage = np.arange(1, len(gt_rt_diff_wma) + 1) / len(gt_rt_diff_wma)
+# plot_idxs = np.linspace(0, len(gt_coverage) - 1, PLOT_N_POINTS).astype(np.int64)
+# # _append_plot_data(rt_diff_plot_data, algo_name, algo_version, gt_coverage, gt_rt_diff_wma)
+# axs[3].plot(gt_coverage[plot_idxs], gt_rt_diff_wma[plot_idxs], label="database search", color="k")
+
+# TODO: add shuffled baseline to RT_diff plot
+# true_RT_shuffled = np.random.permutation(true_psms.loc[true_psms_supported_rt_idx, "true_RT_calib"])
+# rt_shuffled_diff = (true_psms.loc[true_psms_supported_rt_idx, "true_RT_calib"] - true_RT_shuffled).abs() / max_true_irt
+# rt_shuffled_diff_wma = np.convolve(rt_shuffled_diff, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
+# plot_idxs = np.linspace(0, len(gt_coverage) - 1, PLOT_N_POINTS).astype(np.int64)
+# axs[3].plot(gt_coverage[plot_idxs], rt_shuffled_diff_wma[plot_idxs], label=f"random baseline", color="tab:gray")
+
+# TODO: add database search baseline to SA plot
+# gt_SA = true_psms[true_psms_supported_I_idx]["SA"]
+# gt_sa_wma = np.convolve(gt_SA, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
+# gt_coverage = np.arange(1, len(gt_sa_wma) + 1) / len(gt_sa_wma)
+# plot_idxs = np.linspace(0, len(gt_coverage) - 1, PLOT_N_POINTS).astype(np.int64)
+# axs[4].plot(gt_coverage[plot_idxs], gt_sa_wma[plot_idxs], label="database search", color="k")
 
 # Save results
 dataset_results_dir = os.path.join(args.results_dir, dataset_name)
