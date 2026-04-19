@@ -67,6 +67,7 @@ args = parser.parse_args()
 # Define dataset name and path to store evaluation results
 dataset_name = os.path.basename(os.path.normpath(args.data_dir))
 print(f"Evaluating results for {dataset_name}.")
+print(f"Skip proteome matches metric: {args.skip_proteome_matches}.")
 
 # Get dataset tags and database_path (proteome column, by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
@@ -214,7 +215,7 @@ def _downsample_curve(coverage, metric):
     if len(coverage) == 0:
         return [], []
     plot_idxs = np.linspace(0, len(coverage) - 1, min(PLOT_N_POINTS, len(coverage))).astype(np.int64)
-    return coverage[plot_idxs].tolist(), metric[plot_idxs].tolist()
+    return coverage[plot_idxs], metric[plot_idxs]
 
 def _append_plot_data(plot_dict, algo_name, algo_version, coverage, metric, **extras):
     """Append downsampled plot data to a plot dictionary (in-place)."""
@@ -348,29 +349,42 @@ for algo_name in os.listdir(args.output_root_dir):
         rt_diff_wma = np.convolve(rt_diff, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
         coverage = np.arange(1, len(rt_diff_wma) + 1) / n_spectra
         coverage, rt_diff_wma = _downsample_curve(coverage, rt_diff_wma)
-        _append_plot_data(rt_diff_plot_data, algo_name, algo_version, coverage, rt_diff_wma)
+        _append_plot_data(
+            rt_diff_plot_data, algo_name, algo_version, 
+            coverage.tolist(), rt_diff_wma.tolist()
+        )
 
         # SA curve
         SA = output_data[supported_I_idx].sort_values("score", ascending=False)["SA"]
         SA_wma = np.convolve(SA, np.ones(WINDOW_SIZE) / WINDOW_SIZE, mode='valid')
         coverage = np.arange(1, len(SA_wma) + 1) / n_spectra
         coverage, SA_wma = _downsample_curve(coverage, SA_wma)
-        _append_plot_data(sa_plot_data, algo_name, algo_version, coverage, SA_wma)
+        _append_plot_data(
+            sa_plot_data, algo_name, algo_version, 
+            coverage.tolist(), SA_wma.tolist()
+        )
 
+        # Proteome matches vs number of predictions curve
         if not args.skip_proteome_matches:
-            # Proteome matches vs number of predictions curve
             prot_matches = output_data["proteome_match"][sequenced_idx].values
             n_matches = np.cumsum(prot_matches)
-            n_sequenced = np.arange(1, sequenced_idx.sum() + 1)
-            n_sequenced, n_matches = _downsample_curve(n_sequenced, n_matches)
-            _append_plot_data(n_proteome_matches_plot_data, algo_name, algo_version, n_sequenced, n_matches)
+            coverage = np.arange(1, sequenced_idx.sum() + 1) / n_spectra
+            coverage, n_matches = _downsample_curve(coverage, n_matches)
+            _append_plot_data(
+                n_proteome_matches_plot_data, algo_name, algo_version, 
+                coverage.tolist(), n_matches.tolist()
+            )
 
         # Peptide precision-coverage curve
         pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
         precision = np.cumsum(pep_matches) / np.arange(1, len(pep_matches) + 1)
         coverage = np.arange(1, len(pep_matches) + 1) / len(pep_matches)
         coverage, precision = _downsample_curve(coverage, precision)
-        _append_plot_data(pep_precision_plot_data, algo_name, algo_version, coverage, precision, auc=auc(coverage, precision))
+        _append_plot_data(
+            pep_precision_plot_data, algo_name, algo_version, 
+            coverage.tolist(), precision.tolist(), 
+            auc=auc(coverage, precision)
+        )
 
         # Amino acid precision-coverage curve
         aa_scores = np.concatenate(list(map(utils.parse_scores, output_data["aa_scores"][labeled_idx].values.tolist())))
@@ -379,7 +393,11 @@ for algo_name in os.listdir(args.output_root_dir):
         precision = np.cumsum(aa_matches_pred[sort_idx]) / np.arange(1, len(aa_matches_pred) + 1)
         coverage = np.arange(1, len(aa_matches_pred) + 1) / len(aa_matches_pred)
         coverage, precision = _downsample_curve(coverage, precision)
-        _append_plot_data(aa_precision_plot_data, algo_name, algo_version, coverage, precision, auc=auc(coverage, precision))
+        _append_plot_data(
+            aa_precision_plot_data, algo_name, algo_version, 
+            coverage.tolist(), precision.tolist(), 
+            auc=auc(coverage, precision)
+        )
         
         if not args.skip_proteome_matches:
             # [Debug] display number of peptide matches & proteome matches
@@ -391,6 +409,21 @@ for algo_name in os.listdir(args.output_root_dir):
             print("DEBUG: Proteome matches w/o GT peptide match:", idx.sum())
         
         print("\n", "=" * 100, "\n")
+
+# Database search baseline n_proteome_matches plot
+if not args.skip_proteome_matches:
+    gt_n_prot_matches = len(true_psms) # total number of database search annotations
+    _append_plot_data(
+        n_proteome_matches_plot_data, 
+        algo_name="database search", 
+        algo_version="", # no version for database search 
+        coverage=[0., 1.], # full coverage 
+        metric=[gt_n_prot_matches, gt_n_prot_matches],
+    )
+    # FIXME: coverage=[0., 1.] - full coverage, line crosses the entire plot, 
+    # and doesn't reflect the real number of DB annotations.
+    # Alternative would be: coverage=[0., n_gt_sequences / n_spectra]
+
 
 # TODO: add database search baseline to RT_diff plot
 # gt_rt_diff = true_psms[true_psms_supported_rt_idx]["RT_diff"]
