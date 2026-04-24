@@ -6,27 +6,47 @@ from pydantic import BaseModel
 
 
 class DatasetTag(str, enum.Enum):
+    # Acquisition
     synthetic = "synthetic"
     nontryptic = "nontryptic"
     timstof = "timstof"
     waters = "waters"
-    sciex = "sciex" # TODO: shouldn't be TOF?
-    agilent = "agilent" # TODO: shouldn't be TOF?
+    sciex = "sciex"
+    agilent = "agilent"
     astral = "astral"
-    deamidation = "deamidation"
-    phosphorylation = "phosphorylation"
-    oxidation = "oxidation"
-    formylation = "formylation"
-    acetylation = "acetylation"
-    methylation = "methylation"
-    carbamidomethylation = "carbamidomethylation"
-    formaldehyde = "formaldehyde"
-    ammonia_loss = "ammonia_loss"
-    sodium_adduct = "sodium_adduct"
-    diethyl = "diethyl"
+    # Labeling strategy
     silac = "silac"
     tmt = "tmt"
-    # TODO: other modifications?
+    # Common modifications
+    carbamidomethylation = "carbamidomethylation"
+    deamidation = "deamidation"
+    oxidation = "oxidation"
+    acetylation = "acetylation"
+    methylation = "methylation"
+    dimethylation = "dimethylation"
+    trimethylation = "trimethylation"
+    phosphorylation = "phosphorylation"
+    ammonia_loss = "ammonia_loss"
+    # Other modifications
+    sodium_adduct = "sodium_adduct"
+    formylation = "formylation"
+    formaldehyde = "formaldehyde"
+    acetaldehyde = "acetaldehyde"
+    propionyl = "propionyl"
+    butyryl = "butyryl"
+    crotonylation = "crotonylation"
+    hydroxyisobutyryl = "hydroxyisobutyryl"
+    biotinylation = "biotinylation"
+    ubiquitination = "ubiquitination"
+    succinyl = "succinyl"
+    malonylation = "malonylation"
+    glutarylation = "glutarylation"
+    citrullination = "citrullination"
+    nitro = "nitro"
+    diethyl = "diethyl"
+    nickel_2h_substitution = "nickel_2h_substitution" # # Replacement of 2 protons by nickel
+    iron_2h_substitution = "iron_2h_substitution" # Replacement of 2 protons by iron
+    iron_3h_substitution = "iron_3h_substitution" # Replacement of 3 protons by iron
 
 
 class Instrument(str, enum.Enum):
