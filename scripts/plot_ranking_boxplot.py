@@ -40,6 +40,7 @@ def main():
     plt.tight_layout()
 
     out = "plots/algorithm_ranking_boxplot.png"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=150)
     print(f"Saved {out}")
 

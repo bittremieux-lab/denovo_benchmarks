@@ -36,6 +36,11 @@ def compute_pairwise_corr(matrix, method="spearman"):
             else:
                 corr_matrix[i, j] = np.nan
 
+    # Symmetrize, replace non-finite with neutral 0, and force diagonal to 1
+    corr_matrix = (corr_matrix + corr_matrix.T) / 2
+    corr_matrix = np.where(np.isfinite(corr_matrix), corr_matrix, 0.0)
+    np.fill_diagonal(corr_matrix, 1.0)
+
     return pd.DataFrame(corr_matrix, index=algos, columns=algos)
 
 

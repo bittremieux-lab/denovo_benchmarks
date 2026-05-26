@@ -67,6 +67,10 @@ def main():
     keep_cats = cat_counts[cat_counts >= 2].index.tolist()
     df_filtered = df[df["category"].isin(keep_cats)]
 
+    if not keep_cats:
+        print("No category has >= 2 datasets; nothing to plot.")
+        return
+
     n_cats = len(keep_cats)
     n_cols = 3
     n_rows = (n_cats + n_cols - 1) // n_cols

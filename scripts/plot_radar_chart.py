@@ -103,13 +103,19 @@ def main():
     all_rt_inv = [1 - rt[a] for a in all_algos]
     all_sa = [sa[a] for a in all_algos]
 
+    def _norm(x, xs):
+        lo, hi = min(xs), max(xs)
+        if hi == lo:
+            return 0.5
+        return (x - lo) / (hi - lo)
+
     for i, algo in enumerate(all_algos):
         ax = axes[i]
         values = [
-            pep[algo],
-            aa[algo],
-            1 - rt[algo],  # invert: lower RT error = better
-            sa[algo],
+            _norm(pep[algo], all_pep),
+            _norm(aa[algo], all_aa),
+            _norm(1 - rt[algo], all_rt_inv),
+            _norm(sa[algo], all_sa),
         ]
         values += values[:1]
 

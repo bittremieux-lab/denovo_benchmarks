@@ -138,6 +138,7 @@ def main():
     plt.tight_layout()
 
     out = "plots/aa_peptide_gap.png"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
 

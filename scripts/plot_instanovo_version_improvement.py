@@ -47,7 +47,7 @@ def main():
     ax.set_yticks(range(len(datasets)))
     ax.set_yticklabels([datasets[i] for i in order], fontsize=5)
     ax.axvline(0, color="black", linewidth=0.5)
-    ax.set_xlabel("AUC improvement (v1.2.2 − v1.1.2)")
+    ax.set_xlabel("AUC improvement (v1.2.2 - v1.1.2)")
     ax.set_title("Peptide precision AUC change")
     median_imp = np.median(improvement)
     mean_imp = np.mean(improvement)
@@ -69,7 +69,7 @@ def main():
     ax.set_yticks(range(len(datasets_aa)))
     ax.set_yticklabels([datasets_aa[i] for i in order_aa], fontsize=5)
     ax.axvline(0, color="black", linewidth=0.5)
-    ax.set_xlabel("AUC improvement (v1.2.2 − v1.1.2)")
+    ax.set_xlabel("AUC improvement (v1.2.2 - v1.1.2)")
     ax.set_title("AA precision AUC change")
     median_aa = np.median(improvement_aa)
     mean_aa = np.mean(improvement_aa)
@@ -98,6 +98,7 @@ def main():
     plt.tight_layout()
 
     out = "plots/instanovo_version_improvement.png"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
 

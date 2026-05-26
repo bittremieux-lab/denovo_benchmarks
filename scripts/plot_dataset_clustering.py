@@ -42,6 +42,7 @@ def main():
     g.fig.suptitle("Dataset clustering by algorithm ranking profile", y=1.01, fontsize=14)
 
     out = "plots/dataset_clustering.png"
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     g.savefig(out, dpi=150, bbox_inches="tight")
     print(f"Saved {out}")
 

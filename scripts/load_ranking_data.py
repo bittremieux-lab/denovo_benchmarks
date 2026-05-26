@@ -21,14 +21,27 @@ def load_auc_data(results_dir="results"):
         dataset = os.path.basename(os.path.dirname(path))
         with open(path) as f:
             for row in csv.DictReader(f):
+                algorithm = row.get("algorithm")
+                version = row.get("version")
+                auc_raw = row.get("auc")
+                if not algorithm or not version or auc_raw in (None, ""):
+                    print(f"Skipping malformed row in {path}: {row}")
+                    continue
+                try:
+                    auc = float(auc_raw)
+                except (TypeError, ValueError):
+                    print(f"Skipping row with non-numeric auc in {path}: {row}")
+                    continue
                 rows.append({
                     "dataset": dataset,
-                    "algorithm": row["algorithm"],
-                    "version": row["version"],
-                    "auc": float(row["auc"]),
+                    "algorithm": algorithm,
+                    "version": version,
+                    "auc": auc,
                 })
 
     df = pd.DataFrame(rows)
+    if df.empty or not {"dataset", "algorithm", "auc"}.issubset(df.columns):
+        return pd.DataFrame(columns=["dataset", "algorithm", "auc"]).reset_index(drop=True)
     # Keep best version per algorithm per dataset
     df = df.loc[df.groupby(["dataset", "algorithm"])["auc"].idxmax()]
     return df[["dataset", "algorithm", "auc"]].reset_index(drop=True)

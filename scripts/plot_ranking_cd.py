@@ -23,7 +23,7 @@ def _nemenyi_cd(k, n, alpha=0.05):
     Uses q_alpha values from Demsar (2006) Table 5 / Studentized range.
     """
     # q_alpha for alpha=0.05 from the Studentized range distribution
-    q = stats.studentized_range.ppf(1 - alpha, k, np.inf)
+    q = stats.studentized_range.ppf(1 - alpha, k, np.inf) / np.sqrt(2)
     return q * np.sqrt(k * (k + 1) / (6 * n))
 
 
