@@ -1,5 +1,4 @@
 import os
-import ppx 
 import re
 import shutil
 import subprocess
@@ -128,6 +127,8 @@ def get_files_list(dset_name: str, config: Config):
 
     # Step 3: Connect to Pride/Massive repository
     if "PXD" in dset_id or "MSV" in dset_id:
+        import ppx 
+
         proj = ppx.find_project(
             dset_id, 
             local=raw_files_dir,
@@ -155,6 +156,50 @@ def get_files_list(dset_name: str, config: Config):
     return files_list
 
 
+### Checks for existing files before downloading/unpacking/processing
+
+def check_mzml_files_exist(files_list, mzml_files_dir):
+    """Check if all mzML files for the given files_list exist in mzml_files_dir."""
+    mzml_files = [fname.lower() + ".mzml" for fname in files_list]
+    return set(mzml_files).issubset(set(fname.lower() for fname in os.listdir(mzml_files_dir)))
+
+def check_raw_files_exist(files_list, raw_files_dir, ext=".raw"):
+    """Check if all raw files for the given files_list exist in raw_files_dir."""
+    raw_files = [fname.lower() + ext for fname in files_list]
+    return set(raw_files).issubset(set(fname.lower() for fname in os.listdir(raw_files_dir)))
+
+def check_unpacked_files_exist(files_list, unpack_dir, base_file_ext):
+    # Check if unpacked files exist
+    unpacked_files = [fname.lower() + base_file_ext for fname in files_list]
+    return set(unpacked_files).issubset(set(fname.lower() for fname in os.listdir(unpack_dir)))
+
+def check_db_search_results_exist(search_tool, files_list, mzml_files_dir):
+    """Check if database search results already exist."""
+    if search_tool == "msfragger":
+        # expected_files = [os.path.join(mzml_files_dir, f"{fname}.pin") for fname in files_list]
+        expected_files = [os.path.join(mzml_files_dir, f"{fname}_rescore.pin") for fname in files_list]
+    elif search_tool == "msgf":
+        expected_files = [os.path.join(mzml_files_dir, "msgf_features", f"{fname}.pin") for fname in files_list]
+    elif search_tool == "comet":
+        expected_files = [os.path.join(mzml_files_dir, "comet_features", f"{fname}.pin") for fname in files_list]
+    else:
+        raise ValueError(f"Unsupported search tool: {search_tool}")
+    
+    return all(os.path.exists(file) for file in expected_files)
+
+def check_chunked_mgf_files_exist(files_list, mgf_files_dir):
+    """Check if chunked MGF files exist."""
+    chunked_mgf_files = [fname.lower() + "_0.mgf" for fname in files_list]
+    return set(chunked_mgf_files).issubset(set(fname.lower() for fname in os.listdir(mgf_files_dir)))
+
+def check_full_mgf_files_exist(files_list, mgf_files_dir):
+    """Check if full MGF files exist."""
+    full_mgf_files = [fname.lower() + ".mgf" for fname in files_list]
+    return set(full_mgf_files).issubset(set(fname.lower() for fname in os.listdir(mgf_files_dir)))
+
+
+### Methods to prepare spectra files for database search
+
 def download_files(download_config, files_list):
     """
     Download files from the `files_list` to a local folder. 
@@ -169,6 +214,8 @@ def download_files(download_config, files_list):
     print(f"Loading dataset {dset_id} to the folder {dset_dir}")
 
     if "PXD" in dset_id or "MSV" in dset_id:
+        import ppx 
+        
         proj = ppx.find_project(
             dset_id, 
             local=dset_dir,
@@ -200,7 +247,6 @@ def download_files(download_config, files_list):
                 ]
                 subprocess.run(" ".join(cmd), shell=True, check=True)
         print("Loaded files:", os.listdir(dset_dir))
-
 
 def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
     os.makedirs(target_dir, exist_ok=True)    
@@ -262,8 +308,35 @@ def convert_raw(dset_id, files_list, target_dir, target_ext=".mzml"):
         cmd += [file_path]
         subprocess.run(" ".join(cmd), shell=True, check=True)
     print(os.listdir(target_dir))
+
+def prepare_mzml_files(dset_id, files_list, raw_files_dir, mzml_files_dir, download_config):
+    """Ensure mzML files exist by downloading and converting raw files if needed."""
     
+    if not check_mzml_files_exist(files_list, mzml_files_dir):
+        # Download raw files if needed
+        if not check_raw_files_exist(files_list, raw_files_dir, download_config.ext):
+            download_files(download_config, files_list)
+
+        # Unpack raw files if needed
+        if download_config.ext.endswith(".zip"):
+            base_file_ext = download_config.ext[:-len(".zip")]
+            # If files can be directly processed by MSFragger (.d, .mzml), unpack to mzml_files_dir
+            unpack_dir = mzml_files_dir if base_file_ext == ".d" else raw_files_dir
+            if not check_unpacked_files_exist(files_list, unpack_dir, base_file_ext):
+                for fname in files_list.values():
+                    file_path = os.path.join(raw_files_dir, fname)
+                    shutil.unpack_archive(filename=file_path, extract_dir=unpack_dir)
+
+        # Convert raw files to mzML
+        if download_config.ext in [".raw", ".wiff"]:
+            convert_raw(dset_id, files_list, mzml_files_dir, target_ext=".mzml")
     
+    mzml_files = [fname for fname in os.listdir(mzml_files_dir) if fname.lower().endswith(".mzml")]
+    print("mzML files are ready in", mzml_files_dir, ":\n", mzml_files)
+
+
+### Methods to prepare reference databases for real datasets (add decoys and contaminants)
+
 def generate_decoys_fasta(dset_name, db_file, contam_only=False):
     """
     Add decoys and common contaminants to the reference database
@@ -313,27 +386,15 @@ def generate_decoys_fasta(dset_name, db_file, contam_only=False):
     db_w_decoys_path = os.path.join(mzml_files_dir, db_w_decoys_path)
     return db_w_decoys_path
 
+### Methods to prepare reference databases for synthetic peptides
 
 def get_extended_db_path(db_path):
     db_path = db_path.split("/")
     db_path[-1] = "extended-" + db_path[-1]
     return "/".join(db_path)
 
-
-def get_extended_db_w_decoys_path(db_w_decoys_path):
-    db_w_decoys_path = db_w_decoys_path.split("/")
-    mzml_files_dir = db_w_decoys_path[:-1]
-    
-    db_w_decoys = db_w_decoys_path[-1]
-    db_w_decoys = db_w_decoys.split("-")    
-    db_w_decoys.insert(3, "extended")
-    db_w_decoys = "-".join(db_w_decoys)
-    
-    db_w_decoys_path = mzml_files_dir + [db_w_decoys]
-    return "/".join(db_w_decoys_path)
-
-
 def append_pool_peptides(add_pool_path, db_path):
+    """Add peptides from another pool to the reference database to enrich search space for FDR calculation."""
     with open(add_pool_path, 'r') as f_in, open(db_path, 'a') as f_out:
         skip = True
         for line in f_in:    
@@ -344,7 +405,6 @@ def append_pool_peptides(add_pool_path, db_path):
             elif not skip: # write the following sequence
                 f_out.write(line)
     print(f"Pool peptides from '{add_pool_path}' appended to '{db_path}'.")
-
 
 def prepare_synthetic_fasta(dset_name, files_list, pool_proteomes_dir, PT_pools_df):
     files_db_w_decoys = {}
@@ -391,6 +451,67 @@ def prepare_synthetic_fasta(dset_name, files_list, pool_proteomes_dir, PT_pools_
         files_db_w_decoys[fname] = db_w_decoys_extended_path
     return files_db_w_decoys
 
+
+### Methods to run database search with MSFragger (with or without splitting the database)
+
+def generate_msfragger_params(db_w_decoys_path, config, template_path, output_path):
+    """
+    Generates a MSFragger parameter file from a given configuration and template.
+
+    Args:
+    config (dict): The configuration dictionary for the dataset.
+    template_path (str): Path to the default template .params file.
+    output_path (str): Path to save the modified .params file.
+    """
+    
+    def replace_param_value(line, new_value):
+        if "#" in line:
+            param, desc = line.split("#")
+        else:
+            param = line
+            desc = ""
+        
+        param_key, param_value = param.split(" = ", 1)
+        
+        if "variable_mod" in param_key:
+            new_value = new_value.replace("_", " ")
+        
+        param = f"{param_key} = {new_value}"
+        return f"{param}        # {desc}"
+    
+    # Step 1: Load the default template params file
+    with open(template_path, 'r') as template_file:
+        template_data = template_file.readlines()
+    
+    # Step 2: Modify template based on the provided config
+    search_params = {key.lstrip("-"): value for key,  value in config.search_params.items()}
+    search_params["database_name"] = db_w_decoys_path
+    
+    modified_params = []
+    for line in template_data:
+        line = line.strip()
+        
+        for key, value in search_params.items():
+            # Search for the parameter in the template file and replace if exists
+            if key in line and not line.startswith("#"):                
+                line = replace_param_value(line, value)
+                break  # No need to check other keys once matched
+        
+        modified_params.append(line)
+    modified_params.append("\n")
+
+    # Step 3: Add missing parameters from config (not in the template)
+    existing_params = {line.split('=')[0].strip() for line in modified_params if '=' in line}
+    for key, value in search_params.items():
+        if key not in existing_params:
+            if "variable_mod" in key:
+                value = value.replace("_", " ")
+            modified_params.append(f"{key} = {value}")
+
+    # Step 4: Save the modified params file
+    with open(output_path, 'w') as output_file:
+        output_file.write("\n".join(modified_params))
+    print(f"Generated MSFragger params file at: {output_path}")
 
 def run_msfragger_search(dset_name, db_search_config):
     """Run MSFragger database search."""
@@ -460,66 +581,6 @@ def run_msfragger_search(dset_name, db_search_config):
                 print(f"Created mzML: {dst_fname}")
     print("DB search results (.pepXML, .pin):\n", os.listdir(mzml_files_dir))
 
-def generate_msfragger_params(db_w_decoys_path, config, template_path, output_path):
-    """
-    Generates a MSFragger parameter file from a given configuration and template.
-
-    Args:
-    config (dict): The configuration dictionary for the dataset.
-    template_path (str): Path to the default template .params file.
-    output_path (str): Path to save the modified .params file.
-    """
-    
-    def replace_param_value(line, new_value):
-        if "#" in line:
-            param, desc = line.split("#")
-        else:
-            param = line
-            desc = ""
-        
-        param_key, param_value = param.split(" = ", 1)
-        
-        if "variable_mod" in param_key:
-            new_value = new_value.replace("_", " ")
-        
-        param = f"{param_key} = {new_value}"
-        return f"{param}        # {desc}"
-    
-    # Step 1: Load the default template params file
-    with open(template_path, 'r') as template_file:
-        template_data = template_file.readlines()
-    
-    # Step 2: Modify template based on the provided config
-    search_params = {key.lstrip("-"): value for key,  value in config.search_params.items()}
-    search_params["database_name"] = db_w_decoys_path
-    
-    modified_params = []
-    for line in template_data:
-        line = line.strip()
-        
-        for key, value in search_params.items():
-            # Search for the parameter in the template file and replace if exists
-            if key in line and not line.startswith("#"):                
-                line = replace_param_value(line, value)
-                break  # No need to check other keys once matched
-        
-        modified_params.append(line)
-    modified_params.append("\n")
-
-    # Step 3: Add missing parameters from config (not in the template)
-    existing_params = {line.split('=')[0].strip() for line in modified_params if '=' in line}
-    for key, value in search_params.items():
-        if key not in existing_params:
-            if "variable_mod" in key:
-                value = value.replace("_", " ")
-            modified_params.append(f"{key} = {value}")
-
-    # Step 4: Save the modified params file
-    with open(output_path, 'w') as output_file:
-        output_file.write("\n".join(modified_params))
-    print(f"Generated MSFragger params file at: {output_path}")
-
-
 def run_msfragger_search_split(dset_name, db_search_config):
     # TODO: does not support search with multiple per-file databases (synthetic peptides)
     """Run MSFragger database search with split database."""
@@ -565,8 +626,9 @@ def run_msfragger_search_split(dset_name, db_search_config):
     # Print results
     print("DB search results (.pepXML, .pin):\n", os.listdir(mzml_files_dir))
 
+### Methods to generate PSM rescoring features for MSFragger search results with MSBooster 
 
-def get_psm_rescoring_features(dset_name, rescoring_config):
+def get_msbooster_rescoring_features(dset_name, rescoring_config):
     """Create PSMs rescoring features with MSBooster."""
     mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     rescored_files_dir = os.path.join(RESCORED_DATA_DIR, dset_name)
@@ -614,71 +676,7 @@ def get_psm_rescoring_features(dset_name, rescoring_config):
     print("Created PSMs features (_rescore.pin):\n", os.listdir(mzml_files_dir))
 
 
-def run_psm_rescoring(dset_name, rescoring_config, rescored_files_dir, rescore_file_prefix="rescore"):
-    """Run Percolator for PSMs rescoring (using MSBooster features)."""
-    # TODO: move outside (to constants?)
-    num_threads = 3
-    test_fdr = 0.01
-    train_fdr = 0.01
-
-    input_file = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.pin")
-    weights_file = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.weights.csv")
-    target_psms = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.psms.txt")
-    decoy_psms = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.decoy.psms.txt")
-    target_peptides = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.peptides.txt")
-    decoy_peptides = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.decoy.peptides.txt")
-
-    cmd = f"percolator --weights {weights_file} \
-            --num-threads {num_threads} \
-            --subset-max-train 500000 \
-            --post-processing-tdc \
-            --testFDR {test_fdr} \
-            --trainFDR {train_fdr} \
-            --results-psms {target_psms} \
-            --decoy-results-psms {decoy_psms} \
-            --results-peptides {target_peptides} \
-            --decoy-results-peptides {decoy_peptides} \
-            {input_file}"
-    subprocess.run(cmd, shell=True, check=True)
-    print(
-        "PSMs rescoring results (.percolator.psms.txt):\n", 
-        os.listdir(rescored_files_dir)
-    )
-
-
-def get_filename(psm_id: str):
-    """Assumes that there are no `.` in the file name."""
-    return psm_id.split(".")[0]
-
-
-def format_peptide_notation(sequence: str):
-    """TODO: PTMs may need conversion to ProForma notation."""
-    # remove cleavage sites
-    if (
-        re.match(r"[A-Z-_].*.[A-Z-_]", sequence) is not None
-    ):  # check is not mandatory
-        sequence = sequence[2:-2]
-    return sequence
-
-
-def collect_dataset_tags(config):
-    if os.path.exists(DATASET_TAGS_PATH):
-        tags_df = pd.read_csv(DATASET_TAGS_PATH, sep="\t").to_dict('records')
-    else:
-        tags_df = []
-        
-    # add reference proteome information (for each dataset)
-    dset_tags = {"proteome": config.db_search.database_path}
-    # add dataset property tags
-    dset_tags.update({tag.name: 1 for tag in config.tags})
-    print(f"Dataset {config.name} tags:\n", dset_tags)
-    
-    tags_df.append({"dataset": config.name, **dset_tags})
-    tags_df = pd.DataFrame(tags_df).fillna(0)
-    tags_df = tags_df.drop_duplicates(subset="dataset", keep="last")
-    tags_df.to_csv(DATASET_TAGS_PATH, index=False, sep="\t")
-    print(f"Written to {DATASET_TAGS_PATH}")
-
+### Methods to run database search with MSGF+
 
 def prepare_msgf_fasta(dset_name, db_file=None, db_w_decoys_file=None):
     """Prepare target and decoy databases for MSGF+."""
@@ -701,8 +699,9 @@ def prepare_msgf_fasta(dset_name, db_file=None, db_w_decoys_file=None):
     subprocess.run(" ".join(cmd), shell=True, check=True)
     return target_db_file, decoys_db_file
 
+def prepare_msgf_modifications_config(dset_name, db_search_config, mods_file="MSGF_Mods.txt"):
+    """Write PTM modifications config file for MSGF+ search."""
 
-def write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.txt"):
     ptm_psims_names = {
         -17.0265: "Ammonia-loss", # or Gln->pyro-Glu
         0.984: "Deamidated",
@@ -742,7 +741,6 @@ def write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.tx
         "c": "C-term",
     }
 
-    """Write MSGF+ modification file."""
     mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
     mods_file_path = os.path.join(mzml_files_dir, mods_file)
 
@@ -792,7 +790,6 @@ def write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.tx
                 position = "any"
                 f.write(",".join([str(mass), aa_residues, "opt", position, ptm_psims_names[mass]]) + "\n")
     return mods_file_path
-
 
 def run_msgf_search(dset_name, db_search_config):
     """Run MSGF+ database search."""
@@ -878,8 +875,8 @@ def run_msgf_search(dset_name, db_search_config):
     os.makedirs(target_res_dir, exist_ok=True)
     os.makedirs(decoys_res_dir, exist_ok=True)
 
-    # Write MSGF+ modification file
-    mods_file_path = write_modification_file(dset_name, db_search_config, mods_file="MSGF_Mods.txt")
+    # Write MSGF+ modification config file
+    mods_file_path = prepare_msgf_modifications_config(dset_name, db_search_config, mods_file="MSGF_Mods.txt")
     # Define MSGF+ search params
     options = [
         "-decoy", "rev_",
@@ -1000,6 +997,9 @@ def run_msgf_search(dset_name, db_search_config):
             print(f"Removed temporary file: {tmp_file}")
 
 
+### Methods to run database search with Comet
+
+# Dict to map MSFragger search params to analogous Comet search params
 msfragger2comet_param_mapper = {
     "precursor_mass_upper": "peptide_mass_tolerance_upper",
     "precursor_mass_lower": "peptide_mass_tolerance_lower",
@@ -1037,7 +1037,7 @@ msfragger2comet_param_mapper = {
     "use_Y_ions": "use_Y_ions",
     "use_Z_ions": "use_Z_ions",
 }
-# dict to map search_enzyme_name_1/2 to comet_enzyme_id
+# Dict to map MSFragger search_enzyme_name_1/2 to Comet comet_enzyme_id
 msfragger2comet_enzymes = {
     "nonspecific": 0,     # 0.  Cut_everywhere    0    -    -
     "trypsin": 1,         # 1.  Trypsin    1    KR    P
@@ -1052,8 +1052,7 @@ msfragger2comet_enzymes = {
     "chymotrypsin": 10,   # 10. Chymotrypsin    1    FWYL    P
     # 11. No_cut    1    @    @
 }
-
-
+# Method to map PTMs from MSFragger format to Comet format
 def msfragger2comet_ptm(ptm):
     """
     Comet modifications format:  
@@ -1196,7 +1195,12 @@ def get_comet_static_mods(params_path):
                     static_mods[mod_residue] = mod_val
     return static_mods
 
-def add_static_mods(sequence, static_mods):
+def add_comet_static_mods_to_peptide(sequence, static_mods):
+    """
+    Add static modifications used in Comet search to the peptide sequence found
+    (Comet doesn't include static mods in the output peptide sequence by itself, 
+    but they are expected in the downstream analysis).
+    """
     for residue, mod in static_mods.items():
         sequence = sequence.replace(residue, f"{residue}[{mod}]")
     return sequence
@@ -1279,7 +1283,182 @@ def run_comet_search(dset_name, db_search_config):
         for fname in features_files:
             file_path = os.path.join(features_dir, fname)
             feat_df = pd.read_csv(file_path, sep="\t", usecols=list(range(n_cols)))
-            feat_df["Peptide"] = feat_df["Peptide"].apply(lambda x: add_static_mods(x, static_mods))
+            feat_df["Peptide"] = feat_df["Peptide"].apply(lambda x: add_comet_static_mods_to_peptide(x, static_mods))
             feat_df.to_csv(file_path, index=False, sep="\t")
 
     print("Comet search results (.pin):\n", os.listdir(features_dir))
+
+
+### Methods to run PSM rescoring with Percolator
+
+def run_psm_rescoring(dset_name, rescoring_config, rescored_files_dir, rescore_file_prefix="rescore"):
+    """
+    Run Percolator for PSMs rescoring (using MSBooster features for MSFragger).
+    Rescoring is performed on all search engine results, 
+    but only MSFragger results support RT and spectral features. 
+    """
+    # TODO: move outside (to constants?)
+    num_threads = 3
+    test_fdr = 0.01
+    train_fdr = 0.01
+
+    input_file = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.pin")
+    weights_file = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.weights.csv")
+    target_psms = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.psms.txt")
+    decoy_psms = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.decoy.psms.txt")
+    target_peptides = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.peptides.txt")
+    decoy_peptides = os.path.join(rescored_files_dir, f"{rescore_file_prefix}.percolator.decoy.peptides.txt")
+
+    cmd = f"percolator --weights {weights_file} \
+            --num-threads {num_threads} \
+            --subset-max-train 500000 \
+            --post-processing-tdc \
+            --testFDR {test_fdr} \
+            --trainFDR {train_fdr} \
+            --results-psms {target_psms} \
+            --decoy-results-psms {decoy_psms} \
+            --results-peptides {target_peptides} \
+            --decoy-results-peptides {decoy_peptides} \
+            {input_file}"
+    subprocess.run(cmd, shell=True, check=True)
+    print(
+        "PSMs rescoring results (.percolator.psms.txt):\n", 
+        os.listdir(rescored_files_dir)
+    )
+
+
+### Utility methods to parse and perform checks on PSM IDs (after rescoring)
+
+def get_filename(psm_id, search_tool="msfragger"):
+    """
+    Extract spectrum file name from the PSM ID after rescoring.
+    Supports PSM IDs from MSFragger, MSGF+ and Comet.
+    Assumes that there are no `.` in the file name.
+    """
+
+    if search_tool == "comet":
+        title = psm_id.split("/")[-1]
+        title = title.split("_")
+        filename = "_".join(title[:-3])
+        return filename
+    
+    elif search_tool == "msgf":
+        title = psm_id.split("_")
+        filename = "_".join(title[:-6])
+        return filename
+    
+    # else (msfragger):
+    filename = psm_id.split(".")[0]
+    return filename
+
+def get_spectrum_title(psm_id, search_tool="msfragger"):
+    if search_tool == "comet":
+        title = psm_id.split("/")[-1]
+        title = title.split("_")
+        filename, scan_id, charge, rank = title[:-3], title[-3], title[-2], title[-1]
+        filename = "_".join(filename)
+        title = ".".join([filename, scan_id, scan_id, charge])
+        return title
+    
+    elif search_tool == "msgf":
+        title = psm_id.split("_")
+        # PSM "index": SII_13752_1 = title[-6:-3], 
+        filename, scan_id, charge, rank = title[:-6], title[-5], title[-2], title[-1]
+        filename = "_".join(filename)
+        title = ".".join([filename, scan_id, scan_id, charge])
+        return title
+    
+    # else (msfragger, msgf):
+    title = "_".join(psm_id.split("_")[:-1])
+    return title
+
+def check_psm_in_sample_pool(sample_pool, psm_pools): # TODO: should be psm_proteins    
+    if isinstance(sample_pool, list):
+        return len(set(sample_pool) & set(psm_pools)) > 0
+    
+    if sample_pool in psm_pools:
+        return True
+    
+    if "QC_JPT_QC_Peptide" in psm_pools or "QC_JPT_RT_Peptide" in psm_pools:
+        return True
+    return False
+
+
+### --- TODO: organise utility methods --- 
+
+def format_peptide_notation(sequence: str):
+    """TODO: PTMs may need conversion to ProForma notation."""
+    # remove cleavage sites
+    if (
+        re.match(r"[A-Z-_].*.[A-Z-_]", sequence) is not None
+    ):  # check is not mandatory
+        sequence = sequence[2:-2]
+    return sequence
+
+def map_psm_id_index_to_scan_id(results_df):
+    
+    def get_filename(psm_id):
+        return psm_id.split("_SII_")[0]
+    
+    def map_mzml_index_to_scan_id(psm_id):
+        filename = psm_id.split("_SII_")[0]
+
+        psm_id = psm_id.split("_")
+        mzml_index = int(psm_id[-5]) - 1
+        scan_id = mzml_index_to_scan_id[filename][mzml_index]
+
+        psm_id[-5] = str(scan_id)
+        psm_id = "_".join(psm_id)
+        return psm_id
+    
+    results_df["filename"] = results_df["PSMId"].apply(get_filename)
+    mzml_files_dir = os.path.join(MZML_DATA_DIR, dset_name)
+    mzml_files = results_df.filename.unique().tolist()
+    mzml_index_to_scan_id = {}
+    for fname in mzml_files:
+        file_path = os.path.join(mzml_files_dir, fname + ".mzML")
+        mzml_spectra = mzml.MzML(file_path)
+        print(fname, len(mzml_spectra))
+
+        index_to_scan_id_mapping = {}
+        for spectrum in tqdm(mzml_spectra):
+            idx = spectrum["index"]
+            scan_id = int(spectrum["id"].split("=")[-1]) # ! Assume id="scanId=X" -- id doesn't contain any other information
+            index_to_scan_id_mapping[idx] = scan_id
+        mzml_index_to_scan_id[fname] = index_to_scan_id_mapping
+        
+    results_df["PSMId"] = results_df["PSMId"].apply(map_mzml_index_to_scan_id)
+    results_df = results_df.drop("filename", axis=1)
+    return results_df
+
+def fix_msgf_timstof_psm_id(results_df):
+
+    def fix_timstof_psm_id(psm_id):
+        psm_id = psm_id.split("_")
+        psm_id[-5] = psm_id[-3]
+        psm_id = "_".join(psm_id)
+        return psm_id
+
+    results_df["PSMId"] = results_df["PSMId"].apply(fix_timstof_psm_id)
+    return results_df
+
+### --- 
+
+
+def collect_dataset_tags(config):
+    if os.path.exists(DATASET_TAGS_PATH):
+        tags_df = pd.read_csv(DATASET_TAGS_PATH, sep="\t").to_dict('records')
+    else:
+        tags_df = []
+        
+    # add reference proteome information (for each dataset)
+    dset_tags = {"proteome": config.db_search.database_path}
+    # add dataset property tags
+    dset_tags.update({tag.name: 1 for tag in config.tags})
+    print(f"Dataset {config.name} tags:\n", dset_tags)
+    
+    tags_df.append({"dataset": config.name, **dset_tags})
+    tags_df = pd.DataFrame(tags_df).fillna(0)
+    tags_df = tags_df.drop_duplicates(subset="dataset", keep="last")
+    tags_df.to_csv(DATASET_TAGS_PATH, index=False, sep="\t")
+    print(f"Written to {DATASET_TAGS_PATH}")
