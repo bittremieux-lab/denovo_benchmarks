@@ -35,8 +35,9 @@ PROTEOMES_DIR = os.environ['PROTEOMES_DIR']
 MMSEQS2_ARGS = [
     "--seed-sub-mat VTML40.out",
     "--comp-bias-corr 0 --mask 0",
-    "--spaced-kmer-mode 0",
     "-k 5",
+    "--spaced-kmer-mode 0",
+    "--exact-kmer-matching 1",
 ]
 
 
@@ -70,8 +71,7 @@ print(f"Evaluating results for {dataset_name}.")
 print(f"Skip proteome matches metric: {args.skip_proteome_matches}.")
 
 # Get dataset tags and database_path (proteome column, by dataset_name)
-tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t')
-tags_df = tags_df.set_index("dataset")
+tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t').set_index("dataset")
 database_path = tags_df.loc[dataset_name, "proteome"]
 dataset_tags = tags_df.loc[dataset_name]
 dataset_tags = tuple(dataset_tags.index[dataset_tags == 1])
@@ -304,13 +304,22 @@ for algo_name in os.listdir(args.output_root_dir):
 
         if not args.skip_proteome_matches:
             # Calculate number of proteome matches
-            # Create "database" of de novo predicted peptides
-            # output_data["sequence_no_ptm"] = np.nan
-            query_fasta_path = os.path.join(search_tmp_dir, "denovo_predicted_peptides.fasta")
+            # Create query sequences without any modifications and I/L indistinguishable
             output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
                 partial(utils.remove_ptms, ptm_pattern='[^A-Z]')
             )
-            mmseqs.create_query_fasta(output_data.loc[sequenced_idx], query_fasta_path)
+            output_data.loc[sequenced_idx, "sequence_query"] = output_data.loc[sequenced_idx, "sequence_no_ptm"].apply(
+                mmseqs.isoleucine_to_leucine
+            )
+            print(
+                output_data["sequence"].value_counts().size, 
+                output_data["sequence_no_ptm"].value_counts().size,
+                output_data["sequence_query"].value_counts().size
+            )
+            # Write the list of unique sequences to the query database
+            unique_sequences = output_data["sequence_query"].unique().tolist()
+            query_fasta_path = os.path.join(search_tmp_dir, "denovo_predicted_peptides.fasta")
+            mmseqs.create_query_fasta(unique_sequences, query_fasta_path)
             # Run mmseqs search
             search_df = mmseqs.run_mmseqs(
                 target_fasta_path,
@@ -322,11 +331,11 @@ for algo_name in os.listdir(args.output_root_dir):
                 tmp_files_dir,
                 args=MMSEQS2_ARGS,
             )
-            # Compute number of proteome matches
+            # Map matches back to original de novo sequences
+            matched_sequences = search_df["qseq"].tolist() 
             output_data["proteome_match"] = False
-            output_data["proteome_match"].loc[search_df.index] = True
-            output_data = output_data.join(search_df) # ["qaln", "taln", "mismatch", "fident", "evalue"]
-            n_proteome_matches = output_data["proteome_match"].sum() # TODO: use number or fraction?
+            output_data.loc[sequenced_idx, "proteome_match"] = output_data.loc[sequenced_idx, "sequence_query"].isin(matched_sequences)
+            n_proteome_matches = output_data["proteome_match"].sum()
 
         # [Debug] Check number of GT peptide matches
         pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])

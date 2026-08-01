@@ -30,18 +30,37 @@ def setup_mmseqs_dirs(search_tmp_dir="./mmseqs2_tmp"):
     return search_tmp_dir, tmp_files_dir, target_db_dir, query_db_dir, search_result_dir, search_result_path
 
 
-def create_query_fasta(output_data, query_fasta_path):
+# def create_query_fasta(output_data, query_fasta_path):
+#     """
+#     Create query database of de novo predicted peptides 
+#     (with I replaced by L). De novo peptide sequences are
+#     treated as non-unique and associated with their original
+#     index in `output_data` dataframe. 
+#     """
+    
+#     with open(query_fasta_path, "w") as f:
+#         f.write(
+#             "\n".join([
+#                 f">{idx}\n{isoleucine_to_leucine(peptide)}" # I -> L
+#                 for idx, peptide 
+#                 in output_data.sequence_no_ptm.reset_index().values
+#             ])
+#         )
+#     print("queryDB (fasta):", query_fasta_path)
+
+def create_query_fasta(query_sequences, query_fasta_path):
     """
-    Create query database of de novo predicted peptides 
-    (with I replaced by L)
+    Write the list of sequences to the query database. 
+    List of sequences is assumed to contain unique peptide sequences,
+    without modifications and with I replaced by L. 
     """
     
     with open(query_fasta_path, "w") as f:
         f.write(
             "\n".join([
-                f">{idx}\n{isoleucine_to_leucine(peptide)}" # I -> L
-                for idx, peptide 
-                in output_data.sequence_no_ptm.reset_index().values
+                f">{idx}\n{sequence}"
+                for idx, sequence 
+                in enumerate(query_sequences)
             ])
         )
     print("queryDB (fasta):", query_fasta_path)
@@ -76,8 +95,8 @@ def run_mmseqs(
     tmp_files_dir,
     args=[],
 ):
-    SEARCH_COLS = "query,target,qaln,taln,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits"
-    QUERY_KEY = "target"
+    SEARCH_COLS = "query,target,qseq,qaln,taln,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits"
+    QUERY_KEY = "query"
     
     print("\n CLEAN EXISTING RESULTS")
     cmd = ["rm -rf", search_result_dir + "/*"]
@@ -112,14 +131,15 @@ def run_mmseqs(
     cmd = [
         "mmseqs",
         "map",
-        target_db_path,
         query_db_path,
+        target_db_path,
         os.path.join(search_result_dir, "search_result"),
         tmp_files_dir,
+        "--cov-mode 2", # coverage of query
+        "-c 1.0",
+        "-s 4", # sensitivity # 7.5?
         "-a", # backtrace alignments 
         "-e inf",
-        "--cov-mode 1",
-#         "-v 1",
     ] + args
     print(" ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True, check=True)
@@ -129,8 +149,8 @@ def run_mmseqs(
     cmd = [
         "mmseqs",
         "convertalis",
-        target_db_path,
         query_db_path,
+        target_db_path,
         os.path.join(search_result_dir, "search_result"),
         search_result_path,
         f"--format-output {SEARCH_COLS}",
@@ -138,9 +158,12 @@ def run_mmseqs(
     ]
     print(" ".join(cmd))
     subprocess.run(" ".join(cmd), shell=True, check=True)
-    
+
+    # Load search results
     search_df = pd.read_csv(search_result_path, sep="\t", names=SEARCH_COLS.split(","))
-    search_df = search_df.drop_duplicates(QUERY_KEY)
-    search_df = search_df.set_index(search_df[QUERY_KEY].apply(int))
-    search_df = search_df[search_df.mismatch <= 2] # filter s.t. n_mismatches <= 2
-    return search_df
+    # Filter out acceptable matches
+    search_df = search_df.sort_values(by=[QUERY_KEY, "mismatch"])
+    search_df = search_df.drop_duplicates(QUERY_KEY, keep="first")
+    search_df = search_df[search_df["mismatch"] <= 2] # filter s.t. n_mismatches <= 2
+
+    return search_df # only contains sequence-match pairs for unique seqeuences

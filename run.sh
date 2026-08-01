@@ -18,7 +18,7 @@ algorithm_name="$2"
 dset_name=$(basename "$dset_dir")
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
-overlay_size=4096
+overlay_size=16384 #8192 # in MB, adjust as needed
 
 # Check if algorithm exists and is not "base"
 if [ ! -d "algorithms/${algorithm_name}" ]; then
@@ -113,7 +113,7 @@ apptainer exec --fakeroot --env-file .env "evaluation.sif" \
 # (evaluation will always run on all available algorithm results for the dataset)
 # TODO: add results_dir explicit definition
 echo "EVALUATE PREDICTIONS"
-# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-#     bash -c "python -m evaluation.evaluate ${output_dir}/ ${dset_dir}"
 apptainer exec --fakeroot --env-file .env "evaluation.sif" \
     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir}"
+# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+#     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
