@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 join = os.path.join
 
+# Tokenizer function - Copied from enumerate_tokens.py in MassiveKB
 def partition_modified_sequence(sequence):
     
     # Split apart letter+number from continuous letters
@@ -27,14 +28,16 @@ def partition_modified_sequence(sequence):
     
     return tokenized_sequence
 
+# Map function which will be applied to every loaded spectrum
 def map_fn(example, tokenizer, dic=None, top=100, max_seq=50, reverse=False):
     if 'intensity_array' in example:
         ab = example['intensity_array']
-        ab_sort = (-ab).argsort()[:top]
-        ab = ab[ab_sort]
-        ab /= ab.max()
         spectrum_length = len(ab)
         example['spectrum_length'] = spectrum_length
+        ab_sort = (-ab).argsort()[:top]
+        ab = ab[ab_sort]
+        if spectrum_length > 0:
+            ab /= (ab.max() + 1e-9)
         mz = example['mz_array'][ab_sort]
         mz_sort = mz.argsort()
         length = len(mz)
@@ -60,6 +63,7 @@ def map_fn(example, tokenizer, dic=None, top=100, max_seq=50, reverse=False):
     
     return example
 
+# Collate function to tie individual loaded spectra together
 def collate_fn(batch_list, custom_columns=[]):
     out = {}
     #out['experiment_name'] = np.array([m['experiment_name'] for m in batch_list])
@@ -94,7 +98,9 @@ def collate_fn(batch_list, custom_columns=[]):
 
     return out
 
+# Loader object with functions to assist in building dataset
 class LoaderObj:
+    # Creating a pytorch dataloader
     def build_dataloader(self, dataset, batch_size, num_workers, collate_fn, shuffle=False):
         return DataLoader(
             dataset,
@@ -104,6 +110,7 @@ class LoaderObj:
             shuffle=shuffle,
         )
     
+    # Create sequence dictionary from tsv file
     def create_sequence_dictionary(self, dictionary_path):
         amod_dic = {
             line.split()[0]:m for m, line in enumerate(open(dictionary_path).read().strip().split('\n'))
@@ -111,10 +118,12 @@ class LoaderObj:
         amod_dic['X'] = len(amod_dic)
 
         return amod_dic
-
+    
+    # Create a reverse dictionary
     def reverse_dictionary(self, amod_dic):
         return {b:a for a,b in amod_dic.items()}
 
+    # Set synonym tokens to same value
     def synonym(self, token1, token2, amod_dic):
         low = int(np.minimum(amod_dic[token1], amod_dic[token2]))
         high = int(np.maximum(amod_dic[token1], amod_dic[token2]))
@@ -122,6 +131,7 @@ class LoaderObj:
         amod_dic = {key:value if value < high else value-1 for key, value in amod_dic.items()}
         return amod_dic
     
+    # Find mapping of sequences to files
     def create_label_dictionary(self, dataset_path, filename="species_list.txt"):
         filepath = join(dataset_path, f"parquet/labeled_sequences/{filename}")
         List = open(filepath).read().strip().split("\n")
@@ -131,6 +141,7 @@ class LoaderObj:
 
         return label_dict, label_dictr
     
+    # Function to create tokenizer if a path is specified to enumerate_tokens.py file
     def create_tokenizer(self, tokenizer_path):
         # Tokenizer
         # - RULES
@@ -142,6 +153,7 @@ class LoaderObj:
 
         return tokenizer
 
+    # Function to load token masses from a tsv file
     def load_token_masses(self, masses_path, regex='*masses.tsv'):
         try:
             masses_path = glob(join(masses_path, regex))[0]
@@ -152,6 +164,7 @@ class LoaderObj:
 
         return massdic
 
+    # Function to read *size.tsv file and figure out the size of data splits
     def find_set_size_for_tqdm(self, dataset_path, include_name=None, exclude_name=None, regex='*sizes.tsv'):
         ss_path = join(dataset_path, regex)
         ss_path = glob(ss_path)[0]
@@ -172,6 +185,7 @@ class LoaderObj:
 
         return size
 
+    # Function that creates hugging face dataset object
     def _load_dataset(self, dataset_path, include_name=None, exclude_name=None, ext=None):
         regex = "*" if include_name == None else f"*{include_name}*"
         if ext is not None:
@@ -196,13 +210,13 @@ class LoaderObj:
 
         return dataset, include_files
 
+# Loader object for huggingface datasets
 class LoaderHF(LoaderObj):
     def __init__(self, 
         dataset_path: str,
-        dictionary_path: str=None,
+        dictionary_path: str='./dictionary.tsv',
         synonyms: list=None,
-        masses_path: str=None,
-        tokenizer_path: str=None,
+        masses_path: str='./',
         test_split_method: str='full_val',
         top_pks: int=100,
         pep_length: list=[0,40],
@@ -214,21 +228,19 @@ class LoaderHF(LoaderObj):
         **kwargs
     ):
 
-        dpe = "parquet/processed" if datapath_extension is None else datapath_extension
         self.custom_columns = []
-
+        # Set the max_sequence for the map function
         max_seq = pep_length[1] if pep_length is not None else None
-        assert os.path.exists("parquet"), "Train dataset path doesn't exist"
-
+        assert os.path.exists(dataset_path), "Train dataset path doesn't exist"
+        # If piping data from scratch directory
         if 'scratch' in kwargs and kwargs['scratch']['use']:
             train_dataset_path = kwargs['scratch']['train_path']
             val_dataset_path = kwargs['scratch']['val_path']
-            dpe=""
 
         ##############
         # Dictionary #
         ##############
-        self.amod_dic = self.create_sequence_dictionary('./dictionary.tsv')
+        self.amod_dic = self.create_sequence_dictionary(dictionary_path)
         if synonyms is not None:
             for pair in synonyms:
                 letter_a, letter_b = pair
@@ -240,7 +252,7 @@ class LoaderHF(LoaderObj):
         #####################
         # - RULES
         #   1. There is a file that matches the regex *masses.tsv in the masses_path
-        self.massdic = self.load_token_masses('./')
+        self.massdic = self.load_token_masses(masses_path)
 
         ###############
         # Split sizes #
@@ -251,6 +263,14 @@ class LoaderHF(LoaderObj):
         #self.train_size = self.find_set_size_for_tqdm(join(train_dataset_path, dpe), train_name, val_name, "*species*size*tsv")
         #self.val_size = self.find_set_size_for_tqdm(join(val_dataset_path, dpe), val_name, regex="*species*size*tsv")
         
+        #############
+        # Tokenizer #
+        #############
+        # - RULES
+        #   1. There is a file named enumerate_tokens.py with a subroutine named
+        #      partition_modified_sequence
+        self.tokenizer = partition_modified_sequence # self.create_tokenizer('./')
+
         ###########
         # Dataset #
         ###########
@@ -270,7 +290,7 @@ class LoaderHF(LoaderObj):
             example,
             tokenizer=self.tokenizer,
             dic=self.amod_dic,
-            top=top_pks, 
+            top=top_pks,
             max_seq=max_seq,
             reverse=reverse,
         )
@@ -284,14 +304,6 @@ class LoaderHF(LoaderObj):
             lambda_function, 
             remove_columns=remove_train_columns,
         )
-
-        #############
-        # Tokenizer #
-        #############
-        # - RULES
-        #   1. There is a file named enumerate_tokens.py with a subroutine named
-        #      partition_modified_sequence
-        self.tokenizer = partition_modified_sequence # self.create_tokenizer('./')
         
         #############
         # Filtering #

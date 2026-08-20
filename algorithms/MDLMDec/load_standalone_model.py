@@ -1,18 +1,13 @@
-import sys
-# Set this
-PROJECT_ROOT = "/cmnfs/home/j.lapin/projects/denovo_base"
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 import yaml
 import os
 import torch
 from loader_ import LoaderObj
-from denovo_base.models.seq2seq import *
+from denovo_base.models.seq2seq import Seq2SeqMDLM
 from glob import glob
 import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# Function to instantiate Seq2SeqMDLM model and load previous weights
 def load_model(project_directory, regex_extension='weights/*high*wts', device=None):
     
     with open(os.path.join(project_directory, "yaml/config.yaml")) as stream:
@@ -48,8 +43,10 @@ def load_model(project_directory, regex_extension='weights/*high*wts', device=No
     )
     model.reverse = config['loader']['reverse']
 
-    wts_path = glob(os.path.join(project_directory, regex_extension))[0]
-    model.load_state_dict(torch.load(wts_path, map_location=device, weights_only=False))
+    search = glob(os.path.join(project_directory, regex_extension))
+    assert len(search) > 0, f"No weights file found in {project_directory}"
+    wts_path = search[0]
+    model.load_state_dict(torch.load(wts_path, map_location=device, weights_only=True))
     if device:
         model.to(device)
     

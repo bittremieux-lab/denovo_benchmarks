@@ -10,6 +10,7 @@ import shutil
 from tqdm import tqdm
 from glob import glob
 
+# Function to read mgf file and save positions of all spectra
 def gather_file_md(filepath, typ=None):
     if typ==None:
         typ = filepath.split('.')[-1].strip().lower()
@@ -67,53 +68,7 @@ def gather_file_md(filepath, typ=None):
                         spec_ticker += 1
                 
                 pos_prev = pos
-                
-            elif typ=='msp':
-
-                # Start of a spectrum entry: label
-                # - assume labels are {seq}/{charge}_{mods}_{ev}eV_NCE{nce}
-                if line[:5]=='Name:':
-                    spectra[spec_ticker] = {}
-                    spectra[spec_ticker]['label'] = line.split()[-1]
-                    seq, other = line.split()[-1].split('/')
-                    spectra[spec_ticker]['seq'] = seq
-                    charge, mods, ev, nce = other.split('_')
-                    spectra[spec_ticker]['charge'] = int(charge)
-                    spectra[spec_ticker]['ev'] = float(ev[:-2])
-                    spectra[spec_ticker]['nce'] = float(nce[3:])
-                    
-                    # parsing mod
-                    spectra[spec_ticker]['mod_label'] = mods
-                    spectra[spec_ticker]['mod_pos'] = []
-                    spectra[spec_ticker]['mod_name'] = []
-                    spectra[spec_ticker]['mod_aa'] = []
-                    if mods != '0':
-                        m0 = mods.find('(')
-                        mod_amt = int(mods[:m0])
-                        for mod in mods[m0+1:-1].split(')('):
-                            pos, aa, name = mod.split(',')
-                            spectra[spec_ticker]['mod_pos'].append(int(pos))
-                            spectra[spec_ticker]['mod_name'].append(name)
-                            spectra[spec_ticker]['mod_aa'].append(aa)
-                    # Done with label
-                    # Search no more than 10 lines for MW
-                    for i in range(10):
-                        line = f.readline()
-                        if line[:3]=='MW:':
-                            spectra[spec_ticker]['mw'] = float(line.split()[-1])
-                            break
-                    # Search no more than 10 lines for Num peaks
-                    for i in range(10):
-                        line = f.readline()
-                        if line[:10] == 'Num peaks:':
-                            nmpks = int(line.split()[-1])
-                            spectra[spec_ticker]['nmpks'] = nmpks
-                            spectra[spec_ticker]['pos'] = f.tell()
-                            for _ in range(nmpks): f.readline()
-                            break
-
-                    assert len(spectra[spec_ticker].keys()) == 12
-                    spec_ticker += 1
+            
             else:
                 NotImplementedError("File type not implemented yet.")
     
@@ -127,6 +82,7 @@ def gather_file_md(filepath, typ=None):
     return spectra
 
 def main():
+    # Parse arguments to get data directory
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input", required=True, help="Input directory containing .mgf files"
@@ -136,13 +92,18 @@ def main():
     )
     args = parser.parse_args()
     
-    if 'parquet' in os.listdir():
+    # Get rid of any parquet files/directory that preceded this run
+    if os.path.isdir('parquet'):
         shutil.rmtree("parquet")
+    elif os.path.exists('parquet'):
+        os.remove("parquet")
     os.mkdir("parquet")
 
+    # Will first write an all-in-one parquet
     parquet_file = "parquet/full.parquet"
     schema_defined = False
     
+    # Run all files in input directory
     files = glob(os.path.join(args.input, "*"))
     pbar = tqdm(files)
     counter = 0
@@ -152,6 +113,7 @@ def main():
         mem = psutil.virtual_memory()[2]
         pbar.set_description('%s (%.1f)'%(name, mem))
         
+        # Will write one row at a time
         rows = {
             'file': [],
             'index': [],
@@ -160,12 +122,15 @@ def main():
             'mz_array': [],
             'intensity_array': [],
         }
+        # Read all the data in an mgf file
         md = gather_file_md(file)
         counter += len(md)
         for a, dic in md.items():
+            
             mzs = []
             Abs = []
             with open(file) as f:
+                # First read the spectrum
                 f.seek(md[a]['pos'])
                 for i in range(md[a]['nmpks']):
                     mz, ab = f.readline().strip().split()
@@ -173,6 +138,7 @@ def main():
                     ab = np.float32(ab)
                     mzs.append(mz)
                     Abs.append(ab)
+                # Place rest of the information into rows
                 rows['precursor_charge'].append(np.int32(dic['charge']))
                 rows['precursor_mass'].append(np.float32(dic['mass'])) # MassIVEKB mgfs are strange: they list the mass and not the m/z
                 rows['file'].append(file.split('/')[-1].split('.')[0])
@@ -191,11 +157,12 @@ def main():
                     rows['retention_time'].append(dic['rt'])
                 rows['mz_array'].append(mzs)
                 rows['intensity_array'].append(Abs)
-                if 'modified_sequence' in dic:
-                    if 'modified_sequence' not in rows:
-                        rows['modified_sequence'] = []
-                    rows['modified_sequence'].append(dic['sequence'])
-
+                if 'sequence' in dic:
+                    if 'sequence' not in rows:
+                        rows['sequence'] = []
+                    rows['sequence'].append(dic['sequence'])
+        
+        # Write all the information from an MGF to the parquet file
         table = pa.Table.from_pandas(pd.DataFrame(rows), preserve_index=False)
         
         if not schema_defined:
@@ -203,10 +170,12 @@ def main():
             schema_defined = True
 
         writer.write_table(table)
-
+    
+    # Close the file after all mgfs have been read
     if schema_defined:
         writer.close()
 
+    # Shard the full parquet into {divisions} separate files
     df = pd.read_parquet("parquet/full.parquet")
     division_size = len(df) // int(args.divisions)
     for i in range(int(args.divisions)):

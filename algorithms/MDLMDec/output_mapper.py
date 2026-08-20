@@ -36,7 +36,7 @@ class OutputMapper(OutputMapperBase):
     def __init__(self, input_dir: str) -> None:
         """TODO."""
         fnames = [fname for fname in os.listdir(input_dir) if fname.endswith(".mgf")]
-        self.file_names = [fname.split(".")[0] for fname in sorted(fnames)]
+        self.file_names = [os.path.splitext(fname)[0] for fname in sorted(fnames)]
         self.fn_dict = {j:i+1 for i,j in enumerate(self.file_names)}
 
         self.title2spec_idx = {}
@@ -183,6 +183,7 @@ df = df.rename({'pep_prob': 'score', 'aa_prob': 'aa_scores'}, axis=1)
 # Drop rows with NaN predictions (before transforming sequences)
 output_data = df[
     df[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
+    & df['sequence'].ne("")
 ].reset_index(drop=True)[["spectrum_id", "sequence", "score", "aa_scores"]]
 
 #output_data['scans'] = output_data['spectrum_id'].map(lambda x: x.split('.')[-2])
