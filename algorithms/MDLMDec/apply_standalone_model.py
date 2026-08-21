@@ -87,7 +87,7 @@ def main():
         # Move pytorch data to device
         batch = Dict2dev(batch, device)
         # Predict peptides
-        outdict = model.predict_sequence(batch, save_p=True, save_x=True)
+        outdict = model.predict_sequence(batch, save_p=True, save_x=True, n=1)
         # Post-processing for predicted integer sequence
         prediction = outdict.pop('prediction')
         prediction = fill_null_after_first_eos_token(prediction, model.decoder.EOS, model.decoder.NT)

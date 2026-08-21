@@ -164,7 +164,7 @@ args = parser.parse_args()
 # Read predictions from output file
 df = pd.read_parquet("output.parquet")
 df['sequence'] = df['prediction'].map(lambda x: "".join(x))
-df = df.rename({'pep_prob': 'score', 'aa_prob': 'aa_scores'}, axis=1)
+df = df.rename({'pep_prob_min': 'score', 'aa_prob_min': 'aa_scores'}, axis=1)
 #df['spectrum_id'] = df.apply(lambda x: f"{x['filename']}:{x['index']}", axis=1)
 #output_data = MzTab(args.output_path)
 #output_data = output_data.spectrum_match_table
